@@ -13,6 +13,7 @@ from .constants import (
     METERS_TO_FEET,
     HOME_PLATE_HEIGHT,
     DT_DEFAULT,
+    DT_FAST,
     MAX_SIMULATION_TIME,
     GROUND_LEVEL,
 )
@@ -140,7 +141,8 @@ class BattedBallSimulator:
         initial_position=None,
         cd=None,
         method='rk4',
-        max_time=MAX_SIMULATION_TIME
+        max_time=MAX_SIMULATION_TIME,
+        fast_mode=False
     ):
         """
         Simulate a batted ball trajectory.
@@ -177,12 +179,18 @@ class BattedBallSimulator:
             Integration method: 'rk4' or 'euler' (default: 'rk4')
         max_time : float
             Maximum simulation time in seconds
+        fast_mode : bool
+            If True, uses larger time step (2ms vs 1ms) for ~2x speedup
+            with minimal accuracy loss (<1%). Recommended for bulk simulations.
 
         Returns
         -------
         BattedBallResult
             Object containing trajectory and derived quantities
         """
+        # Use fast time step if fast_mode is enabled
+        dt_to_use = DT_FAST if fast_mode else self.dt
+
         # Create environment
         env = Environment(altitude, temperature, humidity)
 
@@ -254,7 +262,7 @@ class BattedBallSimulator:
         trajectory_data = integrate_trajectory(
             initial_state,
             force_function,
-            dt=self.dt,
+            dt=dt_to_use,
             max_time=max_time,
             ground_level=GROUND_LEVEL,
             method=method

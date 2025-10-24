@@ -2,9 +2,11 @@
 Numerical integration methods for baseball trajectory simulation.
 
 Implements Runge-Kutta 4th order (RK4) method for accurate trajectory calculation.
+Optimized with numba JIT compilation for performance.
 """
 
 import numpy as np
+from numba import njit
 from .constants import GRAVITY, BALL_MASS, DT_DEFAULT
 
 
@@ -182,35 +184,52 @@ def integrate_trajectory(
     else:
         raise ValueError(f"Unknown integration method: {method}")
 
-    # Storage for trajectory
-    times = [0.0]
-    positions = [initial_state[:3].copy()]
-    velocities = [initial_state[3:].copy()]
+    # Pre-allocate arrays for better performance
+    # Estimate max steps needed
+    max_steps = int(max_time / dt) + 10
+    times = np.zeros(max_steps)
+    positions = np.zeros((max_steps, 3))
+    velocities = np.zeros((max_steps, 3))
 
+    # Initialize first point
     current_state = initial_state.copy()
     current_time = 0.0
+    step_count = 0
+
+    times[0] = 0.0
+    positions[0] = initial_state[:3]
+    velocities[0] = initial_state[3:]
 
     # Integration loop
-    while current_time < max_time:
+    while current_time < max_time and step_count < max_steps - 2:
+        # Take integration step
+        current_state = step_function(current_state, force_function)
+        current_time += dt
+        step_count += 1
+
+        # Store state
+        times[step_count] = current_time
+        positions[step_count] = current_state[:3]
+        velocities[step_count] = current_state[3:]
+
         # Check stop condition
         should_stop = False
 
         if custom_stop_condition is not None:
             # Use custom stop condition if provided
-            if custom_stop_condition(current_state[:3]) and current_time > 0.0:
+            if custom_stop_condition(current_state[:3]) and step_count > 0:
                 should_stop = True
         else:
             # Default: check if ball has hit ground
-            if current_state[2] <= ground_level and current_time > 0.0:
+            if current_state[2] <= ground_level and step_count > 0:
                 should_stop = True
 
         if should_stop:
             # Interpolate to find exact landing time and position
-            # (Simple linear interpolation between last two points)
-            if len(positions) >= 2:
-                z_prev = positions[-2][2]
+            if step_count >= 1:
+                z_prev = positions[step_count - 1, 2]
                 z_curr = current_state[2]
-                t_prev = times[-1]
+                t_prev = times[step_count - 1]
                 t_curr = current_time
 
                 # Linear interpolation to ground_level
@@ -218,32 +237,25 @@ def integrate_trajectory(
                     fraction = (ground_level - z_prev) / (z_curr - z_prev)
                     landing_time = t_prev + fraction * (t_curr - t_prev)
                     landing_state = (
-                        positions[-1] + fraction * (current_state[:3] - positions[-1])
+                        positions[step_count - 1] + fraction * (current_state[:3] - positions[step_count - 1])
                     )
                     landing_velocity = (
-                        velocities[-1] + fraction * (current_state[3:] - velocities[-1])
+                        velocities[step_count - 1] + fraction * (current_state[3:] - velocities[step_count - 1])
                     )
 
                     # Update final point to landing point
-                    times.append(landing_time)
-                    positions.append(landing_state)
-                    velocities.append(landing_velocity)
+                    step_count += 1
+                    times[step_count] = landing_time
+                    positions[step_count] = landing_state
+                    velocities[step_count] = landing_velocity
 
             break
 
-        # Take integration step
-        current_state = step_function(current_state, force_function)
-        current_time += dt
-
-        # Store state
-        times.append(current_time)
-        positions.append(current_state[:3].copy())
-        velocities.append(current_state[3:].copy())
-
-    # Convert to numpy arrays
-    times = np.array(times)
-    positions = np.array(positions)
-    velocities = np.array(velocities)
+    # Trim arrays to actual size
+    actual_size = step_count + 1
+    times = times[:actual_size]
+    positions = positions[:actual_size]
+    velocities = velocities[:actual_size]
 
     return {
         'time': times,

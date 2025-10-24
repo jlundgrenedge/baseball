@@ -21,6 +21,7 @@ from .constants import (
     DEG_TO_RAD,
     RAD_TO_DEG,
     DT_DEFAULT,
+    DT_FAST,
     MAX_SIMULATION_TIME,
     GROUND_LEVEL,
     # Mound and plate geometry
@@ -634,7 +635,8 @@ class PitchSimulator:
         altitude=0.0,
         temperature=70.0,
         humidity=0.5,
-        method='rk4'
+        method='rk4',
+        fast_mode=False
     ):
         """
         Simulate a pitch trajectory.
@@ -663,12 +665,17 @@ class PitchSimulator:
             Relative humidity 0-1 (default: 0.5)
         method : str
             Integration method: 'rk4' or 'euler'
+        fast_mode : bool
+            If True, uses larger time step for ~2x speedup (recommended for bulk simulations)
 
         Returns
         -------
         PitchResult
             Object containing trajectory and pitch characteristics
         """
+        # Use fast time step if fast_mode is enabled
+        dt_to_use = DT_FAST if fast_mode else self.dt
+
         # Default values
         if release_height is None:
             release_height = RELEASE_HEIGHT + MOUND_HEIGHT_FEET
@@ -757,7 +764,7 @@ class PitchSimulator:
             test_traj = integrate_trajectory(
                 test_state,
                 test_force,
-                dt=self.dt,
+                dt=dt_to_use,
                 max_time=2.0,
                 ground_level=GROUND_LEVEL,
                 method='euler',  # Use euler for speed
@@ -812,7 +819,7 @@ class PitchSimulator:
         trajectory_data = integrate_trajectory(
             initial_state,
             force_function,
-            dt=self.dt,
+            dt=dt_to_use,
             max_time=2.0,  # Pitch takes ~0.4-0.5 sec, but allow margin
             ground_level=GROUND_LEVEL,
             method=method,

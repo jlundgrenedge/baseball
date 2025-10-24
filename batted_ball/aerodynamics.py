@@ -4,9 +4,12 @@ Aerodynamic forces on a baseball.
 This module calculates:
 - Drag force (opposes velocity)
 - Magnus force (spin-induced lift, perpendicular to velocity)
+
+Optimized with numba JIT compilation for performance.
 """
 
 import numpy as np
+from numba import njit
 from .constants import (
     BALL_CROSS_SECTIONAL_AREA,
     BALL_MASS,
@@ -18,6 +21,115 @@ from .constants import (
     SPIN_DRAG_MAX_INCREASE,
     TILTED_SPIN_DRAG_FACTOR,
 )
+
+
+# Numba-optimized helper functions for hot path calculations
+@njit(cache=True)
+def _norm_3d(v):
+    """Fast 3D vector norm calculation."""
+    return np.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2])
+
+@njit(cache=True)
+def _normalize_3d(v):
+    """Fast 3D vector normalization."""
+    mag = _norm_3d(v)
+    if mag < 1e-6:
+        return np.zeros(3), 0.0
+    return v / mag, mag
+
+@njit(cache=True)
+def _cross_3d(a, b):
+    """Fast 3D cross product."""
+    result = np.empty(3)
+    result[0] = a[1] * b[2] - a[2] * b[1]
+    result[1] = a[2] * b[0] - a[0] * b[2]
+    result[2] = a[0] * b[1] - a[1] * b[0]
+    return result
+
+@njit(cache=True)
+def _calculate_lift_coefficient_fast(spin_rate_rpm):
+    """Fast lift coefficient calculation."""
+    if spin_rate_rpm <= SPIN_SATURATION:
+        return SPIN_FACTOR * spin_rate_rpm
+    else:
+        cl_at_saturation = SPIN_FACTOR * SPIN_SATURATION
+        excess_spin = spin_rate_rpm - SPIN_SATURATION
+        return cl_at_saturation + SPIN_FACTOR * excess_spin * 0.2
+
+@njit(cache=True)
+def _calculate_spin_adjusted_cd_fast(base_cd, spin_rate_rpm, velocity_unit, spin_axis_unit, v_mag):
+    """Fast spin-adjusted drag coefficient."""
+    cd_adjusted = base_cd
+
+    # Add drag increase from total spin rate
+    if spin_rate_rpm > 0:
+        spin_drag_increase = SPIN_DRAG_FACTOR * spin_rate_rpm
+        spin_drag_increase = min(spin_drag_increase, SPIN_DRAG_MAX_INCREASE)
+        cd_adjusted += spin_drag_increase
+
+    # Add asymmetric drag for tilted spin axis
+    if spin_rate_rpm > 100 and v_mag > 1e-6:
+        cross_prod = _cross_3d(velocity_unit, spin_axis_unit)
+        cross_mag = _norm_3d(cross_prod)
+
+        if cross_mag > 1e-6:
+            cross_unit = cross_prod / cross_mag
+            vertical_component = abs(cross_unit[2])
+            horizontal_component = np.sqrt(cross_unit[0]**2 + cross_unit[1]**2)
+
+            if horizontal_component > 0.1:
+                tilted_drag = TILTED_SPIN_DRAG_FACTOR * spin_rate_rpm * horizontal_component
+                cd_adjusted += tilted_drag
+
+    return cd_adjusted
+
+@njit(cache=True)
+def calculate_aerodynamic_forces_fast(velocity, spin_axis, spin_rate_rpm, cd_base, air_density, cross_area):
+    """
+    Optimized calculation of total aerodynamic forces.
+
+    This function is JIT-compiled with numba for maximum performance.
+    Used in the hot loop during trajectory integration.
+
+    Returns: (total_force, drag_force, magnus_force)
+    """
+    # Normalize velocity
+    velocity_unit, v_mag = _normalize_3d(velocity)
+
+    if v_mag < 1e-6:
+        return np.zeros(3), np.zeros(3), np.zeros(3)
+
+    # Normalize spin axis
+    spin_axis_unit, spin_mag = _normalize_3d(spin_axis)
+
+    # Calculate spin-adjusted drag coefficient
+    cd_effective = _calculate_spin_adjusted_cd_fast(
+        cd_base, spin_rate_rpm, velocity_unit, spin_axis_unit, v_mag
+    )
+
+    # Drag force: F_d = 0.5 * C_d * rho * A * v²
+    drag_magnitude = 0.5 * cd_effective * air_density * cross_area * v_mag * v_mag
+    drag_force = -drag_magnitude * velocity_unit
+
+    # Magnus force
+    magnus_force = np.zeros(3)
+    if v_mag > 1e-6 and spin_rate_rpm > 1.0 and spin_mag > 1e-6:
+        # Calculate lift coefficient
+        cl = _calculate_lift_coefficient_fast(spin_rate_rpm)
+
+        # Magnus force magnitude: F_m = 0.5 * C_l * rho * A * v²
+        magnus_magnitude = 0.5 * cl * air_density * cross_area * v_mag * v_mag
+
+        # Direction: perpendicular to velocity and spin axis
+        force_direction = _cross_3d(velocity_unit, spin_axis_unit)
+        force_dir_unit, force_dir_mag = _normalize_3d(force_direction)
+
+        if force_dir_mag > 1e-6:
+            magnus_force = magnus_magnitude * force_dir_unit
+
+    total_force = drag_force + magnus_force
+
+    return total_force, drag_force, magnus_force
 
 
 class AerodynamicForces:
@@ -286,6 +398,24 @@ class AerodynamicForces:
         -------
         tuple of np.ndarray
             (total_force, drag_force, magnus_force) in Newtons
+        """
+        # Use fast JIT-compiled version for better performance
+        cd_base = CD_BASE if cd is None else cd
+        return calculate_aerodynamic_forces_fast(
+            velocity_vector,
+            spin_axis,
+            spin_rate_rpm,
+            cd_base,
+            self.air_density,
+            self.cross_sectional_area
+        )
+
+    def calculate_total_aerodynamic_force_legacy(
+        self, velocity_vector, spin_axis, spin_rate_rpm, cd=None
+    ):
+        """
+        Legacy method for calculating total aerodynamic force.
+        Kept for reference and testing.
         """
         # Calculate drag force with spin-dependent adjustments
         drag_force = self.calculate_drag_force(
