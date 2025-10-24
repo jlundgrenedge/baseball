@@ -164,6 +164,50 @@ ABOVE_CENTER_TOPSPIN_INCREASE = 200.0   # rpm per inch above center
 ABOVE_CENTER_ANGLE_DECREASE = 2.0       # degrees per inch above center
 
 # ============================================================================
+# BAT-BALL COLLISION PHYSICS (PHASE 2)
+# ============================================================================
+
+# Bat specifications (typical MLB wood bat)
+BAT_MASS = 0.905  # kg (approximately 32 oz)
+BAT_LENGTH = 0.864  # meters (34 inches)
+
+# Sweet spot location (from barrel end)
+# Located at the node of vibration - minimal energy loss from vibrations
+SWEET_SPOT_DISTANCE_FROM_BARREL = 0.152  # meters (6 inches from barrel end)
+SWEET_SPOT_WIDTH = 0.051  # meters (2 inches - effective sweet spot region)
+
+# Coefficient of Restitution (COR) - ratio of relative velocity after/before collision
+# COR varies with contact location, bat material, and ball compression
+COR_SWEET_SPOT = 0.55  # Maximum COR at sweet spot (wood bat)
+COR_MINIMUM = 0.35     # Minimum COR (far from sweet spot, high vibration loss)
+COR_ALUMINUM_BONUS = 0.05  # Aluminum bats have slightly higher COR
+
+# Collision efficiency factors
+# Effective mass ratio affects energy transfer
+# Calibrated to produce empirical ~1.2*v_bat + 0.2*v_pitch relationship
+BAT_EFFECTIVE_MASS_RATIO = 0.85  # Fraction of bat mass effective at sweet spot
+# This produces realistic exit velocities matching MLB data (~85% of bat mass)
+# Represents the effective mass involved in the collision at the sweet spot
+
+# Energy loss from vibrations (off sweet spot contact)
+VIBRATION_LOSS_FACTOR = 0.20  # Energy loss per inch from sweet spot (20% per inch)
+MAX_VIBRATION_LOSS = 0.60      # Maximum energy loss (60%)
+
+# Contact location effects on COR
+# COR decreases as you move away from sweet spot
+COR_DEGRADATION_PER_INCH = 0.03  # COR reduction per inch from sweet spot
+
+# Collision geometry effects
+# The angle between bat and ball paths affects launch angle and spin
+COLLISION_ANGLE_TO_LAUNCH_ANGLE_RATIO = 0.85  # How much collision angle affects launch
+FRICTION_COEFFICIENT = 0.35  # Ball-bat friction (affects spin generation)
+
+# Spin generation from collision
+# Tangential friction during collision creates spin
+SPIN_FROM_FRICTION_FACTOR = 40.0  # rpm per degree of collision angle
+BASE_BACKSPIN_FROM_COMPRESSION = 800.0  # rpm from ball compression (always present)
+
+# ============================================================================
 # VALIDATION BENCHMARK VALUES
 # ============================================================================
 
