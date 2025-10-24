@@ -423,6 +423,8 @@ class Hitter:
         pitch_location: Tuple[float, float],
         is_strike: bool,
         count: Tuple[int, int],
+        pitch_velocity: float = 90.0,
+        pitch_type: str = 'fastball',
     ) -> bool:
         """
         Decide whether to swing at a pitch.
@@ -435,6 +437,10 @@ class Hitter:
             Whether pitch is in strike zone
         count : tuple
             (balls, strikes)
+        pitch_velocity : float
+            Pitch speed in mph (affects reaction time)
+        pitch_type : str
+            Type of pitch (affects chase rate)
 
         Returns
         -------
@@ -445,33 +451,63 @@ class Hitter:
 
         # Base swing probability based on strike zone
         if is_strike:
-            base_swing_prob = 0.65  # Swing at ~65% of strikes
+            # MLB average: ~75% swing rate on pitches in zone
+            base_swing_prob = 0.75
         else:
             # Distance from zone affects chase probability
-            h_dist = abs(pitch_location[0])
-            v_dist_top = max(0, pitch_location[1] - 3.5)
-            v_dist_bottom = max(0, 1.5 - pitch_location[1])
+            # Strike zone boundaries: ±8.5" horizontal, 18"-42" vertical
+            h_dist = max(0, abs(pitch_location[0]) - 8.5)
+            v_dist_top = max(0, pitch_location[1] - 42.0)
+            v_dist_bottom = max(0, 18.0 - pitch_location[1])
             distance_from_zone = np.sqrt(h_dist**2 + (v_dist_top + v_dist_bottom)**2)
 
             # Further from zone = less likely to swing
-            base_swing_prob = 0.35 * np.exp(-distance_from_zone / 4.0)
+            # MLB average chase rate: ~30% on pitches just outside
+            base_swing_prob = 0.30 * np.exp(-distance_from_zone / 6.0)
 
         # Adjust for zone discipline (higher = more selective)
         discipline_factor = self.zone_discipline / 100.0
         if is_strike:
-            swing_prob = base_swing_prob + (1 - discipline_factor) * 0.20
+            # Good discipline = slightly lower swing rate in zone (but still high)
+            swing_prob = base_swing_prob + (1 - discipline_factor) * 0.15
         else:
-            swing_prob = base_swing_prob * (1 - discipline_factor * 0.7)
+            # Good discipline = much lower chase rate
+            swing_prob = base_swing_prob * (1 - discipline_factor * 0.6)
 
         # Adjust for aggressiveness
         aggression_factor = self.swing_decision_aggressiveness / 100.0
-        swing_prob = swing_prob * (0.7 + aggression_factor * 0.6)
+        swing_prob = swing_prob * (0.8 + aggression_factor * 0.4)
+
+        # Velocity effect (faster pitches = less time to decide = more takes)
+        velocity_difficulty = (pitch_velocity - 85) / 15.0  # Normalized
+        if velocity_difficulty > 0:
+            swing_prob *= (1.0 - velocity_difficulty * 0.10)  # Up to -10% for 100 mph
+
+        # Pitch type affects chase rate (breaking balls fool hitters)
+        pitch_type_lower = pitch_type.lower()
+        if not is_strike:  # Only affects out-of-zone pitches
+            if 'slider' in pitch_type_lower or 'curve' in pitch_type_lower:
+                swing_prob *= 1.25  # +25% chase rate on breaking balls
+            elif 'change' in pitch_type_lower or 'splitter' in pitch_type_lower:
+                swing_prob *= 1.15  # +15% chase rate on off-speed
 
         # Count situation adjustments
         if strikes == 2:
-            swing_prob += 0.20  # Protect with 2 strikes
+            # Protect the plate with 2 strikes
+            if is_strike:
+                swing_prob = min(swing_prob + 0.15, 0.95)  # +15%, cap at 95%
+            else:
+                swing_prob = min(swing_prob * 1.4, 0.70)  # +40% chase, cap at 70%
+
         if balls == 3:
-            swing_prob -= 0.15  # More selective on 3-0, 3-1, 3-2
+            # More selective on 3-ball counts
+            if not is_strike:
+                swing_prob *= 0.5  # Much less likely to chase
+            else:
+                swing_prob = min(swing_prob, 0.85)  # Cap swing rate
+
+        # Clip to reasonable bounds
+        swing_prob = np.clip(swing_prob, 0.0, 0.98)
 
         # Make decision
         return np.random.random() < swing_prob
@@ -505,6 +541,75 @@ class Hitter:
         timing_error = np.random.normal(0, adjusted_error / 2.0)
 
         return timing_error
+
+    def calculate_whiff_probability(
+        self,
+        pitch_velocity: float,
+        pitch_type: str,
+        pitch_break: Tuple[float, float],
+    ) -> float:
+        """
+        Calculate probability of whiffing (missing) on a swing.
+
+        Based on MLB Statcast data for pitch-type specific whiff rates.
+
+        Parameters
+        ----------
+        pitch_velocity : float
+            Pitch speed in mph
+        pitch_type : str
+            Type of pitch
+        pitch_break : tuple
+            (vertical_break_inches, horizontal_break_inches)
+
+        Returns
+        -------
+        float
+            Probability of whiff (0.0 to 1.0)
+        """
+        # Base whiff rates from MLB Statcast data
+        pitch_type_lower = pitch_type.lower()
+        if 'fastball' in pitch_type_lower or '4-seam' in pitch_type_lower:
+            base_whiff_rate = 0.20  # 20% for fastballs
+        elif '2-seam' in pitch_type_lower or 'sinker' in pitch_type_lower:
+            base_whiff_rate = 0.18  # 18% for sinkers
+        elif 'cutter' in pitch_type_lower:
+            base_whiff_rate = 0.25  # 25% for cutters
+        elif 'slider' in pitch_type_lower:
+            base_whiff_rate = 0.35  # 35% for sliders (highest)
+        elif 'curve' in pitch_type_lower:
+            base_whiff_rate = 0.30  # 30% for curveballs
+        elif 'change' in pitch_type_lower:
+            base_whiff_rate = 0.32  # 32% for changeups
+        elif 'splitter' in pitch_type_lower:
+            base_whiff_rate = 0.38  # 38% for splitters
+        elif 'knuckle' in pitch_type_lower:
+            base_whiff_rate = 0.40  # 40% for knuckleballs
+        else:
+            base_whiff_rate = 0.25  # Default
+
+        # Velocity effect (faster = harder to hit)
+        velocity_difficulty = (pitch_velocity - 85) / 15.0  # Normalized
+        velocity_factor = 1.0 + velocity_difficulty * 0.20  # Up to +20% for 100 mph
+
+        # Break effect (more movement = more whiffs)
+        v_break, h_break = pitch_break
+        break_magnitude = np.sqrt(v_break**2 + h_break**2)
+        break_factor = 1.0 + (break_magnitude / 100.0)  # +1% per inch of break
+
+        # Barrel accuracy affects ability to make contact
+        # Elite contact (85+): 0.6x whiff rate
+        # Average (50): 1.0x whiff rate
+        # Poor (20): 1.8x whiff rate
+        contact_factor = 1.8 - (self.barrel_accuracy - 20) * 0.0125
+
+        # Combine factors
+        whiff_prob = base_whiff_rate * velocity_factor * break_factor * contact_factor
+
+        # Clip to reasonable bounds (5% minimum, 70% maximum)
+        whiff_prob = np.clip(whiff_prob, 0.05, 0.70)
+
+        return whiff_prob
 
     def __repr__(self):
         return (

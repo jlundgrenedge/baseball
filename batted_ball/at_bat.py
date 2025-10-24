@@ -107,22 +107,24 @@ class AtBatSimulator:
         self.contact_model = ContactModel()
         self.batted_ball_sim = BattedBallSimulator()
 
-    def select_pitch_type(self, count: Tuple[int, int]) -> str:
+    def select_pitch_type(self, count: Tuple[int, int], recent_pitches: List[str] = None) -> str:
         """
-        Select pitch type based on count and arsenal.
+        Select pitch type based on count, arsenal, and pitch sequencing.
 
         Parameters
         ----------
         count : tuple
             (balls, strikes)
+        recent_pitches : list, optional
+            Last 1-2 pitch types thrown (for sequencing)
 
         Returns
         -------
         str
             Selected pitch type from pitcher's arsenal
         """
-        # Simple pitch selection logic
-        # TODO: Could be enhanced with more sophisticated AI
+        if recent_pitches is None:
+            recent_pitches = []
 
         arsenal = list(self.pitcher.pitch_arsenal.keys())
 
@@ -131,26 +133,63 @@ class AtBatSimulator:
 
         balls, strikes = count
 
-        # Simplified logic:
-        # - Behind in count (3-0, 3-1): fastball for strike
-        # - Ahead in count (0-2, 1-2): breaking ball/offspeed
-        # - Even count: weighted random
+        # Calculate count leverage
+        # Positive = pitcher ahead, negative = hitter ahead
+        leverage = strikes - balls
 
-        if balls >= 3:
-            # Need strike - fastball
-            if 'fastball' in arsenal:
-                return 'fastball'
-        elif strikes >= 2:
-            # Can waste pitch - breaking ball
-            if 'slider' in arsenal:
-                return 'slider'
-            if 'curveball' in arsenal:
-                return 'curveball'
-            if 'changeup' in arsenal:
-                return 'changeup'
+        # Build weighted selection based on situation
+        pitch_weights = {}
 
-        # Random selection from arsenal
-        return np.random.choice(arsenal)
+        for pitch_type in arsenal:
+            pitch_data = self.pitcher.pitch_arsenal[pitch_type]
+            weight = pitch_data.get('usage', 50) / 100.0  # Base weight from usage rating
+
+            # Adjust based on count leverage
+            if leverage >= 2:
+                # Pitcher ahead (0-2, 1-2, 2-2) - can waste pitch
+                if pitch_type in ['slider', 'curveball', 'splitter', 'changeup']:
+                    weight *= 1.5  # Favor breaking/offspeed
+            elif leverage <= -2:
+                # Hitter ahead (3-0, 3-1) - need strike
+                if pitch_type in ['fastball', '4-seam', '2-seam', 'cutter']:
+                    weight *= 2.0  # Strongly favor fastballs
+                else:
+                    weight *= 0.3  # Reduce breaking balls
+            elif balls == 3 and strikes < 2:
+                # 3-ball count - must throw strike
+                if pitch_type in ['fastball', '4-seam']:
+                    weight *= 2.5
+                else:
+                    weight *= 0.2
+            elif strikes == 2:
+                # Two-strike count - put-away pitch
+                if pitch_type in ['slider', 'changeup', 'splitter']:
+                    weight *= 1.8  # Favor out pitches
+
+            # Pitch sequencing - avoid repeating same pitch
+            if recent_pitches:
+                if pitch_type == recent_pitches[-1]:
+                    weight *= 0.3  # Strongly discourage same pitch
+                if len(recent_pitches) >= 2 and pitch_type == recent_pitches[-2]:
+                    weight *= 0.5  # Discourage pitch from 2 ago
+
+            # Set-up sequences (fastball -> offspeed)
+            if recent_pitches and len(recent_pitches) >= 1:
+                last_pitch = recent_pitches[-1]
+                if last_pitch in ['fastball', '4-seam'] and pitch_type in ['changeup', 'splitter']:
+                    weight *= 1.3  # Favor changeup/splitter after fastball
+                elif last_pitch in ['curveball', 'slider'] and pitch_type in ['fastball', '4-seam']:
+                    weight *= 1.2  # Favor fastball after breaking ball
+
+            pitch_weights[pitch_type] = max(weight, 0.01)  # Ensure positive weight
+
+        # Weighted random selection
+        pitch_types = list(pitch_weights.keys())
+        weights = list(pitch_weights.values())
+        weights_array = np.array(weights)
+        weights_array /= weights_array.sum()  # Normalize
+
+        return np.random.choice(pitch_types, p=weights_array)
 
     def select_target_location(
         self,
@@ -311,6 +350,19 @@ class AtBatSimulator:
         """
         pitch_velocity = pitch_data['velocity_plate']
         pitch_location = pitch_data['final_location']
+        pitch_type = pitch_data['pitch_type']
+        pitch_break = pitch_data['break']
+
+        # Calculate whiff probability using MLB Statcast data
+        whiff_prob = self.hitter.calculate_whiff_probability(
+            pitch_velocity=pitch_velocity,
+            pitch_type=pitch_type,
+            pitch_break=pitch_break,
+        )
+
+        # Check if whiff occurs
+        if np.random.random() < whiff_prob:
+            return None  # Whiff!
 
         # Get bat speed from hitter attributes
         bat_speed = self.hitter.get_bat_speed_mph()
@@ -328,12 +380,8 @@ class AtBatSimulator:
         # Total horizontal offset
         total_h_offset = h_offset + timing_offset
 
-        # Check if contact is made (based on offsets)
-        max_contact_offset = 3.0  # inches - beyond this is a complete miss
+        # Calculate total offset for contact quality
         total_offset = np.sqrt(total_h_offset**2 + v_offset**2)
-
-        if total_offset > max_contact_offset:
-            return None  # Whiff!
 
         # Contact made - simulate with physics
         collision_result = self.contact_model.full_collision(
@@ -383,15 +431,21 @@ class AtBatSimulator:
         balls = 0
         strikes = 0
         pitches = []
+        recent_pitch_types = []  # Track last 2 pitches for sequencing
 
         while balls < 4 and strikes < 3:
-            # Select pitch
-            pitch_type = self.select_pitch_type((balls, strikes))
+            # Select pitch with sequencing
+            pitch_type = self.select_pitch_type((balls, strikes), recent_pitch_types)
             target_location = self.select_target_location((balls, strikes), pitch_type)
 
             # Simulate pitch
             pitch_data = self.simulate_pitch(pitch_type, target_location)
             pitches.append(pitch_data)
+
+            # Track pitch type for sequencing (keep last 2)
+            recent_pitch_types.append(pitch_type)
+            if len(recent_pitch_types) > 2:
+                recent_pitch_types.pop(0)
 
             if verbose:
                 print(f"\n{balls}-{strikes} count")
@@ -404,6 +458,8 @@ class AtBatSimulator:
                 pitch_data['final_location'],
                 pitch_data['is_strike'],
                 (balls, strikes),
+                pitch_velocity=pitch_data['velocity_plate'],
+                pitch_type=pitch_data['pitch_type'],
             )
 
             if not should_swing:
@@ -436,9 +492,27 @@ class AtBatSimulator:
                         print(f"    Launch angle: {contact_result['launch_angle']:.1f}°")
                         print(f"    Distance: {contact_result['distance']:.1f} ft")
 
-                    # Check if foul ball (simplified)
+                    # Check if foul ball (enhanced logic)
                     launch_angle = contact_result['launch_angle']
+                    spray_angle = contact_result['spray_angle']
+                    contact_quality = contact_result['contact_quality']
+
+                    is_foul = False
+
+                    # Launch angle fouls (pop-ups behind or ground balls foul)
                     if launch_angle < -10 or launch_angle > 60:
+                        is_foul = True
+
+                    # Spray angle fouls (down the lines)
+                    # Fair territory is roughly -45° to +45°
+                    if abs(spray_angle) > 45:
+                        is_foul = True
+
+                    # Weak contact more likely to foul
+                    if contact_quality == 'weak' and np.random.random() < 0.4:
+                        is_foul = True
+
+                    if is_foul:
                         # Foul ball
                         if strikes < 2:
                             strikes += 1
