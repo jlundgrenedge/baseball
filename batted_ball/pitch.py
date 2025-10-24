@@ -683,6 +683,10 @@ class PitchSimulator:
         # Create aerodynamics calculator
         aero = AerodynamicForces(air_density=env.air_density)
 
+        # Spin parameters (needed for iteration)
+        effective_spin_rpm = pitch_type.spin_rpm * pitch_type.spin_efficiency
+        spin_axis = pitch_type.spin_axis
+
         # Release position (in meters)
         release_pos_m = np.array([
             release_distance * FEET_TO_METERS,  # Distance from plate
@@ -698,48 +702,97 @@ class PitchSimulator:
         ])
 
         # Calculate initial velocity to hit target
-        # Account for gravity drop during flight
-
-        # Horizontal distance to plate
-        dx = target_pos_m[0] - release_pos_m[0]  # Negative (toward plate)
-        dy = target_pos_m[1] - release_pos_m[1]  # Horizontal offset
-        dz = target_pos_m[2] - release_pos_m[2]  # Vertical drop
+        # Use iterative approach to compensate for Magnus force drift
+        # This ensures the pitch actually goes where intended despite spin effects
 
         # Initial velocity magnitude
         v0_mag = pitch_type.velocity * MPH_TO_MS
 
-        # Estimate flight time (rough approximation)
-        horizontal_distance = np.sqrt(dx**2 + dy**2)
-        flight_time_estimate = abs(horizontal_distance / v0_mag)
+        # Start with simple ballistic aim (no Magnus compensation)
+        aim_point_m = target_pos_m.copy()
 
-        # Calculate gravity drop during flight
-        gravity_drop = 0.5 * GRAVITY * flight_time_estimate**2
+        # Iteratively refine aim to hit actual target
+        for iteration in range(5):  # 5 iterations for good convergence
+            # Horizontal distance to aim point
+            dx = aim_point_m[0] - release_pos_m[0]  # Negative (toward plate)
+            dy = aim_point_m[1] - release_pos_m[1]  # Horizontal offset
+            dz = aim_point_m[2] - release_pos_m[2]  # Vertical drop
 
-        # Adjust target height to compensate for gravity
-        adjusted_dz = dz + gravity_drop
+            # Estimate flight time
+            horizontal_distance = np.sqrt(dx**2 + dy**2)
+            flight_time_estimate = abs(horizontal_distance / v0_mag)
 
-        # Calculate velocity components
-        # vx and vy to cover horizontal distance in flight_time
-        vx = dx / flight_time_estimate
-        vy = dy / flight_time_estimate
-        # vz to cover vertical distance + gravity compensation
-        vz = adjusted_dz / flight_time_estimate
+            # Calculate gravity drop during flight
+            gravity_drop = 0.5 * GRAVITY * flight_time_estimate**2
 
-        # Normalize to match desired pitch velocity
-        v_current = np.sqrt(vx**2 + vy**2 + vz**2)
-        scale = v0_mag / v_current
+            # Adjust target height to compensate for gravity
+            adjusted_dz = dz + gravity_drop
 
-        v0_vec = np.array([vx * scale, vy * scale, vz * scale])
+            # Calculate velocity components
+            # vx and vy to cover horizontal distance in flight_time
+            vx = dx / flight_time_estimate
+            vy = dy / flight_time_estimate
+            # vz to cover vertical distance + gravity compensation
+            vz = adjusted_dz / flight_time_estimate
+
+            # Normalize to match desired pitch velocity
+            v_current = np.sqrt(vx**2 + vy**2 + vz**2)
+            scale = v0_mag / v_current
+
+            v0_vec_test = np.array([vx * scale, vy * scale, vz * scale])
+
+            # Quick trajectory simulation to see where this actually goes
+            test_state = np.concatenate([release_pos_m, v0_vec_test])
+
+            def test_force(position, velocity):
+                total_force, _, _ = aero.calculate_total_aerodynamic_force(
+                    velocity, spin_axis, effective_spin_rpm
+                )
+                return total_force
+
+            def test_stop(position):
+                x, y, z = position
+                return x <= 0.0 or z <= GROUND_LEVEL
+
+            test_traj = integrate_trajectory(
+                test_state,
+                test_force,
+                dt=self.dt,
+                max_time=2.0,
+                ground_level=GROUND_LEVEL,
+                method='euler',  # Use euler for speed
+                custom_stop_condition=test_stop
+            )
+
+            # Find where it actually crossed
+            x_positions = test_traj['position'][:, 0]
+            plate_crossing_idx = np.where(x_positions <= 0)[0]
+
+            if len(plate_crossing_idx) > 0:
+                idx = plate_crossing_idx[0]
+                # Get actual crossing position
+                actual_cross_m = test_traj['position'][idx]
+
+                # Calculate error from desired target
+                error_y = actual_cross_m[1] - target_pos_m[1]
+                error_z = actual_cross_m[2] - target_pos_m[2]
+
+                # Adjust aim point to compensate (move opposite to error)
+                # Use higher correction factor for better convergence
+                aim_point_m[1] -= error_y * 0.9  # 90% correction factor
+                aim_point_m[2] -= error_z * 0.9
+
+                # If error is very small, we've converged
+                if abs(error_y) < 0.005 and abs(error_z) < 0.005:  # <0.5 cm
+                    break
+
+        # Final velocity vector
+        v0_vec = v0_vec_test
 
         # Create initial state
         initial_state = np.concatenate([release_pos_m, v0_vec])
 
-        # Spin axis (in pitch coordinates)
-        # Apply spin efficiency
-        effective_spin_rpm = pitch_type.spin_rpm * pitch_type.spin_efficiency
-        spin_axis = pitch_type.spin_axis
-
-        # Define force function
+        # Define force function (uses spin_axis and effective_spin_rpm from above)
         def force_function(position, velocity):
             """Calculate aerodynamic forces."""
             total_force, _, _ = aero.calculate_total_aerodynamic_force(

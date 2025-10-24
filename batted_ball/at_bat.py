@@ -175,26 +175,27 @@ class AtBatSimulator:
         balls, strikes = count
 
         # Simplified targeting logic
-        # TODO: Could be enhanced with scouting/tendency data
+        # Returns (horizontal_inches, vertical_inches)
 
         # Horizontal target (centered with some variation)
         horizontal_target = np.random.normal(0, 3.0)  # Aim near center, ±3" variation
 
-        # Vertical target based on count
+        # Vertical target based on count (in inches)
+        # Strike zone: 18" (knees) to 42" (letters), center at 30"
         if balls >= 3:
             # Need strike - aim middle
-            vertical_target = 2.5  # Middle of zone
+            vertical_target = 30.0  # Middle of zone (30")
         elif strikes >= 2:
             # Can go outside zone
             if np.random.random() < 0.4:
                 # Chase pitch
-                vertical_target = np.random.choice([1.0, 4.0])  # Low or high
+                vertical_target = np.random.choice([12.0, 48.0])  # Low or high (outside zone)
             else:
                 # Still in zone
-                vertical_target = 2.5
+                vertical_target = 30.0
         else:
-            # Normal targeting - edges of zone
-            vertical_target = np.random.choice([1.8, 2.5, 3.2])  # Low, mid, high
+            # Normal targeting - varied locations in zone
+            vertical_target = np.random.choice([21.0, 30.0, 39.0])  # Low, mid, high in zone
 
         return horizontal_target, vertical_target
 
@@ -279,16 +280,11 @@ class AtBatSimulator:
         # Update pitcher state
         self.pitcher.throw_pitch()
 
-        # Note: There appears to be a systematic offset in the pitch simulator
-        # For display purposes, we'll show the target location instead of actual
-        # since there's a ~2.3 ft systematic error in plate_y
-        # TODO: Fix the pitch trajectory calculation
-
         return {
             'pitch_type': pitch_type,
             'target_location': target_location,
             'actual_location': (actual_target_h, actual_target_v),
-            'final_location': (actual_target_h, actual_target_v),  # Use target for now
+            'final_location': (result.plate_y * 12, result.plate_z * 12),  # Inches - now accurate!
             'velocity_release': velocity,
             'velocity_plate': result.plate_speed,
             'is_strike': result.is_strike,
