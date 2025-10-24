@@ -28,18 +28,41 @@ from .constants import (
     MOUND_HEIGHT_FEET,
     RELEASE_HEIGHT,
     RELEASE_EXTENSION,
+    RELEASE_EXTENSION_AVG,
+    RELEASE_EXTENSION_MAX,
     STRIKE_ZONE_WIDTH,
     STRIKE_ZONE_BOTTOM,
     STRIKE_ZONE_TOP,
     # Pitch characteristics
-    FASTBALL_VELOCITY_AVG,
-    FASTBALL_SPIN_AVG,
+    FASTBALL_4SEAM_VELOCITY_AVG,
+    FASTBALL_4SEAM_SPIN_AVG,
+    FASTBALL_2SEAM_VELOCITY_AVG,
+    FASTBALL_2SEAM_SPIN_AVG,
+    CUTTER_VELOCITY_AVG,
+    CUTTER_SPIN_AVG,
     CURVEBALL_VELOCITY_AVG,
     CURVEBALL_SPIN_AVG,
     SLIDER_VELOCITY_AVG,
     SLIDER_SPIN_AVG,
     CHANGEUP_VELOCITY_AVG,
     CHANGEUP_SPIN_AVG,
+    SPLITTER_VELOCITY_AVG,
+    SPLITTER_SPIN_AVG,
+    KNUCKLEBALL_VELOCITY_AVG,
+    KNUCKLEBALL_SPIN_AVG,
+    # Spin efficiency
+    SPIN_EFFICIENCY_4SEAM,
+    SPIN_EFFICIENCY_2SEAM,
+    SPIN_EFFICIENCY_CUTTER,
+    SPIN_EFFICIENCY_CURVEBALL,
+    SPIN_EFFICIENCY_SLIDER,
+    SPIN_EFFICIENCY_CHANGEUP,
+    SPIN_EFFICIENCY_SPLITTER,
+    SPIN_EFFICIENCY_KNUCKLEBALL,
+    # Environmental effects
+    PITCH_BREAK_REDUCTION_PER_1000_FT,
+    PITCH_BREAK_CHANGE_PER_10_DEG_F,
+    EXTENSION_PERCEIVED_VELOCITY_BOOST_PER_FOOT,
 )
 from .environment import Environment
 from .aerodynamics import AerodynamicForces
@@ -96,11 +119,19 @@ def create_fastball_4seam(velocity=None, spin_rpm=None):
     """
     Create a 4-seam fastball.
 
-    Characteristics:
-    - High backspin (2000-2700 rpm)
+    Characteristics (from MLB Statcast data):
+    - Velocity: 88-102 mph (avg 93 mph)
+    - Spin: 1800-2700 rpm (avg 2200 rpm)
+    - Spin efficiency: 90% (very efficient backspin)
     - Spin axis nearly vertical (perpendicular to velocity)
     - Creates "rise" (actually less drop than gravity alone)
-    - Slight arm-side run
+    - Slight arm-side run (~2" horizontal break)
+    - ~16" of vertical "rise" relative to spinless trajectory
+
+    Research notes:
+    - High spin fastballs up in the zone get more swings and misses
+    - Batters tend to swing under high-spin fastballs
+    - Elite spin: >2400 rpm (generates ~18-20" of rise)
 
     Parameters
     ----------
@@ -110,49 +141,118 @@ def create_fastball_4seam(velocity=None, spin_rpm=None):
         Spin rate in rpm (default: 2200 rpm)
     """
     if velocity is None:
-        velocity = FASTBALL_VELOCITY_AVG
+        velocity = FASTBALL_4SEAM_VELOCITY_AVG
     if spin_rpm is None:
-        spin_rpm = FASTBALL_SPIN_AVG
+        spin_rpm = FASTBALL_4SEAM_SPIN_AVG
 
     # Spin axis: mostly vertical with slight tilt
     # For RHP: tilted slightly toward first base
     # Convention: [toward_plate, horizontal, vertical]
     spin_axis = np.array([0.1, -0.05, 1.0])  # Slight backward and glove-side tilt
 
-    return PitchType("Fastball (4-seam)", velocity, spin_rpm, spin_axis, spin_efficiency=1.0)
+    return PitchType("Fastball (4-seam)", velocity, spin_rpm, spin_axis,
+                     spin_efficiency=SPIN_EFFICIENCY_4SEAM)
 
 
 def create_fastball_2seam(velocity=None, spin_rpm=None):
     """
     Create a 2-seam fastball (sinker).
 
-    Characteristics:
-    - Similar velocity to 4-seam but 1-2 mph slower
+    Characteristics (from MLB Statcast data):
+    - Velocity: 88-95 mph (avg 92 mph)
+    - Spin: 1800-2500 rpm (avg 2100 rpm)
+    - Spin efficiency: 89% (efficient with slight tilt)
     - More horizontal spin component (sidespin)
-    - More arm-side run, less vertical "rise"
+    - More arm-side run (~8" horizontal), less vertical "rise" (~10")
     - Effective for inducing ground balls
+
+    Research notes:
+    - Low spin sinkers produce more ground balls
+    - Tilted spin axis creates both sink and arm-side movement
+    - Wily Peralta's 1740 rpm sinker had extreme ground ball rate
+    - High spin sinkers act more like straight fastballs (less effective)
+
+    Parameters
+    ----------
+    velocity : float, optional
+        Release velocity in mph (default: 92 mph)
+    spin_rpm : float, optional
+        Spin rate in rpm (default: 2100 rpm)
     """
     if velocity is None:
-        velocity = FASTBALL_VELOCITY_AVG - 1.5
+        velocity = FASTBALL_2SEAM_VELOCITY_AVG
     if spin_rpm is None:
-        spin_rpm = FASTBALL_SPIN_AVG - 200
+        spin_rpm = FASTBALL_2SEAM_SPIN_AVG
 
     # More horizontal tilt than 4-seam
     spin_axis = np.array([0.15, -0.3, 1.0])  # More arm-side tilt
 
-    return PitchType("Fastball (2-seam)", velocity, spin_rpm, spin_axis, spin_efficiency=0.95)
+    return PitchType("Fastball (2-seam)", velocity, spin_rpm, spin_axis,
+                     spin_efficiency=SPIN_EFFICIENCY_2SEAM)
+
+
+def create_cutter(velocity=None, spin_rpm=None):
+    """
+    Create a cutter (cut fastball).
+
+    Characteristics (from MLB Statcast data):
+    - Velocity: 85-95 mph (avg 88 mph)
+    - Spin: 2000-2600 rpm (avg 2200 rpm)
+    - Spin efficiency: 49% (partial gyro spin)
+    - Slightly tilted backspin (between 4-seam and slider)
+    - Late glove-side cut (~3" horizontal)
+    - Moderate drop (~6" vertical)
+
+    Research notes:
+    - Mariano Rivera's cutter: ~2500 rpm, tight 3-5" glove-side break
+    - High spin helps maximize late movement
+    - Essentially a "small slider" - faster with tighter break
+    - Effective for sawing off bats
+
+    Parameters
+    ----------
+    velocity : float, optional
+        Release velocity in mph (default: 88 mph)
+    spin_rpm : float, optional
+        Spin rate in rpm (default: 2200 rpm)
+    """
+    if velocity is None:
+        velocity = CUTTER_VELOCITY_AVG
+    if spin_rpm is None:
+        spin_rpm = CUTTER_SPIN_AVG
+
+    # Spin axis: between fastball and slider (slight glove-side tilt)
+    spin_axis = np.array([0.3, 0.3, 1.0])  # Tilted toward glove side
+
+    return PitchType("Cutter", velocity, spin_rpm, spin_axis,
+                     spin_efficiency=SPIN_EFFICIENCY_CUTTER)
 
 
 def create_curveball(velocity=None, spin_rpm=None):
     """
     Create a curveball.
 
-    Characteristics:
-    - Lower velocity (72-82 mph)
-    - High topspin (2200-3200 rpm)
+    Characteristics (from MLB Statcast data):
+    - Velocity: 70-82 mph (avg 78 mph)
+    - Spin: 2200-3200 rpm (avg 2500 rpm)
+    - Spin efficiency: 69% (good topspin efficiency)
     - Spin axis mostly horizontal (perpendicular to vertical)
-    - Large vertical drop, moderate horizontal break
+    - Large vertical drop (~12" below spinless trajectory)
+    - Moderate horizontal break (~6" glove-side)
     - "12-6" curve breaks straight down
+
+    Research notes:
+    - Garrett Richards: 3086 rpm curveball, extreme drop
+    - High spin curves dive more sharply
+    - Overhand delivery produces pure 12-6 break
+    - 3/4 arm angle produces more horizontal "slurve" movement
+
+    Parameters
+    ----------
+    velocity : float, optional
+        Release velocity in mph (default: 78 mph)
+    spin_rpm : float, optional
+        Spin rate in rpm (default: 2500 rpm)
     """
     if velocity is None:
         velocity = CURVEBALL_VELOCITY_AVG
@@ -164,19 +264,34 @@ def create_curveball(velocity=None, spin_rpm=None):
     # 12-6 curve: [0.9, 0.2, -0.1] (mostly forward, slight glove-side)
     spin_axis = np.array([0.9, 0.2, -0.1])
 
-    return PitchType("Curveball", velocity, spin_rpm, spin_axis, spin_efficiency=0.85)
+    return PitchType("Curveball", velocity, spin_rpm, spin_axis,
+                     spin_efficiency=SPIN_EFFICIENCY_CURVEBALL)
 
 
 def create_slider(velocity=None, spin_rpm=None):
     """
     Create a slider.
 
-    Characteristics:
-    - Velocity between fastball and curve (82-90 mph)
-    - Moderate spin (2200-2800 rpm)
+    Characteristics (from MLB Statcast data):
+    - Velocity: 78-91 mph (avg 85 mph)
+    - Spin: 1800-2800 rpm (avg 2400 rpm)
+    - Spin efficiency: 36% (mostly gyro spin - "bullet spin")
     - Spin axis tilted 45° (mix of side and topspin)
-    - Sharp horizontal break (glove side)
-    - Moderate vertical drop
+    - Sharp horizontal break (~5" glove-side)
+    - Moderate vertical drop (~2")
+
+    Research notes:
+    - Low spin efficiency (30-40%) is typical for sliders
+    - Gyro spin creates lateral break without much Magnus lift
+    - Harder sliders have less drop, slower ones sweep more
+    - Effective chase pitch - starts in zone, breaks out
+
+    Parameters
+    ----------
+    velocity : float, optional
+        Release velocity in mph (default: 85 mph)
+    spin_rpm : float, optional
+        Spin rate in rpm (default: 2400 rpm)
     """
     if velocity is None:
         velocity = SLIDER_VELOCITY_AVG
@@ -187,19 +302,34 @@ def create_slider(velocity=None, spin_rpm=None):
     # Mostly sidespin (glove-side) with forward tilt
     spin_axis = np.array([0.5, 0.7, 0.0])  # 45° tilt, glove-side
 
-    return PitchType("Slider", velocity, spin_rpm, spin_axis, spin_efficiency=0.75)
+    return PitchType("Slider", velocity, spin_rpm, spin_axis,
+                     spin_efficiency=SPIN_EFFICIENCY_SLIDER)
 
 
 def create_changeup(velocity=None, spin_rpm=None):
     """
     Create a changeup.
 
-    Characteristics:
-    - Slower velocity (78-88 mph), looks like fastball
-    - Lower spin (1500-2000 rpm)
+    Characteristics (from MLB Statcast data):
+    - Velocity: 75-88 mph (avg 84 mph), typically 8-10 mph slower than fastball
+    - Spin: 1400-2100 rpm (avg 1750 rpm)
+    - Spin efficiency: 89% (similar to fastball but lower rpm)
     - Similar spin axis to fastball but less efficient
-    - More vertical drop and arm-side fade
-    - Relies on velocity differential
+    - More vertical drop (~8") and arm-side fade (~14")
+    - Relies on velocity differential and deception
+
+    Research notes:
+    - Key is deception - should look like fastball until it "dies"
+    - Circle change grip creates slight sidespin for fade
+    - Gravity has more time to act due to lower velocity
+    - Effective for inducing weak contact and ground balls
+
+    Parameters
+    ----------
+    velocity : float, optional
+        Release velocity in mph (default: 84 mph)
+    spin_rpm : float, optional
+        Spin rate in rpm (default: 1750 rpm)
     """
     if velocity is None:
         velocity = CHANGEUP_VELOCITY_AVG
@@ -209,28 +339,87 @@ def create_changeup(velocity=None, spin_rpm=None):
     # Spin axis: similar to fastball but less efficient
     spin_axis = np.array([0.1, -0.15, 1.0])  # Slight arm-side tilt
 
-    return PitchType("Changeup", velocity, spin_rpm, spin_axis, spin_efficiency=0.65)
+    return PitchType("Changeup", velocity, spin_rpm, spin_axis,
+                     spin_efficiency=SPIN_EFFICIENCY_CHANGEUP)
 
 
 def create_splitter(velocity=None, spin_rpm=None):
     """
     Create a splitter (split-finger fastball).
 
-    Characteristics:
-    - Fastball velocity but very low spin (1000-1500 rpm)
-    - Tumbles with unpredictable break
-    - Sharp late drop
-    - Difficult to control
+    Characteristics (from MLB Statcast data):
+    - Velocity: 80-90 mph (avg 85 mph)
+    - Spin: 1000-1800 rpm (avg 1500 rpm) - very low
+    - Spin efficiency: 50% (tumbling action)
+    - Grip kills spin, creating "knuckle effect"
+    - Sharp late drop (~10" below spinless trajectory)
+    - Minimal horizontal movement (~2")
+    - "Bottom falls out" late in flight
+
+    Research notes:
+    - Mike Pelfrey's splitter: 830 rpm, extreme ground ball pitch
+    - Low spin means gravity dominates (minimal Magnus force)
+    - Effective for inducing weak contact and ground balls
+    - Difficult to control due to unpredictable break
+
+    Parameters
+    ----------
+    velocity : float, optional
+        Release velocity in mph (default: 85 mph)
+    spin_rpm : float, optional
+        Spin rate in rpm (default: 1500 rpm)
     """
     if velocity is None:
-        velocity = FASTBALL_VELOCITY_AVG - 3.0
+        velocity = SPLITTER_VELOCITY_AVG
     if spin_rpm is None:
-        spin_rpm = 1200.0
+        spin_rpm = SPLITTER_SPIN_AVG
 
     # Spin axis: variable, but generally forward tilt
     spin_axis = np.array([0.6, 0.1, 0.3])  # Forward tilt, low efficiency
 
-    return PitchType("Splitter", velocity, spin_rpm, spin_axis, spin_efficiency=0.50)
+    return PitchType("Splitter", velocity, spin_rpm, spin_axis,
+                     spin_efficiency=SPIN_EFFICIENCY_SPLITTER)
+
+
+def create_knuckleball(velocity=None, spin_rpm=None):
+    """
+    Create a knuckleball.
+
+    Characteristics (from MLB Statcast data):
+    - Velocity: 65-80 mph (avg 72 mph)
+    - Spin: 50-500 rpm (avg 200 rpm) - extremely low
+    - Spin efficiency: 10% (chaotic, minimal Magnus)
+    - Almost no spin (ideally 1-3 rotations during flight)
+    - Unpredictable flutter and zig-zag movement
+    - Random lateral and vertical deviations
+
+    Research notes:
+    - Without spin, Magnus effect vanishes
+    - Ball's trajectory dominated by chaotic airflow around seams
+    - Asymmetric turbulence causes unpredictable movement
+    - Even pitcher doesn't know exact break
+    - If spin >500 rpm, acts like slow batting practice fastball
+    - Very difficult to throw and catch
+
+    Parameters
+    ----------
+    velocity : float, optional
+        Release velocity in mph (default: 72 mph)
+    spin_rpm : float, optional
+        Spin rate in rpm (default: 200 rpm)
+    """
+    if velocity is None:
+        velocity = KNUCKLEBALL_VELOCITY_AVG
+    if spin_rpm is None:
+        spin_rpm = KNUCKLEBALL_SPIN_AVG
+
+    # Spin axis: random/variable (doesn't matter much with so little spin)
+    # Add randomness to simulate unpredictability
+    spin_axis = np.random.randn(3)
+    spin_axis = spin_axis / np.linalg.norm(spin_axis) if np.linalg.norm(spin_axis) > 0 else np.array([0, 0, 1])
+
+    return PitchType("Knuckleball", velocity, spin_rpm, spin_axis,
+                     spin_efficiency=SPIN_EFFICIENCY_KNUCKLEBALL)
 
 
 # ============================================================================
