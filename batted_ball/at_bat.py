@@ -79,6 +79,7 @@ class AtBatSimulator:
         altitude: float = 0.0,
         temperature: float = 70.0,
         humidity: float = 0.5,
+        fast_mode: bool = False,
     ):
         """
         Initialize at-bat simulator.
@@ -95,12 +96,16 @@ class AtBatSimulator:
             Temperature in Fahrenheit (default: 70)
         humidity : float
             Relative humidity 0-1 (default: 0.5)
+        fast_mode : bool
+            If True, uses faster simulation with larger time steps (~2x speedup)
+            Recommended for bulk simulations (1000+ at-bats)
         """
         self.pitcher = pitcher
         self.hitter = hitter
         self.altitude = altitude
         self.temperature = temperature
         self.humidity = humidity
+        self.fast_mode = fast_mode
 
         # Create physics simulators
         self.pitch_sim = PitchSimulator()
@@ -314,6 +319,7 @@ class AtBatSimulator:
             altitude=self.altitude,
             temperature=self.temperature,
             humidity=self.humidity,
+            fast_mode=self.fast_mode,
         )
 
         # Update pitcher state
@@ -401,6 +407,7 @@ class AtBatSimulator:
             backspin_rpm=collision_result['backspin_rpm'],
             altitude=self.altitude,
             temperature=self.temperature,
+            fast_mode=self.fast_mode,
         )
 
         return {

@@ -112,6 +112,7 @@ TILTED_SPIN_DRAG_FACTOR = 0.00001  # Additional drag for non-aligned spin
 DT_DEFAULT = 0.001  # 1 millisecond (good balance of accuracy and speed)
 DT_FINE = 0.0005    # 0.5 millisecond (higher accuracy)
 DT_COARSE = 0.005   # 5 milliseconds (faster, less accurate)
+DT_FAST = 0.002     # 2 milliseconds (for bulk simulations - 2x faster, <1% accuracy loss)
 
 # Maximum simulation time (to prevent infinite loops)
 MAX_SIMULATION_TIME = 10.0  # seconds
