@@ -40,7 +40,8 @@ CL_MAX = 0.6      # Maximum lift coefficient (high spin saturation)
 # Spin factor for Magnus effect (empirically derived)
 # This relates spin rate to lift coefficient
 # Calibrated to match empirical backspin effects (~60 ft boost for 1500 rpm)
-SPIN_FACTOR = 0.000085  # Empirical constant for C_L calculation (calibrated)
+# Fine-tuned to balance benchmark distance with backspin boost
+SPIN_FACTOR = 0.000145  # Empirical constant for C_L calculation (re-calibrated)
 
 # ============================================================================
 # UNIT CONVERSION CONSTANTS
@@ -93,6 +94,15 @@ TYPICAL_BACKSPIN_OPTIMAL = 1800.0  # rpm
 
 # Spin saturation point (diminishing returns above this)
 SPIN_SATURATION = 2500.0  # rpm
+
+# Spin-dependent drag enhancement
+# Spinning ball experiences additional drag due to turbulent boundary layer
+SPIN_DRAG_FACTOR = 0.00002  # Additional drag per rpm of total spin
+SPIN_DRAG_MAX_INCREASE = 0.15  # Maximum drag coefficient increase (caps at high spin)
+
+# Asymmetric drag for tilted spin axis (affects sidespin)
+# When spin axis is tilted (both backspin and sidespin), drag increases
+TILTED_SPIN_DRAG_FACTOR = 0.00001  # Additional drag for non-aligned spin
 
 # ============================================================================
 # SIMULATION PARAMETERS
