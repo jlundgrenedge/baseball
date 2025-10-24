@@ -245,46 +245,97 @@ STRIKE_ZONE_HEIGHT = STRIKE_ZONE_TOP - STRIKE_ZONE_BOTTOM
 # Home plate dimensions
 HOME_PLATE_WIDTH = STRIKE_ZONE_WIDTH  # 17 inches
 
-# Pitch velocity ranges (mph)
-FASTBALL_VELOCITY_MIN = 88.0
-FASTBALL_VELOCITY_MAX = 102.0
-FASTBALL_VELOCITY_AVG = 93.0
+# Pitch velocity ranges (mph) - from MLB Statcast data
+# Source: MLB.com Statcast 2016-2023 averages
+FASTBALL_4SEAM_VELOCITY_MIN = 88.0
+FASTBALL_4SEAM_VELOCITY_MAX = 102.0
+FASTBALL_4SEAM_VELOCITY_AVG = 93.0
 
-CURVEBALL_VELOCITY_MIN = 72.0
+FASTBALL_2SEAM_VELOCITY_MIN = 88.0
+FASTBALL_2SEAM_VELOCITY_MAX = 95.0
+FASTBALL_2SEAM_VELOCITY_AVG = 92.0
+
+CUTTER_VELOCITY_MIN = 85.0
+CUTTER_VELOCITY_MAX = 95.0
+CUTTER_VELOCITY_AVG = 88.0
+
+CURVEBALL_VELOCITY_MIN = 70.0
 CURVEBALL_VELOCITY_MAX = 82.0
-CURVEBALL_VELOCITY_AVG = 77.0
+CURVEBALL_VELOCITY_AVG = 78.0
 
-SLIDER_VELOCITY_MIN = 82.0
-SLIDER_VELOCITY_MAX = 90.0
+SLIDER_VELOCITY_MIN = 78.0
+SLIDER_VELOCITY_MAX = 91.0
 SLIDER_VELOCITY_AVG = 85.0
 
-CHANGEUP_VELOCITY_MIN = 78.0
+CHANGEUP_VELOCITY_MIN = 75.0
 CHANGEUP_VELOCITY_MAX = 88.0
-CHANGEUP_VELOCITY_AVG = 83.0
+CHANGEUP_VELOCITY_AVG = 84.0
+
+SPLITTER_VELOCITY_MIN = 80.0
+SPLITTER_VELOCITY_MAX = 90.0
+SPLITTER_VELOCITY_AVG = 85.0
+
+KNUCKLEBALL_VELOCITY_MIN = 65.0
+KNUCKLEBALL_VELOCITY_MAX = 80.0
+KNUCKLEBALL_VELOCITY_AVG = 72.0
 
 # Pitch spin ranges (rpm) - from MLB Statcast data
-FASTBALL_SPIN_MIN = 1800.0
-FASTBALL_SPIN_MAX = 2700.0
-FASTBALL_SPIN_AVG = 2200.0
+FASTBALL_4SEAM_SPIN_MIN = 1800.0
+FASTBALL_4SEAM_SPIN_MAX = 2700.0
+FASTBALL_4SEAM_SPIN_AVG = 2200.0
+
+FASTBALL_2SEAM_SPIN_MIN = 1800.0
+FASTBALL_2SEAM_SPIN_MAX = 2500.0
+FASTBALL_2SEAM_SPIN_AVG = 2100.0
+
+CUTTER_SPIN_MIN = 2000.0
+CUTTER_SPIN_MAX = 2600.0
+CUTTER_SPIN_AVG = 2200.0
 
 CURVEBALL_SPIN_MIN = 2200.0
 CURVEBALL_SPIN_MAX = 3200.0
 CURVEBALL_SPIN_AVG = 2500.0
 
-SLIDER_SPIN_MIN = 2200.0
+SLIDER_SPIN_MIN = 1800.0
 SLIDER_SPIN_MAX = 2800.0
 SLIDER_SPIN_AVG = 2400.0
 
-CHANGEUP_SPIN_MIN = 1500.0
-CHANGEUP_SPIN_MAX = 2000.0
+CHANGEUP_SPIN_MIN = 1400.0
+CHANGEUP_SPIN_MAX = 2100.0
 CHANGEUP_SPIN_AVG = 1750.0
+
+SPLITTER_SPIN_MIN = 1000.0
+SPLITTER_SPIN_MAX = 1800.0
+SPLITTER_SPIN_AVG = 1500.0
+
+KNUCKLEBALL_SPIN_MIN = 50.0
+KNUCKLEBALL_SPIN_MAX = 500.0
+KNUCKLEBALL_SPIN_AVG = 200.0
+
+# Spin efficiency values (percentage of spin that creates Magnus force)
+# Source: YakkerTech/SeeMagnus 2020 MLB average data
+SPIN_EFFICIENCY_4SEAM = 0.90    # 90% - very efficient backspin
+SPIN_EFFICIENCY_2SEAM = 0.89    # 89% - efficient with slight tilt
+SPIN_EFFICIENCY_CUTTER = 0.49   # 49% - partial gyro spin
+SPIN_EFFICIENCY_CURVEBALL = 0.69  # 69% - good topspin efficiency
+SPIN_EFFICIENCY_SLIDER = 0.36   # 36% - mostly gyro spin (bullet spin)
+SPIN_EFFICIENCY_CHANGEUP = 0.89  # 89% - similar to fastball but lower rpm
+SPIN_EFFICIENCY_SPLITTER = 0.50  # 50% - tumbling action
+SPIN_EFFICIENCY_KNUCKLEBALL = 0.10  # 10% - chaotic, minimal Magnus
 
 # Pitch break characteristics (inches of movement from straight line)
 # Vertical break: positive = rises (less drop than gravity alone)
 # Horizontal break: positive = arm side (RHP moves to right)
+# Source: MLB Statcast typical values
 
-FASTBALL_VERTICAL_BREAK_AVG = 16.0    # inches (appears to "rise")
-FASTBALL_HORIZONTAL_BREAK_AVG = -8.0  # inches (slight glove side run)
+FASTBALL_4SEAM_VERTICAL_BREAK_AVG = 16.0    # inches (appears to "rise")
+FASTBALL_4SEAM_HORIZONTAL_BREAK_AVG = -2.0  # inches (slight arm side)
+
+FASTBALL_2SEAM_VERTICAL_BREAK_AVG = 10.0    # inches (less rise, more sink)
+FASTBALL_2SEAM_HORIZONTAL_BREAK_AVG = -8.0  # inches (arm side run)
+
+CUTTER_VERTICAL_BREAK_AVG = 6.0       # inches (moderate drop)
+CUTTER_HORIZONTAL_BREAK_AVG = 3.0     # inches (glove side cut)
 
 CURVEBALL_VERTICAL_BREAK_AVG = -12.0  # inches (big drop)
 CURVEBALL_HORIZONTAL_BREAK_AVG = 6.0  # inches (sweeping)
@@ -294,3 +345,76 @@ SLIDER_HORIZONTAL_BREAK_AVG = 5.0     # inches (sharp glove side)
 
 CHANGEUP_VERTICAL_BREAK_AVG = -8.0    # inches (drops)
 CHANGEUP_HORIZONTAL_BREAK_AVG = 14.0  # inches (arm side fade)
+
+SPLITTER_VERTICAL_BREAK_AVG = -10.0   # inches (sharp late drop)
+SPLITTER_HORIZONTAL_BREAK_AVG = 2.0   # inches (minimal horizontal)
+
+KNUCKLEBALL_VERTICAL_BREAK_AVG = 0.0  # inches (unpredictable)
+KNUCKLEBALL_HORIZONTAL_BREAK_AVG = 0.0  # inches (random flutter)
+
+# ============================================================================
+# PITCHER RELEASE MECHANICS
+# ============================================================================
+
+# Release extension (feet in front of rubber)
+# Source: MLB Statcast extension data
+RELEASE_EXTENSION_MIN = 5.0   # feet (short stride)
+RELEASE_EXTENSION_AVG = 6.0   # feet (typical)
+RELEASE_EXTENSION_MAX = 7.5   # feet (long stride, e.g., Tyler Glasnow)
+
+# Perceived velocity boost from extension
+# Source: Sports Illustrated analysis (1.7 mph per foot)
+EXTENSION_PERCEIVED_VELOCITY_BOOST_PER_FOOT = 1.7  # mph per foot
+
+# Arm angle effects (degrees from vertical)
+# 0° = over-the-top, 45° = three-quarters, 90° = sidearm
+ARM_ANGLE_OVERHAND = 0.0      # degrees (12 o'clock)
+ARM_ANGLE_HIGH_3_4 = 30.0     # degrees (1 o'clock for RHP)
+ARM_ANGLE_3_4 = 45.0          # degrees (typical)
+ARM_ANGLE_LOW_3_4 = 60.0      # degrees
+ARM_ANGLE_SIDEARM = 90.0      # degrees (3 o'clock)
+ARM_ANGLE_SUBMARINE = 120.0   # degrees (below sidearm)
+
+# ============================================================================
+# PITCHER ATTRIBUTE SYSTEM
+# ============================================================================
+
+# Velocity rating scale (0-100)
+VELOCITY_RATING_MIN = 20      # Position player pitching
+VELOCITY_RATING_AVG = 50      # Average MLB pitcher
+VELOCITY_RATING_ELITE = 80    # Elite fastball
+VELOCITY_RATING_MAX = 100     # Aroldis Chapman, Jordan Hicks level
+
+# Movement rating scale (0-100)
+MOVEMENT_RATING_MIN = 20      # Minimal break
+MOVEMENT_RATING_AVG = 50      # Average MLB break
+MOVEMENT_RATING_ELITE = 80    # Elite movement
+MOVEMENT_RATING_MAX = 100     # Exceptional break
+
+# Command rating scale (0-100)
+COMMAND_RATING_MIN = 20       # Poor control
+COMMAND_RATING_AVG = 50       # Average control
+COMMAND_RATING_ELITE = 80     # Excellent command
+COMMAND_RATING_MAX = 100      # Greg Maddux level
+
+# Deception rating scale (0-100)
+DECEPTION_RATING_MIN = 20     # Easy to read
+DECEPTION_RATING_AVG = 50     # Average deception
+DECEPTION_RATING_ELITE = 80   # Very deceptive
+DECEPTION_RATING_MAX = 100    # Extreme deception
+
+# ============================================================================
+# ENVIRONMENTAL EFFECTS ON PITCHES
+# ============================================================================
+
+# Altitude effect on pitch break (per 1000 ft)
+# Source: Alan Nathan physics analysis, Colorado Sun article
+PITCH_BREAK_REDUCTION_PER_1000_FT = 0.8  # inches per 1000 ft altitude
+
+# Temperature effect on pitch break (per 10°F)
+# Source: Command Trakker weather analysis
+PITCH_BREAK_CHANGE_PER_10_DEG_F = 0.3  # inches per 10°F
+
+# Wind effect on pitch movement
+# Headwind increases Magnus effect, tailwind decreases it
+WIND_MAGNUS_MULTIPLIER_PER_MPH = 0.02  # 2% per mph wind
