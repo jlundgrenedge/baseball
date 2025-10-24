@@ -138,7 +138,8 @@ def integrate_trajectory(
     dt=DT_DEFAULT,
     max_time=10.0,
     ground_level=0.0,
-    method='rk4'
+    method='rk4',
+    custom_stop_condition=None
 ):
     """
     Integrate trajectory until ball hits ground or max time reached.
@@ -158,6 +159,9 @@ def integrate_trajectory(
         Height (z) at which to stop simulation (meters)
     method : str
         Integration method: 'rk4' or 'euler'
+    custom_stop_condition : callable, optional
+        Function that takes position (x, y, z) and returns True when
+        simulation should stop. If provided, overrides ground_level check.
 
     Returns
     -------
@@ -188,8 +192,19 @@ def integrate_trajectory(
 
     # Integration loop
     while current_time < max_time:
-        # Check if ball has hit ground
-        if current_state[2] <= ground_level and current_time > 0.0:
+        # Check stop condition
+        should_stop = False
+
+        if custom_stop_condition is not None:
+            # Use custom stop condition if provided
+            if custom_stop_condition(current_state[:3]) and current_time > 0.0:
+                should_stop = True
+        else:
+            # Default: check if ball has hit ground
+            if current_state[2] <= ground_level and current_time > 0.0:
+                should_stop = True
+
+        if should_stop:
             # Interpolate to find exact landing time and position
             # (Simple linear interpolation between last two points)
             if len(positions) >= 2:

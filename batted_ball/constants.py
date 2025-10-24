@@ -221,3 +221,76 @@ BENCHMARK_TOLERANCE = 10.0       # feet (acceptable error)
 # Coors Field (Denver, CO)
 COORS_FIELD_ALTITUDE = 5200.0    # feet
 COORS_FIELD_DISTANCE_BOOST = 30.0  # feet (additional vs sea level)
+
+# ============================================================================
+# PITCHING PHYSICS (PHASE 3)
+# ============================================================================
+
+# Mound and plate specifications (MLB official)
+MOUND_DISTANCE = 60.5  # feet from home plate to pitching rubber
+MOUND_HEIGHT = 10.0    # inches above home plate level
+MOUND_HEIGHT_FEET = MOUND_HEIGHT / 12.0  # feet
+
+# Pitcher release point (typical for overhand delivery)
+RELEASE_HEIGHT = 6.0   # feet above mound (total ~6.8 ft above plate)
+RELEASE_EXTENSION = 6.0  # feet in front of rubber (stride)
+# Actual release point: 60.5 - 6.0 = 54.5 ft from plate
+
+# Strike zone dimensions
+STRIKE_ZONE_WIDTH = 17.0 / 12.0  # feet (17 inches)
+STRIKE_ZONE_BOTTOM = 1.5  # feet above ground (knees)
+STRIKE_ZONE_TOP = 3.5     # feet above ground (letters)
+STRIKE_ZONE_HEIGHT = STRIKE_ZONE_TOP - STRIKE_ZONE_BOTTOM
+
+# Home plate dimensions
+HOME_PLATE_WIDTH = STRIKE_ZONE_WIDTH  # 17 inches
+
+# Pitch velocity ranges (mph)
+FASTBALL_VELOCITY_MIN = 88.0
+FASTBALL_VELOCITY_MAX = 102.0
+FASTBALL_VELOCITY_AVG = 93.0
+
+CURVEBALL_VELOCITY_MIN = 72.0
+CURVEBALL_VELOCITY_MAX = 82.0
+CURVEBALL_VELOCITY_AVG = 77.0
+
+SLIDER_VELOCITY_MIN = 82.0
+SLIDER_VELOCITY_MAX = 90.0
+SLIDER_VELOCITY_AVG = 85.0
+
+CHANGEUP_VELOCITY_MIN = 78.0
+CHANGEUP_VELOCITY_MAX = 88.0
+CHANGEUP_VELOCITY_AVG = 83.0
+
+# Pitch spin ranges (rpm) - from MLB Statcast data
+FASTBALL_SPIN_MIN = 1800.0
+FASTBALL_SPIN_MAX = 2700.0
+FASTBALL_SPIN_AVG = 2200.0
+
+CURVEBALL_SPIN_MIN = 2200.0
+CURVEBALL_SPIN_MAX = 3200.0
+CURVEBALL_SPIN_AVG = 2500.0
+
+SLIDER_SPIN_MIN = 2200.0
+SLIDER_SPIN_MAX = 2800.0
+SLIDER_SPIN_AVG = 2400.0
+
+CHANGEUP_SPIN_MIN = 1500.0
+CHANGEUP_SPIN_MAX = 2000.0
+CHANGEUP_SPIN_AVG = 1750.0
+
+# Pitch break characteristics (inches of movement from straight line)
+# Vertical break: positive = rises (less drop than gravity alone)
+# Horizontal break: positive = arm side (RHP moves to right)
+
+FASTBALL_VERTICAL_BREAK_AVG = 16.0    # inches (appears to "rise")
+FASTBALL_HORIZONTAL_BREAK_AVG = -8.0  # inches (slight glove side run)
+
+CURVEBALL_VERTICAL_BREAK_AVG = -12.0  # inches (big drop)
+CURVEBALL_HORIZONTAL_BREAK_AVG = 6.0  # inches (sweeping)
+
+SLIDER_VERTICAL_BREAK_AVG = 2.0       # inches (moderate drop)
+SLIDER_HORIZONTAL_BREAK_AVG = 5.0     # inches (sharp glove side)
+
+CHANGEUP_VERTICAL_BREAK_AVG = -8.0    # inches (drops)
+CHANGEUP_HORIZONTAL_BREAK_AVG = 14.0  # inches (arm side fade)
