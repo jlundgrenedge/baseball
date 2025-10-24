@@ -2,12 +2,13 @@
 Baseball Batted Ball Physics Simulator
 
 A realistic physics-based simulator for baseball batted ball trajectories
-and pitch trajectories.
+and pitch trajectories, with player attribute system for gameplay.
 
 Includes:
 - Phase 1: Spin-dependent aerodynamics and trajectory simulation
 - Phase 2: Bat-ball collision physics with sweet spot effects
 - Phase 3: Pitch trajectory simulation with different pitch types
+- Phase 4: Player attribute system and at-bat simulation
 """
 
 from .trajectory import BattedBallSimulator, BattedBallResult
@@ -26,6 +27,8 @@ from .pitch import (
     create_splitter,
     create_knuckleball,
 )
+from .player import Pitcher, Hitter
+from .at_bat import AtBatSimulator, AtBatResult
 from .constants import *
 
 __version__ = '1.0.0'
@@ -50,4 +53,8 @@ __all__ = [
     'create_changeup',
     'create_splitter',
     'create_knuckleball',
+    'Pitcher',
+    'Hitter',
+    'AtBatSimulator',
+    'AtBatResult',
 ]
