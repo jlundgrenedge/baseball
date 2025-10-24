@@ -19,10 +19,12 @@ from .pitch import (
     PitchType,
     create_fastball_4seam,
     create_fastball_2seam,
+    create_cutter,
     create_curveball,
     create_slider,
     create_changeup,
     create_splitter,
+    create_knuckleball,
 )
 from .constants import *
 
@@ -42,8 +44,10 @@ __all__ = [
     'PitchType',
     'create_fastball_4seam',
     'create_fastball_2seam',
+    'create_cutter',
     'create_curveball',
     'create_slider',
     'create_changeup',
     'create_splitter',
+    'create_knuckleball',
 ]
