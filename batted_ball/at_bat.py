@@ -202,7 +202,7 @@ class AtBatSimulator:
         pitch_type: str,
     ) -> Tuple[float, float]:
         """
-        Select target location for pitch.
+        Select target location for pitch with realistic strike/ball distribution.
 
         Parameters
         ----------
@@ -217,31 +217,121 @@ class AtBatSimulator:
             (horizontal_inches, vertical_inches) target location
         """
         balls, strikes = count
-
-        # Simplified targeting logic
-        # Returns (horizontal_inches, vertical_inches)
-
-        # Horizontal target (centered with some variation)
-        horizontal_target = np.random.normal(0, 3.0)  # Aim near center, ±3" variation
-
-        # Vertical target based on count (in inches)
-        # Strike zone: 18" (knees) to 42" (letters), center at 30"
-        if balls >= 3:
-            # Need strike - aim middle
-            vertical_target = 30.0  # Middle of zone (30")
-        elif strikes >= 2:
-            # Can go outside zone
-            if np.random.random() < 0.4:
-                # Chase pitch
-                vertical_target = np.random.choice([12.0, 48.0])  # Low or high (outside zone)
+        
+        # MLB strike rate is typically 62-65%. We need to intentionally target
+        # outside the zone more often to achieve realistic ball rates.
+        
+        # Determine pitcher's intention for this pitch
+        intention = self._determine_pitch_intention(balls, strikes, pitch_type)
+        
+        if intention == 'strike_looking':
+            # Aim for easy strike (middle of zone)
+            horizontal_target = np.random.normal(0, 2.0)  # Near center
+            vertical_target = np.random.normal(30.0, 3.0)  # Middle of zone
+            
+        elif intention == 'strike_competitive':
+            # Aim for strike but on edges for swing-and-miss
+            # Strike zone: ±8.5" horizontal, 18"-42" vertical
+            if np.random.random() < 0.5:
+                # Target horizontal edges
+                horizontal_target = np.random.choice([-6.0, 6.0]) + np.random.normal(0, 1.5)
+                vertical_target = np.random.uniform(20.0, 40.0)
             else:
-                # Still in zone
-                vertical_target = 30.0
-        else:
-            # Normal targeting - varied locations in zone
-            vertical_target = np.random.choice([21.0, 30.0, 39.0])  # Low, mid, high in zone
+                # Target vertical edges  
+                horizontal_target = np.random.normal(0, 3.0)
+                vertical_target = np.random.choice([20.0, 40.0]) + np.random.normal(0, 1.5)
+                
+        elif intention == 'waste_chase':
+            # Intentionally outside zone - chase pitch
+            if np.random.random() < 0.4:
+                # Low chase (most common)
+                horizontal_target = np.random.normal(0, 4.0)
+                vertical_target = np.random.uniform(10.0, 16.0)  # Below zone
+            elif np.random.random() < 0.7:
+                # Outside chase
+                side = np.random.choice([-1, 1])
+                horizontal_target = side * np.random.uniform(10.0, 15.0)  # Outside zone
+                vertical_target = np.random.uniform(20.0, 38.0)
+            else:
+                # High chase
+                horizontal_target = np.random.normal(0, 4.0)
+                vertical_target = np.random.uniform(44.0, 50.0)  # Above zone
+                
+        elif intention == 'ball_intentional':
+            # Intentionally throw ball (avoid contact in tough spots)
+            if np.random.random() < 0.6:
+                # Wide
+                side = np.random.choice([-1, 1])
+                horizontal_target = side * np.random.uniform(12.0, 18.0)
+                vertical_target = np.random.uniform(25.0, 35.0)
+            else:
+                # Low
+                horizontal_target = np.random.normal(0, 5.0)
+                vertical_target = np.random.uniform(8.0, 15.0)
+                
+        else:  # 'strike_corner'
+            # Target corners of strike zone
+            corner_h = np.random.choice([-7.0, 7.0])
+            corner_v = np.random.choice([20.0, 40.0])
+            horizontal_target = corner_h + np.random.normal(0, 1.0)
+            vertical_target = corner_v + np.random.normal(0, 1.0)
 
         return horizontal_target, vertical_target
+    
+    def _determine_pitch_intention(self, balls: int, strikes: int, pitch_type: str) -> str:
+        """
+        Determine pitcher's intention based on count and situation.
+        
+        Returns
+        -------
+        str
+            One of: 'strike_looking', 'strike_competitive', 'strike_corner', 
+                   'waste_chase', 'ball_intentional'
+        """
+        # Count-based probabilities for different intentions
+        if balls == 0 and strikes == 0:
+            # First pitch - often strike looking
+            intentions = ['strike_looking', 'strike_competitive', 'strike_corner']
+            probabilities = [0.50, 0.35, 0.15]
+            
+        elif balls >= 3:
+            # Must throw strike
+            intentions = ['strike_looking', 'strike_competitive']
+            probabilities = [0.70, 0.30]
+            
+        elif strikes >= 2:
+            # Can waste pitches
+            intentions = ['waste_chase', 'strike_competitive', 'strike_corner']
+            probabilities = [0.45, 0.35, 0.20]
+            
+        elif balls >= 2 and strikes <= 1:
+            # Hitter's count - be more careful
+            intentions = ['strike_competitive', 'ball_intentional', 'strike_corner']
+            probabilities = [0.50, 0.30, 0.20]
+            
+        else:
+            # Even count - mixed approach
+            intentions = ['strike_competitive', 'strike_corner', 'waste_chase', 'ball_intentional']
+            probabilities = [0.40, 0.25, 0.20, 0.15]
+        
+        # Adjust for pitcher's control rating
+        control_factor = self.pitcher.control / 100.0
+        
+        # Poor control pitchers throw more unintentional balls
+        if control_factor < 0.5:
+            # Increase chance of unintentional misses
+            if 'ball_intentional' in intentions:
+                idx = intentions.index('ball_intentional')
+                probabilities[idx] *= 1.5
+            else:
+                intentions.append('ball_intentional')
+                probabilities.append(0.15)
+                
+        # Normalize probabilities
+        total = sum(probabilities)
+        probabilities = [p / total for p in probabilities]
+        
+        return np.random.choice(intentions, p=probabilities)
 
     def simulate_pitch(
         self,
@@ -380,14 +470,21 @@ class AtBatSimulator:
         timing_error_ms = self.hitter.get_swing_timing_error_ms(pitch_velocity)
 
         # Timing error affects horizontal offset
-        # Rough approximation: 1 ms = ~0.5 inch offset
-        timing_offset = timing_error_ms * 0.5
+        # More realistic approximation: 1 ms = ~0.1 inch offset (reduced from 0.5)
+        timing_offset = timing_error_ms * 0.1
 
         # Total horizontal offset
         total_h_offset = h_offset + timing_offset
 
         # Calculate total offset for contact quality
         total_offset = np.sqrt(total_h_offset**2 + v_offset**2)
+        
+        # Calculate pitch location difficulty factor
+        location_difficulty = self._calculate_location_difficulty(pitch_location)
+        
+        # Apply location difficulty to contact offset
+        # Harder locations increase effective offset (worse contact)
+        adjusted_offset = total_offset * (1.0 + location_difficulty)
 
         # Contact made - simulate with physics
         collision_result = self.contact_model.full_collision(
@@ -397,7 +494,7 @@ class AtBatSimulator:
             pitch_trajectory_angle_deg=7.0,  # Typical downward angle
             vertical_contact_offset_inches=v_offset,
             horizontal_contact_offset_inches=total_h_offset,
-            distance_from_sweet_spot_inches=total_offset  # Use calculated offset for contact quality
+            distance_from_sweet_spot_inches=adjusted_offset  # Use adjusted offset for contact quality
         )
 
         # Simulate batted ball trajectory
@@ -411,8 +508,11 @@ class AtBatSimulator:
             fast_mode=self.fast_mode,
         )
 
+        # Determine contact quality based on adjusted offset and location
+        contact_quality = self._determine_contact_quality(adjusted_offset, pitch_location, pitch_data.get('is_strike', True))
+        
         return {
-            'contact_quality': 'solid' if total_offset < 0.5 else 'weak' if total_offset > 1.5 else 'fair',
+            'contact_quality': contact_quality,
             'exit_velocity': collision_result['exit_velocity'],
             'launch_angle': collision_result['launch_angle'],
             'spray_angle': self.hitter.spray_tendency,
@@ -420,7 +520,99 @@ class AtBatSimulator:
             'hang_time': batted_ball_result.flight_time,
             'peak_height': batted_ball_result.peak_height,
             'trajectory': batted_ball_result,
+            # Include collision physics data
+            'collision_efficiency_q': collision_result.get('collision_efficiency_q', None),
+            'contact_offset_total': collision_result.get('contact_offset_total', None),
+            'sweet_spot_distance': collision_result.get('sweet_spot_distance', None),
+            'backspin_rpm': collision_result['backspin_rpm'],
+            'sidespin_rpm': collision_result['sidespin_rpm'],
         }
+    
+    def _calculate_location_difficulty(self, pitch_location: Tuple[float, float]) -> float:
+        """
+        Calculate difficulty multiplier based on pitch location.
+        
+        Parameters
+        ----------
+        pitch_location : tuple
+            (horizontal_inches, vertical_inches) at plate
+            
+        Returns
+        -------
+        float
+            Difficulty factor (0.0 = easy middle, 1.0+ = very difficult)
+        """
+        h_pos, v_pos = pitch_location
+        
+        # Strike zone boundaries: ±8.5" horizontal, 18"-42" vertical
+        # Calculate distance from sweet spot (center of zone)
+        sweet_spot_h = 0.0
+        sweet_spot_v = 30.0  # Middle of strike zone
+        
+        h_distance = abs(h_pos - sweet_spot_h)
+        v_distance = abs(v_pos - sweet_spot_v)
+        
+        # Distance from center affects difficulty
+        horizontal_difficulty = h_distance / 8.5  # Normalized to zone edge
+        vertical_difficulty = v_distance / 12.0   # Normalized to zone edge
+        
+        # Corners are especially difficult
+        corner_factor = min(horizontal_difficulty * vertical_difficulty, 0.5)
+        
+        # Outside the zone is much more difficult
+        out_of_zone_factor = 0.0
+        if abs(h_pos) > 8.5:  # Outside horizontally
+            out_of_zone_factor += (abs(h_pos) - 8.5) / 8.5  # Exponential difficulty
+        if v_pos < 18.0:  # Below zone
+            out_of_zone_factor += (18.0 - v_pos) / 10.0
+        elif v_pos > 42.0:  # Above zone
+            out_of_zone_factor += (v_pos - 42.0) / 10.0
+            
+        # Combine factors
+        total_difficulty = horizontal_difficulty + vertical_difficulty + corner_factor + out_of_zone_factor
+        
+        # Cap at reasonable maximum
+        return min(total_difficulty, 2.0)
+    
+    def _determine_contact_quality(self, offset: float, pitch_location: Tuple[float, float], is_strike: bool) -> str:
+        """
+        Determine contact quality based on offset and pitch location.
+        
+        Parameters
+        ----------
+        offset : float
+            Contact point offset from sweet spot (inches)
+        pitch_location : tuple
+            (horizontal_inches, vertical_inches) at plate
+        is_strike : bool
+            Whether pitch was in strike zone
+            
+        Returns
+        -------
+        str
+            Contact quality: 'solid', 'fair', or 'weak'
+        """
+        # Base thresholds
+        solid_threshold = 0.75
+        weak_threshold = 1.8
+        
+        # Adjust thresholds based on pitch location
+        if not is_strike:
+            # Swings at balls are much more likely to be weak
+            solid_threshold *= 0.5  # Much harder to get solid contact
+            weak_threshold *= 0.7   # More likely to be weak
+            
+        # Hitter ability affects thresholds
+        contact_ability = self.hitter.barrel_accuracy / 100.0
+        solid_threshold *= (1.5 - contact_ability * 0.5)  # Elite hitters have lower threshold
+        weak_threshold *= (1.3 - contact_ability * 0.3)
+        
+        if offset < solid_threshold:
+            return 'solid'
+        elif offset > weak_threshold:
+            return 'weak'
+        else:
+            return 'fair'
 
     def simulate_at_bat(self, verbose: bool = False) -> AtBatResult:
         """

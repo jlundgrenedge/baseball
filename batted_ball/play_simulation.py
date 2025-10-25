@@ -369,8 +369,35 @@ class PlaySimulator:
             all_fielder_times = []  # Track all fielders for debug
 
             for position_name, fielder in self.fielding_simulator.fielders.items():
-                # Calculate if this fielder can reach the position by time t
-                effective_time = fielder.calculate_effective_time_to_position(ball_pos_t)
+                # Enable advanced AI pursuit for better fielding intelligence
+                USE_ADVANCED_AI = True
+                
+                if USE_ADVANCED_AI:
+                    # Create trajectory data for advanced AI pursuit methods
+                    trajectory_data = self._create_trajectory_data_for_pursuit(batted_ball_result, t)
+                    
+                    # Use advanced AI pursuit calculation instead of basic method
+                    try:
+                        # First try optimal intercept calculation
+                        optimal_intercept = fielder.calculate_optimal_intercept_point(
+                            trajectory_data, current_time=t
+                        )
+                        
+                        # Calculate time to optimal intercept using advanced route calculation
+                        intercept_position = FieldPosition(optimal_intercept[0], optimal_intercept[1], 0.0)
+                        route_result = fielder.calculate_optimal_route(
+                            intercept_position, trajectory_data
+                        )
+                        
+                        # Extract time from route result (route_positions, total_time, efficiency)
+                        effective_time = route_result[1] if isinstance(route_result, tuple) else route_result
+                        
+                    except Exception:
+                        # Fallback to basic method if advanced AI fails
+                        effective_time = fielder.calculate_effective_time_to_position(ball_pos_t)
+                else:
+                    # Use basic method for now
+                    effective_time = fielder.calculate_effective_time_to_position(ball_pos_t)
 
                 # Time margin = how early the fielder arrives (positive = early, negative = late)
                 time_margin = t - effective_time
@@ -486,6 +513,29 @@ class PlaySimulator:
             pos[1] * METERS_TO_FEET,
             max(0.0, pos[2] * METERS_TO_FEET)  # Don't go below ground
         )
+    
+    def _create_trajectory_data_for_pursuit(self, batted_ball_result: BattedBallResult, current_time: float) -> dict:
+        """Create trajectory data format expected by advanced AI pursuit methods."""
+        import numpy as np
+        
+        # Get trajectory arrays from batted ball result
+        time_array = batted_ball_result.time
+        position_array = batted_ball_result.position  # In meters
+        velocity_array = batted_ball_result.velocity  # In m/s
+        
+        # Find current time index
+        current_idx = np.searchsorted(time_array, current_time)
+        
+        # Create future trajectory from current time onwards
+        future_time = time_array[current_idx:]
+        future_positions = position_array[current_idx:]
+        future_velocities = velocity_array[current_idx:]
+        
+        return {
+            'position': future_positions,  # Nx3 array in meters
+            'velocity': future_velocities, # Nx3 array in m/s  
+            'time': future_time           # 1D array in seconds
+        }
     
     def _attempt_ground_ball_out(self, fielder, ball_position: FieldPosition,
                                 catch_time: float, result: PlayResult,

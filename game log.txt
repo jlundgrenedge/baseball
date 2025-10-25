@@ -1,0 +1,766 @@
+============================================================
+QUICK GAME DEMO - 3 INNINGS
+============================================================
+    C: line drive hitter (LA tendency: 19.0°)
+    1B: ground ball hitter (LA tendency: 9.0°)
+    2B: balanced hitter (LA tendency: 23.0°)
+    3B: fly ball hitter (LA tendency: 24.0°)
+    SS: fly ball hitter (LA tendency: 27.0°)
+    LF: balanced hitter (LA tendency: 18.0°)
+    CF: power hitter (LA tendency: 25.0°)
+    RF: power hitter (LA tendency: 27.0°)
+    DH: balanced hitter (LA tendency: 21.0°)
+
+================================================================================
+GAME START: Visitors @ Home Team
+================================================================================
+
+
+============================================================
+Top 1 | 0-0 | 0 out | Runners: empty
+============================================================
+
+Visitors C batting against Home Team Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 83.2 mph to (-0.13', 1.45') [0-0 → 1-0] taken for ball
+    #2: fastball 83.0 mph to (0.16', 2.81') [1-0 → 1-1] taken for strike
+    #3: fastball 83.0 mph to (0.08', 2.42') [1-1 → 1-2] fouled off (contact: weak, EV 61.7 mph, LA 9.1°)
+    #4: fastball 82.9 mph to (0.49', 3.50') [1-2 → 2-2] taken for ball
+    #5: fastball 83.2 mph to (-0.84', 0.93') [2-2 → 3-2] taken for ball
+    #6: fastball 83.0 mph to (0.84', 2.51') [3-2 → 4-2] taken for ball
+  🚶 WALK!
+
+Visitors 1B batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.8 mph to (-0.08', 3.45') [0-0 → 0-0] put in play (contact: weak, EV 72.5 mph, LA 7.3°)
+  ✓ SINGLE
+    Physics: EV=72.5 mph, LA=7.3°, Dist=114.2 ft, Hang=1.20s, Peak=6.4 ft, Contact: weak
+    Pitch: fastball 82.8 mph at zone (-0.1', 3.5')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.91s] Ground ball fielded by first_base (ground_ball_fielded)
+      [ 4.41s] Throw to first base at 82.0 mph (release 4.41s, flight 0.16s) (throw_to_first)
+      [ 4.57s] Runner safe at first base (runner 3.84s vs ball 4.57s) (play_at_first)
+
+Visitors 2B batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.9 mph to (-0.07', 3.13') [0-0 → 0-0] put in play (contact: weak, EV 57.2 mph, LA 16.9°)
+INTERCEPTION DEBUG: flight_time=1.87s, peak_height=13.4ft
+  t=0.06s: ball at (5, 0, 4.5)
+    Closest fielders:
+      catcher: 7ft away, margin=-0.52s ✗ too far
+      pitcher: 61ft away, margin=-2.07s ✗ too far
+      second_base: 64ft away, margin=-2.16s ✗ too far
+  t=0.12s: ball at (10, 0, 5.8)
+    Closest fielders:
+      catcher: 12ft away, margin=-0.60s ✗ too far
+      second_base: 61ft away, margin=-2.02s ✗ too far
+      pitcher: 62ft away, margin=-2.03s ✗ too far
+  t=0.19s: ball at (15, 0, 7.1)
+    Closest fielders:
+      catcher: 17ft away, margin=-0.68s ✗ too far
+      second_base: 59ft away, margin=-1.89s ✗ too far
+      pitcher: 63ft away, margin=-2.00s ✗ too far
+    CAUGHT by first_base at t=1.25s! (margin: 0.23s)
+  ⚾ Fly out to infield
+    Physics: EV=57.2 mph, LA=16.9°, Dist=131.4 ft, Hang=1.87s, Peak=13.4 ft, Contact: weak
+    Pitch: fastball 82.9 mph at zone (-0.1', 3.1')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.25s] Caught by first_base at 91ft, 11.4ft high (catch)
+      [ 1.87s] Ball drops in infield, first_base couldn't reach it (ball_drops)
+    Fielding breakdown:
+      First Base: ball 1.87s, arrival 1.92s (margin -0.05s) -> missed
+
+Visitors 3B batting against Home Team Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 83.0 mph to (-0.20', 2.20') [0-0 → 0-0] put in play (contact: weak, EV 61.6 mph, LA 17.7°)
+  ⚾ Fly out to infield
+    Physics: EV=61.6 mph, LA=17.7°, Dist=151.3 ft, Hang=2.05s, Peak=15.9 ft, Contact: weak
+    Pitch: fastball 83.0 mph at zone (-0.2', 2.2')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.50s] Caught by first_base at 115ft, 11.8ft high (catch)
+      [ 2.05s] Ball drops in infield, first_base couldn't reach it (ball_drops)
+    Fielding breakdown:
+      First Base: ball 2.05s, arrival 2.47s (margin -0.43s) -> missed
+
+Visitors SS batting against Home Team Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 83.0 mph to (0.48', 2.36') [0-0 → 0-1] fouled off (contact: weak, EV 75.8 mph, LA 15.7°)
+    #2: fastball 82.9 mph to (-0.24', 2.66') [0-1 → 0-2] swing and miss
+    #3: fastball 82.9 mph to (-0.09', 2.70') [0-2 → 0-2] fouled off (contact: weak, EV 73.6 mph, LA 19.5°)
+    #4: fastball 82.7 mph to (0.27', 4.44') [0-2 → 1-2] taken for ball
+    #5: fastball 83.0 mph to (0.47', 2.45') [1-2 → 1-3] swing and miss
+  ⚾ STRIKEOUT! 3 out(s)
+
+============================================================
+Bot 1 | 0-0 | 0 out | Runners: empty
+============================================================
+
+Home Team C batting against Visitors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.5 mph to (-0.54', 2.31') [0-0 → 0-0] put in play (contact: fair, EV 89.4 mph, LA 14.8°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=89.4 mph, LA=14.8°, Dist=281.0 ft, Hang=2.99s, Peak=27.1 ft, Contact: fair
+    Pitch: fastball 82.5 mph at zone (-0.5', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.99s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.00s] Ball retrieved by right_field in infield at 8.00s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.99s, arrival 5.02s (margin -2.03s) -> missed
+    🏃 Run scores!
+    Runners after play: Home Team C on second
+
+Home Team 1B batting against Visitors Pitcher 1 (Starter)
+  Situation: 2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.3 mph to (-0.39', 3.45') [0-0 → 0-0] put in play (contact: fair, EV 91.4 mph, LA 14.0°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=91.4 mph, LA=14.0°, Dist=278.1 ft, Hang=2.86s, Peak=25.2 ft, Contact: fair
+    Pitch: fastball 82.3 mph at zone (-0.4', 3.5')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.86s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 7.84s] Ball retrieved by right_field in infield at 7.84s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.86s, arrival 4.99s (margin -2.13s) -> missed
+    🏃 Run scores!
+    Runners after play: Home Team 1B on second
+
+Home Team 2B batting against Visitors Pitcher 1 (Starter)
+  Situation: 2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.4 mph to (-0.12', 3.08') [0-0 → 0-0] put in play (contact: weak, EV 60.3 mph, LA 16.8°)
+  ⚾ Fly out to infield
+    Physics: EV=60.3 mph, LA=16.8°, Dist=140.3 ft, Hang=1.91s, Peak=14.1 ft, Contact: weak
+    Pitch: fastball 82.4 mph at zone (-0.1', 3.1')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.33s] Caught by first_base at 102ft, 11.3ft high (catch)
+      [ 1.91s] Ball drops in infield, first_base couldn't reach it (ball_drops)
+    Fielding breakdown:
+      First Base: ball 1.91s, arrival 2.17s (margin -0.26s) -> missed
+
+Home Team 3B batting against Visitors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.5 mph to (0.25', 2.09') [0-0 → 0-1] swing and miss
+    #2: fastball 82.3 mph to (0.63', 3.53') [0-1 → 1-1] taken for ball
+    #3: fastball 82.5 mph to (-0.66', 2.20') [1-1 → 1-2] swing and miss
+    #4: fastball 82.2 mph to (-0.35', 3.84') [1-2 → 1-3] swing and miss
+  ⚾ STRIKEOUT! 2 out(s)
+
+Home Team SS batting against Visitors Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.3 mph to (-0.21', 3.40') [0-0 → 0-1] swing and miss
+    #2: fastball 82.3 mph to (0.08', 3.51') [0-1 → 1-1] taken for ball
+    #3: fastball 82.4 mph to (0.37', 2.83') [1-1 → 1-2] swing and miss
+    #4: fastball 82.4 mph to (0.46', 2.56') [1-2 → 1-3] swing and miss
+  ⚾ STRIKEOUT! 3 out(s)
+
+============================================================
+Top 2 | 0-2 | 0 out | Runners: empty
+============================================================
+
+Visitors LF batting against Home Team Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.9 mph to (-0.08', 3.03') [0-0 → 0-0] put in play (contact: weak, EV 78.2 mph, LA 13.8°)
+  ✓ SINGLE
+    Physics: EV=78.2 mph, LA=13.8°, Dist=198.6 ft, Hang=2.17s, Peak=16.7 ft, Contact: weak
+    Pitch: fastball 82.9 mph at zone (-0.1', 3.0')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.17s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 6.89s] Ball retrieved by right_field in infield at 6.89s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.17s, arrival 4.72s (margin -2.55s) -> missed
+    Runners after play: Visitors LF on first
+
+Visitors CF batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 83.0 mph to (0.14', 2.18') [0-0 → 0-0] put in play (contact: weak, EV 57.9 mph, LA 17.5°)
+  ⚾ Fly out to outfield
+    Physics: EV=57.9 mph, LA=17.5°, Dist=135.0 ft, Hang=1.91s, Peak=14.1 ft, Contact: weak
+    Pitch: fastball 83.0 mph at zone (0.1', 2.2')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.91s] Caught by first_base at infield (catch)
+    Fielding breakdown:
+      First Base: ball 1.91s, arrival 1.86s (margin +0.05s) -> made play
+
+Visitors RF batting against Home Team Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.8 mph to (0.07', 3.44') [0-0 → 0-1] swing and miss
+    #2: fastball 83.1 mph to (-0.48', 1.65') [0-1 → 0-1] put in play (contact: weak, EV 82.4 mph, LA 18.6°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=82.4 mph, LA=18.6°, Dist=275.8 ft, Hang=3.28s, Peak=33.3 ft, Contact: weak
+    Pitch: fastball 83.1 mph at zone (-0.5', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.28s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.24s] Ball retrieved by right_field in infield at 8.24s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.28s, arrival 4.96s (margin -1.69s) -> missed
+    🏃 Run scores!
+    Runners after play: Visitors RF on second
+
+Visitors DH batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 83.0 mph to (-0.30', 2.19') [0-0 → 0-0] put in play (contact: fair, EV 85.6 mph, LA 16.0°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=85.6 mph, LA=16.0°, Dist=262.9 ft, Hang=2.87s, Peak=26.5 ft, Contact: fair
+    Pitch: fastball 83.0 mph at zone (-0.3', 2.2')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.87s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 7.72s] Ball retrieved by right_field in infield at 7.72s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.87s, arrival 4.85s (margin -1.98s) -> missed
+    🏃 Run scores!
+    Runners after play: Visitors DH on second
+
+Visitors C batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 83.0 mph to (0.01', 2.32') [0-0 → 0-0] put in play (contact: weak, EV 82.2 mph, LA 14.7°)
+  ✓ SINGLE
+    Physics: EV=82.2 mph, LA=14.7°, Dist=244.4 ft, Hang=2.72s, Peak=22.9 ft, Contact: weak
+    Pitch: fastball 83.0 mph at zone (0.0', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.72s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 7.45s] Ball retrieved by right_field in infield at 7.45s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.72s, arrival 4.73s (margin -2.02s) -> missed
+    Runners after play: Visitors C on first, Visitors DH on third
+
+Visitors 1B batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st_3rd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 83.0 mph to (-0.35', 2.09') [0-0 → 0-1] fouled off (contact: weak, EV 55.6 mph, LA 12.3°)
+    #2: fastball 83.0 mph to (-0.05', 1.62') [0-1 → 0-2] fouled off (contact: weak, EV 58.3 mph, LA 14.6°)
+    #3: fastball 82.7 mph to (0.34', 4.07') [0-2 → 1-2] taken for ball
+    #4: fastball 82.9 mph to (-0.05', 2.71') [1-2 → 1-2] put in play (contact: weak, EV 57.6 mph, LA 13.4°)
+  ✓ SINGLE
+    Physics: EV=57.6 mph, LA=13.4°, Dist=116.5 ft, Hang=1.59s, Peak=9.9 ft, Contact: weak
+    Pitch: fastball 82.9 mph at zone (-0.1', 2.7')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 4.30s] Ground ball fielded by first_base (ground_ball_fielded)
+      [ 4.80s] Throw to first base at 82.0 mph (release 4.80s, flight 0.16s) (throw_to_first)
+      [ 4.96s] Runner safe at first base (runner 4.45s vs ball 4.96s) (play_at_first)
+
+Visitors 2B batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 83.0 mph to (0.18', 1.95') [0-0 → 0-1] fouled off (contact: weak, EV 65.1 mph, LA 18.1°)
+    #2: fastball 83.0 mph to (-0.20', 1.84') [0-1 → 0-2] swing and miss
+    #3: fastball 82.6 mph to (0.06', 4.30') [0-2 → 1-2] taken for ball
+    #4: fastball 83.1 mph to (-0.12', 1.25') [1-2 → 1-2] put in play (contact: weak, EV 68.8 mph, LA 11.2°)
+  ✓ SINGLE
+    Physics: EV=68.8 mph, LA=11.2°, Dist=133.1 ft, Hang=1.53s, Peak=9.6 ft, Contact: weak
+    Pitch: fastball 83.1 mph at zone (-0.1', 1.2')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 4.23s] Ground ball fielded by first_base (ground_ball_fielded)
+      [ 4.73s] Throw to first base at 82.0 mph (release 4.73s, flight 0.16s) (throw_to_first)
+      [ 4.89s] Runner safe at first base (runner 3.84s vs ball 4.89s) (play_at_first)
+
+Visitors 3B batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.7 mph to (-0.25', 3.66') [0-0 → 0-1] swing and miss
+    #2: fastball 82.7 mph to (-0.44', 3.38') [0-1 → 0-2] fouled off (contact: weak, EV 60.4 mph, LA 18.5°)
+    #3: fastball 83.0 mph to (0.07', 1.35') [0-2 → 1-2] taken for ball
+    #4: fastball 82.9 mph to (0.37', 2.01') [1-2 → 1-2] put in play (contact: weak, EV 77.9 mph, LA 21.7°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=77.9 mph, LA=21.7°, Dist=270.3 ft, Hang=3.49s, Peak=38.4 ft, Contact: weak
+    Pitch: fastball 82.9 mph at zone (0.4', 2.0')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.49s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.40s] Ball retrieved by right_field in infield at 8.40s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.49s, arrival 4.91s (margin -1.42s) -> missed
+    🏃 Run scores!
+    🏃 Run scores!
+    Runners after play: Visitors 3B on second
+
+Visitors SS batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.9 mph to (-0.15', 2.43') [0-0 → 0-1] fouled off (contact: weak, EV 70.0 mph, LA 13.9°)
+    #2: fastball 82.8 mph to (0.46', 2.76') [0-1 → 0-1] put in play (contact: weak, EV 83.1 mph, LA 17.3°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=83.1 mph, LA=17.3°, Dist=271.8 ft, Hang=3.15s, Peak=30.5 ft, Contact: weak
+    Pitch: fastball 82.8 mph at zone (0.5', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.15s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.08s] Ball retrieved by right_field in infield at 8.08s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.15s, arrival 4.93s (margin -1.77s) -> missed
+    🏃 Run scores!
+    Runners after play: Visitors SS on second
+
+Visitors LF batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.8 mph to (0.32', 3.08') [0-0 → 0-1] taken for strike
+    #2: fastball 82.9 mph to (-0.13', 2.25') [0-1 → 0-2] taken for strike
+    #3: fastball 82.9 mph to (0.25', 2.40') [0-2 → 0-2] put in play (contact: weak, EV 76.7 mph, LA 14.3°)
+  ✓ SINGLE
+    Physics: EV=76.7 mph, LA=14.3°, Dist=197.3 ft, Hang=2.21s, Peak=17.1 ft, Contact: weak
+    Pitch: fastball 82.9 mph at zone (0.3', 2.4')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.21s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 6.93s] Ball retrieved by right_field in infield at 6.93s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.21s, arrival 4.73s (margin -2.52s) -> missed
+    Runners after play: Visitors LF on first, Visitors SS on third
+
+Visitors CF batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st_3rd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.7 mph to (-0.13', 3.23') [0-0 → 0-0] put in play (contact: weak, EV 57.4 mph, LA 21.8°)
+  ⚾ Fly out to infield
+    Physics: EV=57.4 mph, LA=21.8°, Dist=155.9 ft, Hang=2.37s, Peak=20.2 ft, Contact: weak
+    Pitch: fastball 82.7 mph at zone (-0.1', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.97s] Caught by first_base at 133ft, 10.6ft high (catch)
+      [ 2.37s] Ball drops in infield, first_base couldn't reach it (ball_drops)
+    Fielding breakdown:
+      First Base: ball 2.37s, arrival 2.60s (margin -0.23s) -> missed
+
+Visitors RF batting against Home Team Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 83.0 mph to (0.23', 1.43') [0-0 → 1-0] taken for ball
+    #2: fastball 82.8 mph to (-0.15', 2.53') [1-0 → 1-1] taken for strike
+    #3: fastball 82.8 mph to (0.49', 2.57') [1-1 → 1-2] fouled off (contact: weak, EV 72.8 mph, LA 21.7°)
+    #4: fastball 82.8 mph to (-0.35', 2.75') [1-2 → 1-2] put in play (contact: weak, EV 59.6 mph, LA 18.9°)
+  ⚾ Fly out to infield
+    Physics: EV=59.6 mph, LA=18.9°, Dist=151.9 ft, Hang=2.15s, Peak=17.1 ft, Contact: weak
+    Pitch: fastball 82.8 mph at zone (-0.4', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.65s] Caught by first_base at 120ft, 11.6ft high (catch)
+      [ 2.15s] Ball drops in infield, first_base couldn't reach it (ball_drops)
+    Fielding breakdown:
+      First Base: ball 2.15s, arrival 2.49s (margin -0.34s) -> missed
+
+============================================================
+Bot 2 | 5-2 | 0 out | Runners: empty
+============================================================
+
+Home Team LF batting against Visitors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.3 mph to (0.58', 3.22') [0-0 → 0-0] put in play (contact: fair, EV 83.9 mph, LA 18.9°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=83.9 mph, LA=18.9°, Dist=287.3 ft, Hang=3.41s, Peak=35.7 ft, Contact: fair
+    Pitch: fastball 82.3 mph at zone (0.6', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.41s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.50s] Ball retrieved by right_field in infield at 8.50s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.41s, arrival 5.09s (margin -1.68s) -> missed
+    🏃 Run scores!
+    Runners after play: Home Team LF on second
+
+Home Team CF batting against Visitors Pitcher 1 (Starter)
+  Situation: 2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.4 mph to (0.02', 2.68') [0-0 → 0-0] put in play (contact: weak, EV 66.2 mph, LA 22.0°)
+  ✓ SINGLE
+    Physics: EV=66.2 mph, LA=22.0°, Dist=205.7 ft, Hang=2.90s, Peak=27.9 ft, Contact: weak
+    Pitch: fastball 82.4 mph at zone (0.0', 2.7')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.90s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 7.59s] Ball retrieved by right_field in infield at 7.59s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.90s, arrival 4.70s (margin -1.80s) -> missed
+    Runners after play: Home Team CF on first, Home Team LF on third
+
+Home Team RF batting against Visitors Pitcher 1 (Starter)
+  Situation: 1st_3rd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.3 mph to (0.11', 3.30') [0-0 → 0-0] put in play (contact: weak, EV 56.0 mph, LA 12.3°)
+  ⚾ Ground out to infield
+    Physics: EV=56.0 mph, LA=12.3°, Dist=97.3 ft, Hang=1.33s, Peak=8.0 ft, Contact: weak
+    Pitch: fastball 82.3 mph at zone (0.1', 3.3')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 4.04s] Ground ball fielded by first_base (ground_ball_fielded)
+      [ 4.54s] Throw to first base at 82.0 mph (release 4.54s, flight 0.16s) (throw_to_first)
+      [ 5.18s] Runner out at first base (runner 5.18s vs ball 4.69s) (play_at_first)
+
+Home Team DH batting against Visitors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.6 mph to (-0.33', 1.25') [0-0 → 1-0] taken for ball
+    #2: fastball 82.4 mph to (0.36', 2.38') [1-0 → 1-1] swing and miss
+    #3: fastball 82.5 mph to (0.44', 1.71') [1-1 → 1-2] taken for strike
+    #4: fastball 82.4 mph to (-0.20', 2.20') [1-2 → 1-3] swing and miss
+  ⚾ STRIKEOUT! 2 out(s)
+
+Home Team C batting against Visitors Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.5 mph to (-0.05', 1.62') [0-0 → 0-1] fouled off (contact: weak, EV 59.5 mph, LA 12.7°)
+    #2: fastball 82.4 mph to (0.31', 2.09') [0-1 → 0-1] put in play (contact: weak, EV 75.2 mph, LA 17.8°)
+  ✓ SINGLE
+    Physics: EV=75.2 mph, LA=17.8°, Dist=232.9 ft, Hang=2.86s, Peak=26.0 ft, Contact: weak
+    Pitch: fastball 82.4 mph at zone (0.3', 2.1')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.86s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 7.56s] Ball retrieved by right_field in infield at 7.56s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.86s, arrival 4.69s (margin -1.83s) -> missed
+    Runners after play: Home Team C on first
+
+Home Team 1B batting against Visitors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.5 mph to (0.13', 1.74') [0-0 → 0-1] taken for strike
+    #2: fastball 82.4 mph to (0.08', 2.45') [0-1 → 0-1] put in play (contact: fair, EV 88.1 mph, LA 16.4°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=88.1 mph, LA=16.4°, Dist=292.7 ft, Hang=3.25s, Peak=31.7 ft, Contact: fair
+    Pitch: fastball 82.4 mph at zone (0.1', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.25s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.41s] Ball retrieved by right_field in infield at 8.41s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.25s, arrival 5.15s (margin -1.90s) -> missed
+    🏃 Run scores!
+    🏃 Run scores!
+    Runners after play: Home Team 1B on second
+
+Home Team 2B batting against Visitors Pitcher 1 (Starter)
+  Situation: 2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.4 mph to (-0.05', 2.42') [0-0 → 0-1] swing and miss
+    #2: fastball 82.4 mph to (-0.84', 1.87') [0-1 → 0-2] swing and miss
+    #3: fastball 82.4 mph to (0.04', 2.47') [0-2 → 0-2] put in play (contact: fair, EV 88.3 mph, LA 16.7°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=88.3 mph, LA=16.7°, Dist=284.3 ft, Hang=3.10s, Peak=30.4 ft, Contact: fair
+    Pitch: fastball 82.4 mph at zone (0.0', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.10s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.16s] Ball retrieved by right_field in infield at 8.16s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.10s, arrival 5.05s (margin -1.95s) -> missed
+    🏃 Run scores!
+    Runners after play: Home Team 2B on second
+
+Home Team 3B batting against Visitors Pitcher 1 (Starter)
+  Situation: 2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.4 mph to (-0.19', 2.40') [0-0 → 0-1] swing and miss
+    #2: fastball 82.5 mph to (-0.20', 1.70') [0-1 → 0-1] put in play (contact: weak, EV 57.7 mph, LA 12.5°)
+  ✓ SINGLE
+    Physics: EV=57.7 mph, LA=12.5°, Dist=106.0 ft, Hang=1.42s, Peak=8.7 ft, Contact: weak
+    Pitch: fastball 82.5 mph at zone (-0.2', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 4.13s] Ground ball fielded by first_base (ground_ball_fielded)
+      [ 4.63s] Throw to first base at 82.0 mph (release 4.63s, flight 0.16s) (throw_to_first)
+      [ 4.78s] Runner safe at first base (runner 4.45s vs ball 4.78s) (play_at_first)
+
+Home Team SS batting against Visitors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.2 mph to (0.11', 3.14') [0-0 → 0-1] swing and miss
+    #2: fastball 82.3 mph to (-0.46', 2.65') [0-1 → 0-1] put in play (contact: weak, EV 57.4 mph, LA 16.0°)
+  ⚾ Fly out to infield
+    Physics: EV=57.4 mph, LA=16.0°, Dist=126.5 ft, Hang=1.78s, Peak=12.3 ft, Contact: weak
+    Pitch: fastball 82.3 mph at zone (-0.5', 2.6')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.01s] Caught by first_base at 75ft, 11.8ft high (catch)
+      [ 1.78s] Ball drops in infield, first_base couldn't reach it (ball_drops)
+    Fielding breakdown:
+      First Base: ball 1.78s, arrival 1.79s (margin -0.01s) -> missed
+
+============================================================
+Top 3 | 5-6 | 0 out | Runners: empty
+============================================================
+
+Visitors DH batting against Home Team Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.7 mph to (0.30', 3.52') [0-0 → 1-0] taken for ball
+    #2: fastball 82.7 mph to (-0.16', 3.21') [1-0 → 1-1] taken for strike
+    #3: fastball 82.9 mph to (0.53', 1.74') [1-1 → 1-1] put in play (contact: fair, EV 93.0 mph, LA 16.4°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=93.0 mph, LA=16.4°, Dist=312.4 ft, Hang=3.35s, Peak=34.1 ft, Contact: fair
+    Pitch: fastball 82.9 mph at zone (0.5', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.35s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.77s] Ball retrieved by right_field in infield at 8.77s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.35s, arrival 5.43s (margin -2.08s) -> missed
+    🏃 Run scores!
+    Runners after play: Visitors DH on second
+
+Visitors C batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.9 mph to (-0.58', 1.88') [0-0 → 0-1] swing and miss
+    #2: fastball 82.8 mph to (0.70', 2.39') [0-1 → 0-2] swing and miss
+    #3: fastball 82.8 mph to (0.74', 2.72') [0-2 → 1-2] taken for ball
+    #4: fastball 82.9 mph to (-0.33', 1.89') [1-2 → 1-2] fouled off (contact: weak, EV 71.6 mph, LA 10.6°)
+    #5: fastball 82.8 mph to (0.32', 2.12') [1-2 → 1-2] put in play (contact: weak, EV 70.6 mph, LA 10.2°)
+  ✓ SINGLE
+    Physics: EV=70.6 mph, LA=10.2°, Dist=132.3 ft, Hang=1.47s, Peak=8.9 ft, Contact: weak
+    Pitch: fastball 82.8 mph at zone (0.3', 2.1')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 4.18s] Ground ball fielded by first_base (ground_ball_fielded)
+      [ 4.68s] Throw to first base at 82.0 mph (release 4.68s, flight 0.16s) (throw_to_first)
+      [ 4.84s] Runner safe at first base (runner 4.45s vs ball 4.84s) (play_at_first)
+
+Visitors 1B batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.7 mph to (0.57', 3.04') [0-0 → 0-1] swing and miss
+    #2: fastball 82.8 mph to (-0.75', 2.13') [0-1 → 1-1] taken for ball
+    #3: fastball 82.8 mph to (-0.18', 2.47') [1-1 → 1-2] swing and miss
+    #4: fastball 82.8 mph to (0.13', 2.49') [1-2 → 1-3] swing and miss
+  ⚾ STRIKEOUT! 1 out(s)
+
+Visitors 2B batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.9 mph to (0.13', 1.74') [0-0 → 0-0] put in play (contact: fair, EV 86.1 mph, LA 13.3°)
+  ✓ SINGLE
+    Physics: EV=86.1 mph, LA=13.3°, Dist=237.0 ft, Hang=2.45s, Peak=19.7 ft, Contact: fair
+    Pitch: fastball 82.9 mph at zone (0.1', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.45s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 7.15s] Ball retrieved by right_field in infield at 7.15s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.45s, arrival 4.70s (margin -2.25s) -> missed
+    Runners after play: Visitors 2B on first
+
+Visitors 3B batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.9 mph to (0.39', 1.63') [0-0 → 0-1] fouled off (contact: weak, EV 60.9 mph, LA 16.4°)
+    #2: fastball 82.7 mph to (0.11', 2.51') [0-1 → 0-2] taken for strike
+    #3: fastball 82.8 mph to (-0.09', 2.41') [0-2 → 0-2] put in play (contact: weak, EV 81.0 mph, LA 19.2°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=81.0 mph, LA=19.2°, Dist=266.6 ft, Hang=3.19s, Peak=32.5 ft, Contact: weak
+    Pitch: fastball 82.8 mph at zone (-0.1', 2.4')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.19s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.07s] Ball retrieved by right_field in infield at 8.07s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.19s, arrival 4.88s (margin -1.69s) -> missed
+    🏃 Run scores!
+    🏃 Run scores!
+    Runners after play: Visitors 3B on second
+
+Visitors SS batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.8 mph to (0.11', 2.33') [0-0 → 0-0] put in play (contact: fair, EV 88.1 mph, LA 13.1°)
+  ✓ SINGLE
+    Physics: EV=88.1 mph, LA=13.1°, Dist=241.3 ft, Hang=2.44s, Peak=19.7 ft, Contact: fair
+    Pitch: fastball 82.8 mph at zone (0.1', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 2.44s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 7.16s] Ball retrieved by right_field in infield at 7.16s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 2.44s, arrival 4.72s (margin -2.28s) -> missed
+    Runners after play: Visitors SS on first, Visitors 3B on third
+
+Visitors LF batting against Home Team Pitcher 1 (Starter)
+  Situation: 1st_3rd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.9 mph to (0.45', 1.64') [0-0 → 0-0] put in play (contact: fair, EV 91.7 mph, LA 18.1°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=91.7 mph, LA=18.1°, Dist=330.6 ft, Hang=3.77s, Peak=41.8 ft, Contact: fair
+    Pitch: fastball 82.9 mph at zone (0.5', 1.6')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.77s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 9.49s] Ball retrieved by right_field in infield at 9.49s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.77s, arrival 5.72s (margin -1.94s) -> missed
+    🏃 Run scores!
+    🏃 Run scores!
+    🏃 Run scores!
+    Runners after play: Visitors LF on second
+
+Visitors CF batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.8 mph to (0.12', 2.08') [0-0 → 0-1] swing and miss
+    #2: fastball 82.7 mph to (0.18', 2.47') [0-1 → 0-2] swing and miss
+    #3: fastball 82.9 mph to (0.02', 1.05') [0-2 → 1-2] taken for ball
+    #4: fastball 82.7 mph to (0.49', 2.60') [1-2 → 1-2] put in play (contact: fair, EV 88.5 mph, LA 18.0°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=88.5 mph, LA=18.0°, Dist=305.2 ft, Hang=3.47s, Peak=36.7 ft, Contact: fair
+    Pitch: fastball 82.7 mph at zone (0.5', 2.6')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.47s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.79s] Ball retrieved by right_field in infield at 8.79s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.47s, arrival 5.32s (margin -1.85s) -> missed
+    🏃 Run scores!
+    Runners after play: Visitors CF on second
+
+Visitors RF batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.5 mph to (-0.39', 3.68') [0-0 → 1-0] taken for ball
+    #2: fastball 82.7 mph to (0.01', 2.81') [1-0 → 1-1] taken for strike
+    #3: fastball 82.6 mph to (0.20', 3.32') [1-1 → 1-2] taken for strike
+    #4: fastball 82.7 mph to (0.15', 2.32') [1-2 → 1-3] taken for strike
+  ⚾ STRIKEOUT! 2 out(s)
+
+Visitors DH batting against Home Team Pitcher 1 (Starter)
+  Situation: 2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.8 mph to (-0.04', 1.59') [0-0 → 0-1] fouled off (contact: weak, EV 65.7 mph, LA 21.8°)
+    #2: fastball 82.8 mph to (0.06', 1.36') [0-1 → 0-2] fouled off (contact: weak, EV 57.5 mph, LA 12.1°)
+    #3: fastball 82.7 mph to (0.04', 2.29') [0-2 → 0-3] swing and miss
+  ⚾ STRIKEOUT! 3 out(s)
+
+============================================================
+Bot 3 | 12-6 | 0 out | Runners: empty
+============================================================
+
+Home Team LF batting against Visitors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 82.4 mph to (0.61', 2.25') [0-0 → 0-1] swing and miss
+    #2: fastball 82.3 mph to (-0.24', 2.44') [0-1 → 0-2] swing and miss
+    #3: fastball 82.5 mph to (0.18', 1.40') [0-2 → 1-2] taken for ball
+    #4: fastball 82.3 mph to (0.11', 2.38') [1-2 → 1-2] put in play (contact: weak, EV 58.0 mph, LA 21.1°)
+  ⚾ Fly out to infield
+    Physics: EV=58.0 mph, LA=21.1°, Dist=156.0 ft, Hang=2.33s, Peak=19.6 ft, Contact: weak
+    Pitch: fastball 82.3 mph at zone (0.1', 2.4')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.86s] Caught by first_base at 128ft, 11.9ft high (catch)
+      [ 2.33s] Ball drops in infield, first_base couldn't reach it (ball_drops)
+    Fielding breakdown:
+      First Base: ball 2.33s, arrival 2.60s (margin -0.27s) -> missed
+
+Home Team CF batting against Visitors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.2 mph to (-0.09', 3.21') [0-0 → 0-1] swing and miss
+    #2: fastball 82.3 mph to (0.04', 2.43') [0-1 → 0-2] fouled off (contact: weak, EV 61.6 mph, LA 18.9°)
+    #3: fastball 82.2 mph to (0.18', 2.84') [0-2 → 0-2] put in play (contact: fair, EV 94.5 mph, LA 18.2°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=94.5 mph, LA=18.2°, Dist=344.9 ft, Hang=3.88s, Peak=44.3 ft, Contact: fair
+    Pitch: fastball 82.2 mph at zone (0.2', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.88s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 9.85s] Ball retrieved by right_field in infield at 9.85s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.88s, arrival 5.97s (margin -2.08s) -> missed
+    🏃 Run scores!
+    Runners after play: Home Team CF on second
+
+Home Team RF batting against Visitors Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 82.3 mph to (-0.00', 2.07') [0-0 → 0-1] taken for strike
+    #2: fastball 82.4 mph to (-0.27', 1.96') [0-1 → 0-2] swing and miss
+    #3: fastball 82.3 mph to (0.42', 2.27') [0-2 → 0-3] swing and miss
+  ⚾ STRIKEOUT! 2 out(s)
+
+Home Team DH batting against Visitors Pitcher 1 (Starter)
+  Situation: 2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.1 mph to (0.19', 3.38') [0-0 → 0-1] fouled off (contact: weak, EV 61.3 mph, LA 16.9°)
+    #2: fastball 82.3 mph to (0.07', 2.04') [0-1 → 0-1] put in play (contact: fair, EV 92.1 mph, LA 16.2°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=92.1 mph, LA=16.2°, Dist=316.9 ft, Hang=3.47s, Peak=35.1 ft, Contact: fair
+    Pitch: fastball 82.3 mph at zone (0.1', 2.0')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 3.47s] Ball drops in infield, right_field couldn't reach it (ball_drops)
+      [ 8.96s] Ball retrieved by right_field in infield at 8.96s (ball_retrieved)
+    Fielding breakdown:
+      Right Field: ball 3.47s, arrival 5.49s (margin -2.02s) -> missed
+    🏃 Run scores!
+    Runners after play: Home Team DH on second
+
+Home Team C batting against Visitors Pitcher 1 (Starter)
+  Situation: 2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 82.2 mph to (-0.05', 3.20') [0-0 → 0-0] put in play (contact: weak, EV 60.7 mph, LA 15.5°)
+  ⚾ Fly out to infield
+    Physics: EV=60.7 mph, LA=15.5°, Dist=137.4 ft, Hang=1.84s, Peak=12.9 ft, Contact: weak
+    Pitch: fastball 82.2 mph at zone (-0.1', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 1.16s] Caught by first_base at 91ft, 11.6ft high (catch)
+      [ 1.84s] Ball drops in infield, first_base couldn't reach it (ball_drops)
+    Fielding breakdown:
+      First Base: ball 1.84s, arrival 2.09s (margin -0.25s) -> missed
+
+================================================================================
+FINAL SCORE
+================================================================================
+Visitors: 12
+Home Team: 8
+
+Game Statistics:
+  Total Pitches: 113
+  Total Hits: 27
+  Home Runs: 0
+================================================================================
+
+
+================================================================================
+DETAILED GAME SUMMARY
+================================================================================
+Final Score: Visitors 12 - 8 Home Team
+Innings Played: 4
+Total Pitches: 113
+Total Hits: 27
+Home Runs: 0
+
+PLAY-BY-PLAY HIGHLIGHTS:
+----------------------------------------
+
+PHYSICS SUMMARY:
+----------------------------------------
+Average Exit Velocity: 75.1 mph
+Max Exit Velocity: 94.5 mph
+Average Hit Distance: 214.1 ft
+Longest Hit: 344.9 ft
+
+================================================================================

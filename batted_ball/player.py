@@ -404,14 +404,14 @@ class Hitter:
         tuple
             (horizontal_offset_inches, vertical_offset_inches) from sweet spot
         """
-        # Higher barrel accuracy = smaller offsets
-        # 20 = 3" max offset, 50 = 1.5" max offset, 80 = 0.5" max offset, 100 = 0.2" max offset
-        max_offset = 3.0 - (self.barrel_accuracy - 20) * 0.035
-        max_offset = max(max_offset, 0.2)
+        # Higher barrel accuracy = smaller offsets (adjusted for realism)
+        # 20 = 1.5" max offset, 50 = 0.8" max offset, 75 = 0.4" max offset, 100 = 0.15" max offset
+        max_offset = 1.5 - (self.barrel_accuracy - 20) * 0.017
+        max_offset = max(max_offset, 0.15)
 
         # Add random error based on bat control - more variance for worse control
         control_factor = self.bat_control / 100.0
-        error_std = max_offset * (1.0 - control_factor * 0.5)  # Less control reduction
+        error_std = max_offset * (1.0 - control_factor * 0.3)  # Reduced control impact
 
         horizontal_offset = np.random.normal(0, error_std)
         vertical_offset = np.random.normal(0, error_std)
@@ -451,8 +451,14 @@ class Hitter:
 
         # Base swing probability based on strike zone
         if is_strike:
-            # MLB average: ~75% swing rate on pitches in zone
-            base_swing_prob = 0.75
+            # MLB average: ~75% swing rate on pitches in zone, varies by location
+            # Center of zone: higher swing rate, edges: lower swing rate
+            h_distance_from_center = abs(pitch_location[0]) / 8.5  # Normalized
+            v_distance_from_center = abs(pitch_location[1] - 30.0) / 12.0  # Normalized
+            zone_difficulty = (h_distance_from_center + v_distance_from_center) / 2.0
+            
+            # Swing rate varies from 85% (center) to 65% (edges)
+            base_swing_prob = 0.85 - zone_difficulty * 0.20
         else:
             # Distance from zone affects chase probability
             # Strike zone boundaries: ±8.5" horizontal, 18"-42" vertical
@@ -462,8 +468,11 @@ class Hitter:
             distance_from_zone = np.sqrt(h_dist**2 + (v_dist_top + v_dist_bottom)**2)
 
             # Further from zone = less likely to swing
-            # MLB average chase rate: ~30% on pitches just outside
-            base_swing_prob = 0.30 * np.exp(-distance_from_zone / 6.0)
+            # MLB chase rates: ~35% just outside, ~10% way outside
+            if distance_from_zone < 3.0:
+                base_swing_prob = 0.35 * np.exp(-distance_from_zone / 4.0)
+            else:
+                base_swing_prob = 0.10 * np.exp(-distance_from_zone / 8.0)
 
         # Adjust for zone discipline (higher = more selective)
         discipline_factor = self.zone_discipline / 100.0
@@ -529,10 +538,10 @@ class Hitter:
         # Faster pitches are harder to time
         velocity_difficulty = (pitch_velocity - 80) / 20.0  # Normalized difficulty
 
-        # Higher precision = less error
-        # 20 = 15 ms error, 50 = 8 ms error, 80 = 3 ms error, 100 = 1 ms error
-        max_error_ms = 15.0 - (self.swing_timing_precision - 20) * 0.175
-        max_error_ms = max(max_error_ms, 1.0)
+        # Higher precision = less error (more realistic timing windows)
+        # 20 = 8 ms error, 50 = 5 ms error, 80 = 2 ms error, 100 = 0.5 ms error
+        max_error_ms = 8.0 - (self.swing_timing_precision - 20) * 0.09
+        max_error_ms = max(max_error_ms, 0.5)
 
         # Adjust for velocity difficulty
         adjusted_error = max_error_ms * (1.0 + velocity_difficulty * 0.3)

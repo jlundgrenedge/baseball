@@ -216,6 +216,50 @@ BASE_BACKSPIN_FROM_COMPRESSION = 800.0  # rpm from ball compression (always pres
 BENCHMARK_EXIT_VELOCITY = 100.0  # mph
 BENCHMARK_LAUNCH_ANGLE = 28.0    # degrees
 BENCHMARK_BACKSPIN = 1800.0      # rpm
+
+# ============================================================================
+# ADVANCED COLLISION PHYSICS CONSTANTS (Research-Based)
+# ============================================================================
+
+# Collision Efficiency (q) - Master formula parameter
+# BBS = q * v_pitch + (1 + q) * v_bat
+COLLISION_EFFICIENCY_WOOD = 0.20        # Wood bats (maple, ash, birch)
+COLLISION_EFFICIENCY_ALUMINUM = 0.24    # Aluminum bats (BBCOR regulated ~0.22)
+COLLISION_EFFICIENCY_COMPOSITE = 0.25   # Composite bats (BBCOR regulated ~0.23)
+
+# Sweet Spot Physics
+SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone
+SWEET_SPOT_CENTER_FROM_TIP = 6.0         # Distance from bat tip to sweet spot center
+VIBRATIONAL_NODE_1_FROM_TIP = 5.5        # First vibrational node location
+VIBRATIONAL_NODE_2_FROM_TIP = 6.5        # Second vibrational node location
+CENTER_OF_PERCUSSION_FROM_TIP = 6.2      # Center of percussion location
+
+# Energy Loss Mechanisms
+VIBRATION_ENERGY_LOSS_MAX = 0.10         # Max energy lost to bat vibrations (10%)
+VIBRATION_ENERGY_LOSS_RATE = 0.015       # Energy loss per inch from sweet spot
+BALL_DEFORMATION_ENERGY_LOSS = 0.70      # Energy lost in ball deformation (~70%)
+TRAMPOLINE_ENERGY_RECOVERY = 0.95        # Energy recovery from bat barrel flex
+
+# Contact Offset Effects (Research-Based)
+OFFSET_EFFICIENCY_DEGRADATION = 0.04     # Efficiency loss per inch of offset (reduced from 0.08)
+HORIZONTAL_OFFSET_SPIN_FACTOR = 400.0    # rpm per inch of horizontal offset
+VERTICAL_OFFSET_SPIN_FACTOR = 500.0      # rpm per inch of vertical offset
+SPIN_INDEPENDENCE_FACTOR = 0.95          # How much bat overwrites pitch spin
+
+# Material-Specific Properties
+WOOD_ENERGY_STORAGE_RATIO = 0.02         # Wood stores only 2% of deformation energy
+METAL_ENERGY_STORAGE_RATIO = 0.12        # Metal stores ~12% of deformation energy
+COMPOSITE_ENERGY_STORAGE_RATIO = 0.15    # Composite stores ~15% of deformation energy
+
+# Contact Force and Time
+CONTACT_TIME_MS = 0.7                     # Contact duration in milliseconds
+PEAK_FORCE_FACTOR = 2.0                  # Peak force is 2x average force
+FORCE_TIME_PROFILE = 'sine_squared'      # Force follows sine-squared profile
+
+# Bat Speed vs Pitch Speed Importance
+BAT_SPEED_MULTIPLIER = 6.0               # Bat speed is 6x more important than pitch speed
+PITCH_SPEED_DISTANCE_FACTOR = 1.0        # Feet added per mph of pitch speed
+BAT_SPEED_DISTANCE_FACTOR = 5.0          # Feet added per mph of bat speed
 BENCHMARK_DISTANCE_SEA_LEVEL = 395.0  # feet (expected result)
 BENCHMARK_TOLERANCE = 10.0       # feet (acceptable error)
 
@@ -552,6 +596,83 @@ THROWING_ACCURACY_TERRIBLE = 8.0   # ±8.0° - wild throws
 FIELDING_RANGE_ELITE = 1.25    # 25% larger effective range
 FIELDING_RANGE_AVG = 1.00      # Standard range
 FIELDING_RANGE_POOR = 0.80     # 20% smaller effective range
+
+# ============================================================================
+# RESEARCH-BASED FIELDING PHYSICS ENHANCEMENTS
+# ============================================================================
+
+# Speed-Dependent Drag Coefficients (Research Finding)
+# Dramatic drag reduction at high speeds due to boundary layer transition
+DRAG_COEFFICIENT_LOW_SPEED = 0.52     # Below 31 m/s (~70 mph) - laminar flow
+DRAG_COEFFICIENT_HIGH_SPEED = 0.22     # Above 42 m/s (~94 mph) - turbulent flow
+DRAG_TRANSITION_SPEED_LOW = 31.0       # m/s - start of transition
+DRAG_TRANSITION_SPEED_HIGH = 42.0      # m/s - end of transition
+
+# Statcast-Calibrated Fielder Attributes
+# Based on actual MLB Statcast data from research
+FIELDER_SPRINT_SPEED_STATCAST_MIN = 26.5    # ft/s - Slow 1B archetype
+FIELDER_SPRINT_SPEED_STATCAST_AVG = 28.5    # ft/s - Average MLB SS
+FIELDER_SPRINT_SPEED_STATCAST_ELITE = 30.0  # ft/s - Elite Gold Glove CF
+FIELDER_SPRINT_SPEED_STATCAST_MAX = 31.0    # ft/s - Absolute fastest
+
+# Acceleration Time to Max Speed (Statcast metric)
+FIELDER_ACCELERATION_TIME_ELITE = 3.50  # seconds - Elite acceleration
+FIELDER_ACCELERATION_TIME_AVG = 3.80    # seconds - Average MLB
+FIELDER_ACCELERATION_TIME_POOR = 4.20   # seconds - Poor acceleration
+FIELDER_ACCELERATION_TIME_MAX = 4.50    # seconds - Very poor
+
+# First Step Time (Statcast metric)
+FIELDER_FIRST_STEP_TIME_ELITE = 0.30   # s - Elite reaction
+FIELDER_FIRST_STEP_TIME_AVG = 0.37     # s - Average MLB fielder
+FIELDER_FIRST_STEP_TIME_POOR = 0.45    # s - Poor reaction
+FIELDER_FIRST_STEP_TIME_MAX = 0.55     # s - Very poor reaction
+
+# Route Efficiency (Statcast metric)
+ROUTE_EFFICIENCY_ELITE = 98.0     # % - Elite route running
+ROUTE_EFFICIENCY_AVG = 94.7       # % - Average MLB
+ROUTE_EFFICIENCY_POOR = 92.0      # % - Poor route running
+ROUTE_EFFICIENCY_MIN = 88.0       # % - Very poor
+
+# Directional Movement Penalties (Research-Based)
+# Fielders are effectively 1 ft/s slower running backward
+FORWARD_MOVEMENT_PENALTY = 1.00    # 100% speed (0° ± 45°)
+LATERAL_MOVEMENT_PENALTY = 0.90     # 90% speed (90° ± 45°)
+BACKWARD_MOVEMENT_PENALTY = 0.75    # 75% speed (180° ± 45°)
+
+# Catch Probability Model Constants (Statcast-Based)
+CATCH_PROB_BASE = 0.95              # Base catch probability for easy plays
+CATCH_PROB_DISTANCE_PENALTY = 0.10  # Penalty per 10 feet of distance
+CATCH_PROB_TIME_BONUS = 0.20        # Bonus per second of opportunity time
+CATCH_PROB_BACKWARD_PENALTY = 0.15  # Additional penalty for backward movement
+CATCH_PROB_MIN = 0.05               # Minimum catch probability
+
+# Optical Acceleration Cancellation Constants
+OAC_CONTROL_GAIN = 2.0              # Control gain for OAC algorithm
+OAC_ANGULAR_THRESHOLD = 0.001       # Threshold for optical acceleration (rad/s²)
+OAC_MAX_ACCELERATION = 8.0          # Maximum fielder acceleration (ft/s²)
+
+# Advanced AI Pursuit Strategy Constants
+TRAJECTORY_PREDICTION_SAMPLES = 20   # Number of future trajectory points to analyze
+PURSUIT_PREDICTION_TIME = 0.5        # Seconds ahead to predict ball position
+INTERCEPT_CONVERGENCE_TOLERANCE = 2.0 # Distance tolerance for intercept calculation (ft)
+DYNAMIC_POSITIONING_THRESHOLD = 1.0   # Minimum time to initiate repositioning (s)
+
+# Fielder Intelligence Constants
+ANTICIPATION_BONUS_TIME = 0.3         # Time bonus for good anticipation (s)
+ROUTE_OPTIMIZATION_SAMPLES = 10       # Number of route options to evaluate
+PURSUIT_ANGLE_PREFERENCE = 15.0       # Preferred angle for ball approach (degrees)
+MAX_PURSUIT_DISTANCE = 120.0          # Maximum distance to attempt pursuit (ft)
+
+# Ball Trajectory Intelligence
+MINIMUM_HANG_TIME_FOR_PURSUIT = 1.5   # Minimum flight time to enable advanced pursuit (s)
+TRAJECTORY_UPDATE_FREQUENCY = 0.1     # How often to recalculate pursuit target (s)
+VELOCITY_PREDICTION_WEIGHT = 0.7      # Weight for velocity-based vs position-based prediction
+
+# Positioning Strategy Constants
+OUTFIELD_DEPTH_ADJUSTMENT_FAST = 20.0 # Depth adjustment for fast runners (ft)
+OUTFIELD_DEPTH_ADJUSTMENT_POWER = 15.0 # Depth adjustment for power hitters (ft)
+DEFENSIVE_SHIFT_THRESHOLD = 0.6       # Pull tendency threshold for shifting
+GAP_COVERAGE_PRIORITY = 1.2           # Multiplier for gap coverage importance
 
 # ============================================================================
 # BASERUNNING ATTRIBUTES AND PHYSICS
