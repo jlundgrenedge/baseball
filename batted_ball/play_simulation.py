@@ -6,6 +6,7 @@ to simulate complete plays from bat contact to final outcomes with realistic
 timing and decision-making.
 """
 
+import math
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Union
 from enum import Enum
@@ -14,9 +15,11 @@ from .constants import (
     HOME_PLATE_HEIGHT,
     # Physics constants
     FEET_TO_METERS, METERS_TO_FEET, MPH_TO_MS,
+    GRAVITY,
     # Play timing
     CLOSE_PLAY_TOLERANCE, SAFE_RUNNER_BIAS,
     TAG_APPLICATION_TIME, TAG_AVOIDANCE_SUCCESS_RATE,
+    GROUND_BALL_AIR_RESISTANCE,
 )
 from .field_layout import FieldLayout, FieldPosition
 from .fielding import Fielder, FieldingSimulator, FieldingResult, ThrowResult
@@ -367,9 +370,7 @@ class PlaySimulator:
 
             for position_name, fielder in self.fielding_simulator.fielders.items():
                 # Calculate if this fielder can reach the position by time t
-                fielder_time_needed = fielder.calculate_time_to_position(ball_pos_t)
-                range_multiplier = fielder.get_effective_range_multiplier()
-                effective_time = fielder_time_needed / range_multiplier
+                effective_time = fielder.calculate_effective_time_to_position(ball_pos_t)
 
                 # Time margin = how early the fielder arrives (positive = early, negative = late)
                 time_margin = t - effective_time
@@ -495,7 +496,7 @@ class PlaySimulator:
             position_name = fielder.position
 
         # Calculate time for fielder to reach ball, field it, and throw to first
-        fielder_reach_time = fielder.calculate_time_to_position(ball_position)
+        fielder_reach_time = fielder.calculate_effective_time_to_position(ball_position)
         fielding_time = 0.3 + (fielder.fielding_range / 100.0) * 0.2  # 0.3-0.5s based on skill
 
         # Calculate throw time to first base
@@ -678,12 +679,13 @@ class PlaySimulator:
         fielder = self.fielding_simulator.fielders[responsible_position]
 
         # Time for fielder to reach ball and prepare throw
-        retrieval_time = fielder.calculate_time_to_position(ball_position)
+        retrieval_time = fielder.calculate_effective_time_to_position(ball_position)
         ball_retrieved_time = ball_time + retrieval_time
 
+        location_desc = self._describe_field_location(ball_position)
         result.add_event(PlayEvent(
             ball_retrieved_time, "ball_retrieved",
-            f"Ball retrieved by {responsible_position}"
+            f"Ball retrieved by {responsible_position} in {location_desc} at {ball_retrieved_time:.2f}s"
         ))
 
         # Get batter as runner
@@ -841,21 +843,24 @@ class PlaySimulator:
             target_position=(fielder_pos.x, fielder_pos.y)
         )
 
-        # Time for ball to reach fielder's area
-        time_to_target = ground_ball_result.time_to_target if ground_ball_result.time_to_target is not None else ground_ball_result.total_time
-        ball_to_fielder_time = batted_ball.flight_time + time_to_target
+        landing_velocity = batted_ball.velocity[-1] if batted_ball is not None else np.array([0.0, 0.0, 0.0])
+        physics_time_to_target = ground_ball_result.time_to_target if ground_ball_result.time_to_target is not None else None
+        distance_to_fielder = ball_position.distance_to(fielder_pos)
+        roll_time = self._estimate_ground_ball_roll_time(
+            distance_to_fielder,
+            landing_velocity,
+            physics_time_to_target,
+        )
 
-        # Fielder reaction and movement time
+        # Time for ball to reach fielder's area (include initial flight)
+        ball_to_fielder_time = batted_ball.flight_time + roll_time
+
+        # Fielder reaction and movement time (adjusted by range)
+        total_time_to_ball = fielder.calculate_effective_time_to_position(ball_position)
         fielder_reaction_time = fielder.get_reaction_time_seconds()
-
-        # calculate_time_to_position already includes the fielder's reaction delay.
-        # Subtract it out so we can reason about the pure movement component and
-        # then add the properly scaled reaction time back in seconds.
-        total_time_to_ball = fielder.calculate_time_to_position(ball_position)
         fielder_movement_time = max(total_time_to_ball - fielder_reaction_time, 0.0)
 
-        # Total time for fielder to reach ball (reaction + movement), expressed
-        # entirely in seconds to match the ball arrival timing below.
+        # Total time for fielder to reach ball (reaction + movement)
         fielder_arrival_time = fielder_reaction_time + fielder_movement_time
 
         # Can fielder get to the ball?
@@ -915,9 +920,12 @@ class PlaySimulator:
         throw_result = fielder.throw_ball(first_base_pos)
         throw_arrival_time = release_time + throw_result.release_time + throw_result.flight_time
         
+        throw_event_time = release_time + throw_result.release_time
         result.add_event(PlayEvent(
-            release_time + throw_result.release_time, "throw_to_first",
-            f"Throw to first base"
+            throw_event_time, "throw_to_first",
+            ("Throw to first base "
+             f"at {throw_result.throw_velocity:.1f} mph (release {throw_event_time:.2f}s, "
+             f"flight {throw_result.flight_time:.2f}s)")
         ))
         
         # Calculate runner time to first
@@ -943,7 +951,7 @@ class PlaySimulator:
         
         result.add_event(PlayEvent(
             max(throw_arrival_time, runner_arrival_time), "play_at_first",
-            f"Runner {outcome} at first base"
+            f"Runner {outcome} at first base (runner {runner_arrival_time:.2f}s vs ball {throw_arrival_time:.2f}s)"
         ))
         
         # Update runner status
@@ -953,6 +961,32 @@ class PlaySimulator:
             self.baserunning_simulator.add_runner("first", batter_runner)
         else:
             self.baserunning_simulator.remove_runner("home")
+
+    def _estimate_ground_ball_roll_time(self, distance_to_fielder: float,
+                                        landing_velocity: np.ndarray,
+                                        physics_time: Optional[float]) -> float:
+        """Estimate how long a ground ball takes to reach the fielder."""
+        horizontal_speed = float(np.linalg.norm(landing_velocity[:2]) * METERS_TO_FEET)
+        horizontal_speed = max(horizontal_speed, 8.0)  # ensure minimal rolling speed
+
+        friction = getattr(self.ground_ball_simulator, "friction", 0.08)
+        decel = max(GRAVITY * METERS_TO_FEET * friction + GROUND_BALL_AIR_RESISTANCE, 0.5)
+
+        max_reachable_distance = (horizontal_speed ** 2) / (2.0 * decel)
+        if distance_to_fielder >= max_reachable_distance:
+            # Ball would stop before reaching target; use time to stop as upper bound
+            estimated_time = horizontal_speed / decel
+        else:
+            under_sqrt = max(horizontal_speed ** 2 - 2.0 * decel * distance_to_fielder, 0.0)
+            estimated_time = (horizontal_speed - math.sqrt(under_sqrt)) / decel
+
+        estimated_time = max(estimated_time, 0.15)
+
+        if physics_time is not None and physics_time > 0:
+            # Trust detailed physics when comparable but guard against runaway values
+            return min(physics_time, max(estimated_time, physics_time * 0.4))
+
+        return estimated_time
     
     def _describe_field_location(self, position: FieldPosition) -> str:
         """Generate human-readable description of field location."""

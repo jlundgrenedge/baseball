@@ -443,12 +443,18 @@ class AtBatSimulator:
 
         while balls < 4 and strikes < 3:
             # Select pitch with sequencing
-            pitch_type = self.select_pitch_type((balls, strikes), recent_pitch_types)
-            target_location = self.select_target_location((balls, strikes), pitch_type)
+            count_before_pitch = (balls, strikes)
+            pitch_type = self.select_pitch_type(count_before_pitch, recent_pitch_types)
+            target_location = self.select_target_location(count_before_pitch, pitch_type)
 
             # Simulate pitch
             pitch_data = self.simulate_pitch(pitch_type, target_location)
-            pitches.append(pitch_data)
+
+            # Annotate pitch with contextual data for downstream logging/debugging
+            pitch_data['sequence_index'] = len(pitches) + 1
+            pitch_data['count_before'] = count_before_pitch
+            pitch_data['swing'] = False
+            pitch_data['pitch_outcome'] = 'unknown'
 
             # Track pitch type for sequencing (keep last 2)
             recent_pitch_types.append(pitch_type)
@@ -474,14 +480,17 @@ class AtBatSimulator:
                 # Pitch taken
                 if pitch_data['is_strike']:
                     strikes += 1
+                    pitch_data['pitch_outcome'] = 'called_strike'
                     if verbose:
                         print(f"  Called strike {strikes}")
                 else:
                     balls += 1
+                    pitch_data['pitch_outcome'] = 'ball'
                     if verbose:
                         print(f"  Ball {balls}")
             else:
                 # Swing
+                pitch_data['swing'] = True
                 if verbose:
                     print(f"  Swings...")
 
@@ -490,10 +499,21 @@ class AtBatSimulator:
                 if contact_result is None:
                     # Whiff
                     strikes += 1
+                    pitch_data['pitch_outcome'] = 'swinging_strike'
                     if verbose:
                         print(f"  Swinging strike {strikes}")
                 else:
                     # Contact made
+                    contact_summary = {
+                        'contact_quality': contact_result['contact_quality'],
+                        'exit_velocity': contact_result['exit_velocity'],
+                        'launch_angle': contact_result['launch_angle'],
+                        'distance': contact_result['distance'],
+                        'hang_time': contact_result['hang_time'],
+                    }
+                    pitch_data['contact_summary'] = contact_summary
+                    pitch_data['pitch_outcome'] = 'contact'
+
                     if verbose:
                         print(f"  Contact! {contact_result['contact_quality']}")
                         print(f"    Exit velo: {contact_result['exit_velocity']:.1f} mph")
@@ -522,20 +542,28 @@ class AtBatSimulator:
 
                     if is_foul:
                         # Foul ball
+                        pitch_data['pitch_outcome'] = 'foul'
                         if strikes < 2:
                             strikes += 1
                         if verbose:
                             print(f"  FOUL BALL")
                     else:
                         # Ball in play
+                        pitch_data['pitch_outcome'] = 'ball_in_play'
                         if verbose:
                             print(f"  BALL IN PLAY!")
+
+                        pitch_data['count_after'] = (balls, strikes)
+                        pitches.append(pitch_data)
                         return AtBatResult(
                             outcome='in_play',
                             pitches=pitches,
                             final_count=(balls, strikes),
                             batted_ball_result=contact_result,
                         )
+
+            pitch_data['count_after'] = (balls, strikes)
+            pitches.append(pitch_data)
 
         # At-bat concluded
         if strikes >= 3:
