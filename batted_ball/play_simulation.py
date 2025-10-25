@@ -832,11 +832,16 @@ class PlaySimulator:
         ball_to_fielder_time = batted_ball.flight_time + ground_ball_result.total_time
 
         # Fielder reaction and movement time
-        fielder_reaction_time = fielder.reaction_time
-        distance_to_ball = fielder_pos.distance_to(ball_position)
-        fielder_movement_time = fielder.calculate_time_to_position(ball_position)
+        fielder_reaction_time = fielder.get_reaction_time_seconds()
 
-        # Total time for fielder to reach ball
+        # calculate_time_to_position already includes the fielder's reaction delay.
+        # Subtract it out so we can reason about the pure movement component and
+        # then add the properly scaled reaction time back in seconds.
+        total_time_to_ball = fielder.calculate_time_to_position(ball_position)
+        fielder_movement_time = max(total_time_to_ball - fielder_reaction_time, 0.0)
+
+        # Total time for fielder to reach ball (reaction + movement), expressed
+        # entirely in seconds to match the ball arrival timing below.
         fielder_arrival_time = fielder_reaction_time + fielder_movement_time
 
         # Can fielder get to the ball?
