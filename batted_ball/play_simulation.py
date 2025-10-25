@@ -248,42 +248,94 @@ class PlaySimulator:
         # Remove batter-runner
         self.baserunning_simulator.remove_runner("home")
     
-    def _handle_ball_in_play(self, ball_position: FieldPosition, 
+    def _handle_ball_in_play(self, ball_position: FieldPosition,
                             initial_time: float, result: PlayResult):
         """Handle ball in play (hit that wasn't caught)."""
+        # Calculate distance to determine hit type
+        import numpy as np
+        distance_ft = np.sqrt(ball_position.x**2 + ball_position.y**2)
+
+        # Check if home run (needs to clear fence in both distance AND height)
+        batted_ball = result.batted_ball_result
+        peak_height = batted_ball.peak_height if batted_ball else 0
+
+        # Home run thresholds - need significant height to clear 10 ft fence
+        # A ball needs to be high enough at the fence location, not just at peak
+        # Simplified: require peak height > 40 ft AND distance > 360 ft for definite HR
+        # Or peak > 60 ft AND distance > 330 ft (towering fly ball)
+        is_home_run = False
+        if (distance_ft >= 380 and peak_height >= 40) or (distance_ft >= 400):
+            is_home_run = True
+
+        if is_home_run:
+            # Home run!
+            result.outcome = PlayOutcome.HOME_RUN
+            result.runs_scored = 1  # Batter scores
+            # Count runners on base
+            for base in ["first", "second", "third"]:
+                if self.baserunning_simulator.get_runner_at_base(base):
+                    result.runs_scored += 1
+            result.outs_made = 0
+            # Clear all runners (they all score)
+            for base in ["home", "first", "second", "third"]:
+                self.baserunning_simulator.remove_runner(base)
+            result.add_event(PlayEvent(initial_time + 4.0, "home_run", "Ball clears the fence! Home run!"))
+            return
+
         # Simulate fielder retrieving ball
         responsible_position = self.fielding_simulator.determine_responsible_fielder(ball_position)
         fielder = self.fielding_simulator.fielders[responsible_position]
-        
+
         # Calculate time for fielder to reach ball
         retrieval_time = fielder.calculate_time_to_position(ball_position)
         ball_retrieved_time = initial_time + retrieval_time
-        
+
         result.add_event(PlayEvent(
             ball_retrieved_time, "ball_retrieved",
             f"Ball retrieved by {responsible_position}"
         ))
-        
+
         # Start baserunners
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
         if batter_runner:
             batter_runner.start_running_to("first")
-        
-        # Advance other runners
-        runner_results = self.baserunning_simulator.advance_all_runners(1)
+
+        # Determine how many bases based on distance and retrieval time
+        # This is a simplified model - could be more sophisticated
+        bases_advanced = 1  # Default to single
+
+        if distance_ft >= 380:  # Deep to wall, likely triple
+            bases_advanced = 3
+        elif distance_ft >= 280 or ball_retrieved_time > 3.0:  # Deep hit or slow retrieval
+            bases_advanced = 2
+
+        # Advance runners based on classification
+        runner_results = self.baserunning_simulator.advance_all_runners(bases_advanced)
         result.baserunning_results.extend(runner_results)
-        
-        # Determine if throw is made to first
-        throw_to_first = self._should_throw_to_first(ball_retrieved_time, batter_runner)
-        
-        if throw_to_first:
-            self._simulate_throw_to_first(fielder, ball_retrieved_time, batter_runner, result)
-        else:
-            # Batter reaches first safely
-            result.outcome = PlayOutcome.SINGLE
-            batter_runner.current_base = "first"
+
+        # Set outcome based on bases
+        if bases_advanced == 3:
+            result.outcome = PlayOutcome.TRIPLE
+            batter_runner.current_base = "third"
             self.baserunning_simulator.remove_runner("home")
-            self.baserunning_simulator.add_runner("first", batter_runner)
+            self.baserunning_simulator.add_runner("third", batter_runner)
+        elif bases_advanced == 2:
+            result.outcome = PlayOutcome.DOUBLE
+            batter_runner.current_base = "second"
+            self.baserunning_simulator.remove_runner("home")
+            self.baserunning_simulator.add_runner("second", batter_runner)
+        else:
+            # Single - but check if fielder throws out runner
+            throw_to_first = self._should_throw_to_first(ball_retrieved_time, batter_runner)
+
+            if throw_to_first:
+                self._simulate_throw_to_first(fielder, ball_retrieved_time, batter_runner, result)
+            else:
+                # Batter reaches first safely
+                result.outcome = PlayOutcome.SINGLE
+                batter_runner.current_base = "first"
+                self.baserunning_simulator.remove_runner("home")
+                self.baserunning_simulator.add_runner("first", batter_runner)
     
     def _handle_ground_ball(self, ball_position: FieldPosition, result: PlayResult):
         """Handle ground ball fielding."""

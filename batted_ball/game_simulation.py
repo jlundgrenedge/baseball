@@ -372,7 +372,7 @@ class GameSimulator:
         # Collect physics data from the batted ball dict if available
         if batted_ball_dict:
             physics_data = {
-                "exit_velocity_mph": round(batted_ball_dict['exit_velocity'] * 2.237, 1),
+                "exit_velocity_mph": round(batted_ball_dict['exit_velocity'], 1),  # Already in mph!
                 "launch_angle_deg": round(batted_ball_dict['launch_angle'], 1),
                 "distance_ft": round(batted_ball_dict['distance'], 1),
                 "hang_time_sec": round(batted_ball_dict['hang_time'], 2),
