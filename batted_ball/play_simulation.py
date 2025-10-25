@@ -316,76 +316,109 @@ class PlaySimulator:
     def _attempt_trajectory_interception(self, batted_ball_result: BattedBallResult, result: PlayResult) -> bool:
         """
         Attempt to intercept ball during its flight trajectory.
-        
+
+        Checks ALL fielders at each trajectory point to find who can make the play.
+        This allows for realistic scenarios where multiple fielders compete for the ball.
+
         Returns True if ball was caught/fielded, False if no interception possible.
         """
         # Sample trajectory at multiple time points to find interception opportunities
         flight_time = batted_ball_result.flight_time
-        time_steps = 20  # Check 20 points along trajectory
+        time_steps = 30  # Check 30 points along trajectory (increased for better coverage)
         dt = flight_time / time_steps
-        
+
         # Debug first few attempts
         debug = not hasattr(self, 'interception_debug_done')
         if debug:
             self.interception_debug_done = True
             print(f"INTERCEPTION DEBUG: flight_time={flight_time:.2f}s, peak_height={batted_ball_result.peak_height:.1f}ft")
-        
-        # Sample entire trajectory, focusing on key interception windows
+
+        # Sample entire trajectory, checking ALL fielders at each point
         for i in range(1, time_steps):  # Skip t=0 (still at bat)
             t = i * dt
-            
+
             # Get ball position at time t
             ball_pos_t = self._calculate_ball_position_at_time(batted_ball_result, t)
-            
+
             if debug and i <= 3:
                 print(f"  t={t:.2f}s: ball at ({ball_pos_t.x:.0f}, {ball_pos_t.y:.0f}, {ball_pos_t.z:.1f})")
-            
-            # Skip very high fly balls (>12ft) until they come down  
+
+            # Skip very high fly balls (>12ft) until they come down
             if ball_pos_t.z > 12.0:
                 continue
-                
-            # Find responsible fielder for this position
-            responsible_position = self.fielding_simulator.determine_responsible_fielder(ball_pos_t)
-            
-            if responsible_position not in self.fielding_simulator.fielders:
-                continue
-                
-            fielder = self.fielding_simulator.fielders[responsible_position]
-            
-            # Calculate if fielder can reach this position by time t
-            fielder_time_needed = fielder.calculate_time_to_position(ball_pos_t)
-            range_multiplier = fielder.get_effective_range_multiplier()
-            effective_time = fielder_time_needed / range_multiplier
-            
-            if debug and i <= 3:
+
+            # Check ALL fielders to see who can reach this position
+            # Store candidates with their time margins
+            candidates = []
+            all_fielder_times = []  # Track all fielders for debug
+
+            for position_name, fielder in self.fielding_simulator.fielders.items():
+                # Calculate if this fielder can reach the position by time t
+                fielder_time_needed = fielder.calculate_time_to_position(ball_pos_t)
+                range_multiplier = fielder.get_effective_range_multiplier()
+                effective_time = fielder_time_needed / range_multiplier
+
+                # Time margin = how early the fielder arrives (positive = early, negative = late)
+                time_margin = t - effective_time
+
                 distance = fielder.current_position.distance_to(ball_pos_t)
-                print(f"    {responsible_position}: dist={distance:.0f}ft, needs {effective_time:.2f}s, has {t:.2f}s")
-            
-            # Give fielders some margin - they don't need to be exactly on time
-            time_margin = 0.1  # 0.1 second margin for fielding
-            if effective_time <= (t + time_margin):
+
+                # Track for debug
+                all_fielder_times.append({
+                    'position': position_name,
+                    'distance': distance,
+                    'time_margin': time_margin,
+                    'effective_time': effective_time
+                })
+
+                # Give fielders a bit of leeway (can be up to 0.15s late and still make the play)
+                if time_margin >= -0.15:
+                    candidates.append({
+                        'position': position_name,
+                        'fielder': fielder,
+                        'time_margin': time_margin,
+                        'distance': distance,
+                        'effective_time': effective_time
+                    })
+
+            # Debug output - show top 3 closest fielders
+            if debug and i <= 3:
+                all_fielder_times.sort(key=lambda f: f['distance'])
+                print(f"    Closest fielders:")
+                for finfo in all_fielder_times[:3]:
+                    status = "✓ CAN REACH" if finfo['time_margin'] >= -0.15 else "✗ too far"
+                    print(f"      {finfo['position']}: {finfo['distance']:.0f}ft away, margin={finfo['time_margin']:.2f}s {status}")
+
+            # If we have candidates, pick the best one (most time to spare)
+            if candidates:
+                # Sort by time margin (descending) - fielder who gets there earliest
+                candidates.sort(key=lambda c: c['time_margin'], reverse=True)
+                best_candidate = candidates[0]
+
+                fielder = best_candidate['fielder']
+                position_name = best_candidate['position']
+
                 # Fielder can intercept! Determine catch vs field
-                if ball_pos_t.z > 3.0:  # Air ball (raised from 1.0 to 3.0)
+                if ball_pos_t.z > 3.0:  # Air ball catch
                     if debug:
-                        print(f"    CAUGHT at t={t:.2f}s!")
+                        print(f"    CAUGHT by {position_name} at t={t:.2f}s! (margin: {best_candidate['time_margin']:.2f}s)")
                     result.outcome = PlayOutcome.FLY_OUT
                     result.outs_made = 1
                     result.primary_fielder = fielder
                     result.add_event(PlayEvent(
                         t, "catch",
-                        f"Caught by {responsible_position} at {ball_pos_t.x:.0f}ft, {ball_pos_t.z:.1f}ft high"
+                        f"Caught by {position_name} at {ball_pos_t.x:.0f}ft, {ball_pos_t.z:.1f}ft high"
                     ))
                     self.baserunning_simulator.remove_runner("home")
                     return True
-                else:  # Ground ball / line drive
-                    # Check if fielder can throw out runner
+                else:  # Ground ball / line drive fielding
                     if debug:
-                        print(f"    Attempting ground ball out at t={t:.2f}s, z={ball_pos_t.z:.1f}ft")
-                    return self._attempt_ground_ball_out(fielder, ball_pos_t, t, result)
-        
+                        print(f"    {position_name} fielding at t={t:.2f}s, z={ball_pos_t.z:.1f}ft (margin: {best_candidate['time_margin']:.2f}s)")
+                    return self._attempt_ground_ball_out(fielder, ball_pos_t, t, result, position_name)
+
         # No interception possible
         if debug:
-            print("    No interception possible")
+            print("    No fielders can intercept")
         return False
     
     def _calculate_ball_position_at_time(self, batted_ball_result: BattedBallResult, t: float) -> FieldPosition:
@@ -440,56 +473,61 @@ class PlaySimulator:
             max(0.0, pos[2] * METERS_TO_FEET)  # Don't go below ground
         )
     
-    def _attempt_ground_ball_out(self, fielder, ball_position: FieldPosition, 
-                                catch_time: float, result: PlayResult) -> bool:
+    def _attempt_ground_ball_out(self, fielder, ball_position: FieldPosition,
+                                catch_time: float, result: PlayResult,
+                                position_name: str = None) -> bool:
         """Attempt to field ground ball and throw out runner."""
+        # Use position name if provided, otherwise use fielder's position attribute
+        if position_name is None:
+            position_name = fielder.position
+
         # Calculate time for fielder to reach ball, field it, and throw to first
         fielder_reach_time = fielder.calculate_time_to_position(ball_position)
         fielding_time = 0.3 + (fielder.fielding_range / 100.0) * 0.2  # 0.3-0.5s based on skill
-        
+
         # Calculate throw time to first base
         first_base_pos = self.fielding_simulator.field_layout.get_base_position('first')
         throw_distance = ball_position.distance_to(first_base_pos)
         throw_velocity_mph = 70 + (fielder.arm_strength / 100.0) * 25  # 70-95 mph throws
         throw_velocity_fps = throw_velocity_mph * 1.467  # Convert mph to ft/s
         throw_time = throw_distance / throw_velocity_fps
-        
+
         # Total time for fielder to complete the play
         total_fielder_time = catch_time + fielder_reach_time + fielding_time + throw_time
-        
+
         # Calculate runner time to first base
         runner_speed_fps = 25.0  # Average runner speed (about 17 mph)
         distance_to_first = 90.0  # Base path distance
         runner_time = distance_to_first / runner_speed_fps  # About 3.6 seconds
-        
+
         # Debug ground ball attempt
         debug = not hasattr(self, 'ground_ball_debug_done')
         if debug:
             self.ground_ball_debug_done = True
-            print(f"      GROUND BALL: fielder_time={total_fielder_time:.1f}s vs runner_time={runner_time:.1f}s")
-        
+            print(f"      GROUND BALL: {position_name} fielder_time={total_fielder_time:.1f}s vs runner_time={runner_time:.1f}s")
+
         if total_fielder_time < runner_time:
             result.outcome = PlayOutcome.GROUND_OUT
             result.outs_made = 1
             result.primary_fielder = fielder
             result.add_event(PlayEvent(
                 total_fielder_time, "ground_out",
-                f"Ground out to {fielder.position} ({total_fielder_time:.1f}s vs {runner_time:.1f}s)"
+                f"Ground out to {position_name} ({total_fielder_time:.1f}s vs {runner_time:.1f}s)"
             ))
             self.baserunning_simulator.remove_runner("home")
             if debug:
-                print(f"      GROUND OUT!")
+                print(f"      GROUND OUT to {position_name}!")
             return True
         else:
             # Safe at first - it's a hit
             result.outcome = PlayOutcome.SINGLE
             result.add_event(PlayEvent(
                 runner_time, "safe_at_first",
-                f"Safe at first - fielder too slow ({total_fielder_time:.1f}s vs {runner_time:.1f}s)"
+                f"Safe at first - {position_name} too slow ({total_fielder_time:.1f}s vs {runner_time:.1f}s)"
             ))
             self._handle_hit_baserunning(result)
             if debug:
-                print(f"      SAFE AT FIRST")
+                print(f"      SAFE AT FIRST (fielded by {position_name})")
             return True  # Still handled, just as hit instead of out
     
     def _determine_hit_type(self, ball_position: FieldPosition, distance_ft: float, result: PlayResult):
