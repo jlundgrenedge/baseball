@@ -237,6 +237,9 @@ class GameSimulator:
         num_pitches = len(at_bat_result.pitches)
         self.game_state.total_pitches += num_pitches
 
+        if self.verbose and at_bat_result.pitches:
+            self.print_pitch_sequence(at_bat_result.pitches)
+
         if at_bat_result.outcome in ["strikeout", "walk"]:
             # Handle strikeout or walk
             self.handle_strikeout_or_walk(at_bat_result.outcome, batter)
@@ -378,13 +381,13 @@ class GameSimulator:
             batted_ball_dict = at_bat_result.batted_ball_result
             physics_data = {
                 "exit_velocity_mph": round(batted_ball_dict['exit_velocity'], 1),
-                "launch_angle_deg": round(batted_ball_dict['launch_angle'], 1), 
+                "launch_angle_deg": round(batted_ball_dict['launch_angle'], 1),
                 "distance_ft": round(batted_ball_dict['distance'], 1),
                 "hang_time_sec": round(batted_ball_dict['hang_time'], 2),
                 "contact_quality": batted_ball_dict.get('contact_quality', 'unknown'),
                 "peak_height_ft": round(batted_ball_dict['peak_height'], 1),
             }
-            
+
             # Get the last pitch (the one that was hit)
             last_pitch = at_bat_result.pitches[-1] if at_bat_result.pitches else {}
         else:
@@ -404,19 +407,28 @@ class GameSimulator:
 
         if self.verbose:
             print(f"  {description}")
-            
+
             # Enhanced physics display
             physics_line = (f"    Physics: EV={physics_data['exit_velocity_mph']} mph, "
                           f"LA={physics_data['launch_angle_deg']}°, "
                           f"Dist={physics_data['distance_ft']} ft")
-            
+
+            # Add optional physics details if available
+            hang_time = physics_data.get('hang_time_sec')
+            if isinstance(hang_time, (int, float)):
+                physics_line += f", Hang={hang_time:.2f}s"
+
+            peak_height = physics_data.get('peak_height_ft')
+            if isinstance(peak_height, (int, float)):
+                physics_line += f", Peak={peak_height:.1f} ft"
+
             # Add contact quality if available
             if 'contact_quality' in physics_data:
                 physics_line += f", Contact: {physics_data['contact_quality']}"
-                
+
             print(physics_line)
-            
-            # Add pitch information if available  
+
+            # Add pitch information if available
             if last_pitch:
                 pitch_type = last_pitch.get('pitch_type', 'fastball')
                 pitch_velocity = last_pitch.get('velocity_plate', 0)
@@ -424,9 +436,11 @@ class GameSimulator:
                 pitch_line = f"    Pitch: {pitch_type} {pitch_velocity:.1f} mph"
                 if pitch_location and len(pitch_location) >= 2:
                     zone_x = pitch_location[0] / 12.0  # Convert inches to feet for display
-                    zone_z = pitch_location[1] / 12.0  
+                    zone_z = pitch_location[1] / 12.0
                     pitch_line += f" at zone ({zone_x:.1f}', {zone_z:.1f}')"
                 print(pitch_line)
+
+            self.print_play_breakdown(play_result)
 
         # Update game state based on outcome
         self.update_game_state_from_play(play_result, batter)
@@ -482,9 +496,12 @@ class GameSimulator:
         # Clear bases first
         self.game_state.clear_bases()
 
-        # DEBUG: Print what's in final_runner_positions
-        if self.verbose and len(play_result.final_runner_positions) > 0:
-            print(f"    DEBUG: Final runner positions: {list(play_result.final_runner_positions.keys())}")
+        if self.verbose and play_result.final_runner_positions:
+            runner_descriptions = []
+            for base, runner in play_result.final_runner_positions.items():
+                runner_name = getattr(runner, 'name', 'Runner')
+                runner_descriptions.append(f"{runner_name} on {base}")
+            print(f"    Runners after play: {', '.join(runner_descriptions)}")
 
         # Update base runners from final positions
         for base, runner in play_result.final_runner_positions.items():
@@ -518,6 +535,84 @@ class GameSimulator:
             game_state_after=str(self.game_state)
         )
         self.play_by_play.append(event)
+
+    def print_pitch_sequence(self, pitches: List[Dict]):
+        """Print detailed pitch-by-pitch information for an at-bat."""
+        if not pitches:
+            return
+
+        print("  Pitch sequence:")
+        for index, pitch in enumerate(pitches, 1):
+            index = pitch.get('sequence_index', index)
+            pitch_type = pitch.get('pitch_type', 'pitch')
+            velocity = pitch.get('velocity_plate', 0.0)
+            location = pitch.get('final_location')
+            count_before = pitch.get('count_before', (0, 0))
+            count_after = pitch.get('count_after', count_before)
+            outcome = pitch.get('pitch_outcome', 'unknown')
+
+            if location and len(location) >= 2:
+                zone_x = location[0] / 12.0
+                zone_z = location[1] / 12.0
+                location_str = f"({zone_x:.2f}', {zone_z:.2f}')"
+            else:
+                location_str = "(unknown)"
+
+            outcome_map = {
+                'ball': 'taken for ball',
+                'called_strike': 'taken for strike',
+                'swinging_strike': 'swing and miss',
+                'foul': 'fouled off',
+                'ball_in_play': 'put in play',
+            }
+            outcome_desc = outcome_map.get(outcome, outcome)
+
+            if pitch.get('swing') and outcome in ['ball', 'called_strike']:
+                # Edge case safety - should not happen but provide context
+                outcome_desc = f"swing -> {outcome_desc}"
+
+            contact_summary = pitch.get('contact_summary')
+            contact_details = ""
+            if contact_summary and outcome in ['foul', 'ball_in_play']:
+                contact_details = (
+                    f" (contact: {contact_summary['contact_quality']}, "
+                    f"EV {contact_summary['exit_velocity']:.1f} mph, "
+                    f"LA {contact_summary['launch_angle']:.1f}°)"
+                )
+
+            print(
+                f"    #{index}: {pitch_type} {velocity:.1f} mph to {location_str} "
+                f"[{count_before[0]}-{count_before[1]} → {count_after[0]}-{count_after[1]}] "
+                f"{outcome_desc}{contact_details}"
+            )
+
+    def print_play_breakdown(self, play_result: PlayResult):
+        """Print detailed physics/fielding/baserunning breakdown for a play."""
+        events = play_result.get_events_chronological()
+        if events:
+            print("    Play timeline:")
+            for event in events:
+                print(f"      [{event.time:5.2f}s] {event.description} ({event.event_type})")
+
+        if play_result.fielding_results:
+            print("    Fielding breakdown:")
+            for fielding in play_result.fielding_results:
+                margin = fielding.ball_arrival_time - fielding.fielder_arrival_time
+                status = "made play" if fielding.success else "missed"
+                fielder_name = getattr(fielding, 'fielder_name', 'Fielder')
+                print(
+                    f"      {fielder_name}: ball {fielding.ball_arrival_time:.2f}s, "
+                    f"arrival {fielding.fielder_arrival_time:.2f}s (margin {margin:+.2f}s) -> {status}"
+                )
+
+        if play_result.baserunning_results:
+            print("    Baserunning results:")
+            for baserun in play_result.baserunning_results:
+                print(
+                    f"      {baserun.runner_name}: {baserun.from_base} → {baserun.to_base} "
+                    f"in {baserun.arrival_time:.2f}s ({baserun.outcome})"
+                )
+
 
     def print_final_summary(self):
         """Print final game summary"""

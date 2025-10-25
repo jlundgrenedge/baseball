@@ -681,9 +681,10 @@ class PlaySimulator:
         retrieval_time = fielder.calculate_time_to_position(ball_position)
         ball_retrieved_time = ball_time + retrieval_time
 
+        location_desc = self._describe_field_location(ball_position)
         result.add_event(PlayEvent(
             ball_retrieved_time, "ball_retrieved",
-            f"Ball retrieved by {responsible_position}"
+            f"Ball retrieved by {responsible_position} in {location_desc} at {ball_retrieved_time:.2f}s"
         ))
 
         # Get batter as runner
@@ -915,9 +916,12 @@ class PlaySimulator:
         throw_result = fielder.throw_ball(first_base_pos)
         throw_arrival_time = release_time + throw_result.release_time + throw_result.flight_time
         
+        throw_event_time = release_time + throw_result.release_time
         result.add_event(PlayEvent(
-            release_time + throw_result.release_time, "throw_to_first",
-            f"Throw to first base"
+            throw_event_time, "throw_to_first",
+            ("Throw to first base "
+             f"at {throw_result.throw_velocity:.1f} mph (release {throw_event_time:.2f}s, "
+             f"flight {throw_result.flight_time:.2f}s)")
         ))
         
         # Calculate runner time to first
@@ -943,7 +947,7 @@ class PlaySimulator:
         
         result.add_event(PlayEvent(
             max(throw_arrival_time, runner_arrival_time), "play_at_first",
-            f"Runner {outcome} at first base"
+            f"Runner {outcome} at first base (runner {runner_arrival_time:.2f}s vs ball {throw_arrival_time:.2f}s)"
         ))
         
         # Update runner status
