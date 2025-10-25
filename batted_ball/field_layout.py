@@ -71,6 +71,12 @@ class FieldPosition:
         dy = self.y - other.y
         dz = self.z - other.z
         return np.sqrt(dx**2 + dy**2 + dz**2)
+
+    def horizontal_distance_to(self, other: 'FieldPosition') -> float:
+        """Calculate horizontal (x,y) distance to another position, ignoring height."""
+        dx = self.x - other.x
+        dy = self.y - other.y
+        return np.sqrt(dx**2 + dy**2)
     
     def to_meters(self) -> Tuple[float, float, float]:
         """Convert position to meters for physics calculations."""

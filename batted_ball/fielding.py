@@ -698,18 +698,16 @@ class Fielder:
     def calculate_time_to_position(self, target: FieldPosition) -> float:
         """
         Calculate time required to reach a target position using research-based multi-phase model.
-        
+
         Implements:
-        - First step time (Statcast metric)
-        - Acceleration phase with directional penalties
-        - Constant velocity phase
-        - Route efficiency factor
-        
+        - Fast reaction model for short distances (< 15ft)
+        - Multi-phase model for longer distances
+
         Parameters
         ----------
         target : FieldPosition
             Target position to reach
-            
+
         Returns
         -------
         float
@@ -717,7 +715,7 @@ class Fielder:
         """
         if self.current_position is None:
             raise ValueError("Current position not set")
-        
+
         # Calculate distance and direction to target
         distance = self.current_position.distance_to(target)
         movement_vector = np.array([
@@ -725,30 +723,42 @@ class Fielder:
             target.y - self.current_position.y,
             0.0
         ])
-        
+
         # Get research-based physical attributes
         max_speed = self.get_sprint_speed_fps_statcast()
+
+        # For very short distances (pop-ups, etc), use simplified model
+        # These are quick reactions without full acceleration phase
+        if distance < 15.0:
+            # Quick reaction model: minimal delay + fast movement at partial speed
+            quick_reaction_time = 0.15  # Reduced from first_step_time for close plays
+            # Use 60% of max speed for short bursts (not full sprint)
+            burst_speed = max_speed * 0.6
+            movement_time = distance / burst_speed
+            return quick_reaction_time + movement_time
+
+        # For longer distances, use full multi-phase model
         first_step_time = self.get_first_step_time()
         acceleration = self.get_acceleration_fps2()
         route_efficiency = self.get_route_efficiency() / 100.0  # Convert to fraction
-        
+
         # Apply directional speed penalty
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
         effective_max_speed = max_speed * direction_penalty
-        
+
         # Apply route efficiency (affects effective distance)
         effective_distance = distance / route_efficiency
-        
+
         # Multi-phase movement model:
         # Phase 1: First step time (from research)
         phase1_time = first_step_time
-        
+
         # Phase 2: Acceleration phase
         # Time to reach 80% of max speed (research shows this is typical acceleration target)
         target_speed = 0.80 * effective_max_speed
         acceleration_time = target_speed / acceleration
         acceleration_distance = 0.5 * acceleration * acceleration_time**2
-        
+
         if effective_distance <= acceleration_distance:
             # Never reach target speed - solve quadratic equation
             # distance = 0.5 * acceleration * time^2
@@ -758,17 +768,18 @@ class Fielder:
             # Phase 3: Constant velocity phase
             remaining_distance = effective_distance - acceleration_distance
             constant_velocity_time = remaining_distance / target_speed
-        
+
         total_time = phase1_time + acceleration_time + constant_velocity_time
         return total_time
 
     def calculate_effective_time_to_position(self, target: FieldPosition) -> float:
-        """Calculate time to reach a target after accounting for range skill."""
-        base_time = self.calculate_time_to_position(target)
-        reaction_time = self.get_reaction_time_seconds()
-        movement_time = max(base_time - reaction_time, 0.0)
-        range_multiplier = max(self.get_effective_range_multiplier(), 1e-3)
-        adjusted_movement = movement_time / range_multiplier
+        """Calculate time to reach a target after accounting for range skill and reaction time."""
+        base_time = self.calculate_time_to_position(target)  # Pure movement time
+        reaction_time = self.get_reaction_time_seconds()     # Delay before moving
+        range_multiplier = self.get_effective_range_multiplier()
+        # Range multiplier improves movement efficiency (higher = faster effective movement)
+        adjusted_movement = base_time / range_multiplier
+        # Total time = reaction delay + adjusted movement time
         return reaction_time + adjusted_movement
     
     def can_reach_ball(self, ball_position: FieldPosition, ball_arrival_time: float) -> bool:
