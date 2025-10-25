@@ -517,23 +517,26 @@ PITCHER_Y = 60.5  # On the mound
 CATCHER_X = 0.0
 CATCHER_Y = -2.0  # Behind home plate
 
-# Infielders
-FIRST_BASEMAN_X = 80.0
-FIRST_BASEMAN_Y = 15.0
-SECOND_BASEMAN_X = 45.0
-SECOND_BASEMAN_Y = 50.0
-SHORTSTOP_X = -25.0
-SHORTSTOP_Y = 60.0
-THIRD_BASEMAN_X = -80.0
-THIRD_BASEMAN_Y = 15.0
+# Infielders (adjusted for better coverage)
+FIRST_BASEMAN_X = 75.0    # Slightly closer to the line
+FIRST_BASEMAN_Y = 20.0    # Moved up slightly
+SECOND_BASEMAN_X = 40.0   # Moved in and left for better gap coverage
+SECOND_BASEMAN_Y = 55.0   # Moved in from 50
+SHORTSTOP_X = -35.0       # Moved right slightly for better up-the-middle coverage
+SHORTSTOP_Y = 55.0        # Moved in from 60
+THIRD_BASEMAN_X = -75.0   # Slightly closer to the line
+THIRD_BASEMAN_Y = 20.0    # Moved up slightly
 
-# Outfielders (standard depth)
-LEFT_FIELDER_X = -220.0
-LEFT_FIELDER_Y = 150.0
-CENTER_FIELDER_X = 0.0
-CENTER_FIELDER_Y = 250.0
-RIGHT_FIELDER_X = 220.0
-RIGHT_FIELDER_Y = 150.0
+# Outfielders (optimized depth and spacing)
+# Positioned at 270ft for corners, 290ft for center (realistic MLB depths)
+# Spaced at 30° from center for balanced gap coverage (~146ft gaps)
+# Previous positions had fielders too close together and too shallow
+LEFT_FIELDER_X = -135.0   # 30° left of center at 270ft depth
+LEFT_FIELDER_Y = 234.0    # Optimized for 250-310ft fly ball coverage
+CENTER_FIELDER_X = 0.0    # Straight up the middle
+CENTER_FIELDER_Y = 290.0  # Deepest fielder at 290ft (was 250ft - too shallow)
+RIGHT_FIELDER_X = 135.0   # 30° right of center at 270ft depth
+RIGHT_FIELDER_Y = 234.0   # Optimized for 250-310ft fly ball coverage
 
 # ============================================================================
 # FIELDING ATTRIBUTES AND PHYSICS
@@ -615,17 +618,23 @@ FIELDER_SPRINT_SPEED_STATCAST_AVG = 28.5    # ft/s - Average MLB SS
 FIELDER_SPRINT_SPEED_STATCAST_ELITE = 30.0  # ft/s - Elite Gold Glove CF
 FIELDER_SPRINT_SPEED_STATCAST_MAX = 31.0    # ft/s - Absolute fastest
 
-# Acceleration Time to Max Speed (Statcast metric)
-FIELDER_ACCELERATION_TIME_ELITE = 3.50  # seconds - Elite acceleration
-FIELDER_ACCELERATION_TIME_AVG = 3.80    # seconds - Average MLB
-FIELDER_ACCELERATION_TIME_POOR = 4.20   # seconds - Poor acceleration
-FIELDER_ACCELERATION_TIME_MAX = 4.50    # seconds - Very poor
+# Acceleration Time to Max Speed (Adjusted for fielding plays)
+# Original Statcast times (3.5-4.5s) were for full sprint speed over 90+ feet
+# For fielding plays of 15-60ft, fielders reach near-max speed much faster
+# These times represent reaching 80% of max sprint speed
+FIELDER_ACCELERATION_TIME_ELITE = 1.0   # seconds - Elite burst (was 3.50)
+FIELDER_ACCELERATION_TIME_AVG = 1.3     # seconds - Average MLB (was 3.80)
+FIELDER_ACCELERATION_TIME_POOR = 1.7    # seconds - Poor burst (was 4.20)
+FIELDER_ACCELERATION_TIME_MAX = 2.0     # seconds - Very poor (was 4.50)
 
-# First Step Time (Statcast metric)
-FIELDER_FIRST_STEP_TIME_ELITE = 0.30   # s - Elite reaction
-FIELDER_FIRST_STEP_TIME_AVG = 0.37     # s - Average MLB fielder
-FIELDER_FIRST_STEP_TIME_POOR = 0.45    # s - Poor reaction
-FIELDER_FIRST_STEP_TIME_MAX = 0.55     # s - Very poor reaction
+# First Step Time (Adjusted for fielding plays)
+# These represent the delay between ball contact and first movement
+# Statcast values (0.30-0.55s) are for initial read + first step
+# For active fielding positions, reaction is faster
+FIELDER_FIRST_STEP_TIME_ELITE = 0.20   # s - Elite reaction (was 0.30)
+FIELDER_FIRST_STEP_TIME_AVG = 0.25     # s - Average MLB fielder (was 0.37)
+FIELDER_FIRST_STEP_TIME_POOR = 0.35    # s - Poor reaction (was 0.45)
+FIELDER_FIRST_STEP_TIME_MAX = 0.45     # s - Very poor reaction (was 0.55)
 
 # Route Efficiency (Statcast metric)
 ROUTE_EFFICIENCY_ELITE = 98.0     # % - Elite route running

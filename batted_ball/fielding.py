@@ -729,11 +729,12 @@ class Fielder:
 
         # For very short distances (pop-ups, etc), use simplified model
         # These are quick reactions without full acceleration phase
+        # NOTE: This already includes reaction time, so don't add it again in calculate_effective_time_to_position
         if distance < 15.0:
             # Quick reaction model: minimal delay + fast movement at partial speed
-            quick_reaction_time = 0.15  # Reduced from first_step_time for close plays
-            # Use 60% of max speed for short bursts (not full sprint)
-            burst_speed = max_speed * 0.6
+            quick_reaction_time = 0.10  # Quick first step for close plays (reduced from 0.15)
+            # Use 70% of max speed for short bursts (increased from 60% for better performance)
+            burst_speed = max_speed * 0.70
             movement_time = distance / burst_speed
             return quick_reaction_time + movement_time
 
@@ -774,13 +775,32 @@ class Fielder:
 
     def calculate_effective_time_to_position(self, target: FieldPosition) -> float:
         """Calculate time to reach a target after accounting for range skill and reaction time."""
-        base_time = self.calculate_time_to_position(target)  # Pure movement time
-        reaction_time = self.get_reaction_time_seconds()     # Delay before moving
-        range_multiplier = self.get_effective_range_multiplier()
-        # Range multiplier improves movement efficiency (higher = faster effective movement)
-        adjusted_movement = base_time / range_multiplier
-        # Total time = reaction delay + adjusted movement time
-        return reaction_time + adjusted_movement
+        if self.current_position is None:
+            raise ValueError("Current position not set")
+
+        # Calculate base time (includes reaction time for short distances)
+        base_time = self.calculate_time_to_position(target)
+
+        # Check if this was a short-distance calculation (< 15ft)
+        distance = self.current_position.distance_to(target)
+        is_short_distance = distance < 15.0
+
+        # For short distances, base_time already includes reaction time
+        # For long distances, we need to add it
+        if is_short_distance:
+            # Short distance model already includes reaction, just apply range multiplier
+            range_multiplier = self.get_effective_range_multiplier()
+            # For short plays, range affects the movement portion (subtract reaction, adjust, add back)
+            reaction_component = 0.10  # The reaction time built into short-distance model
+            movement_component = base_time - reaction_component
+            adjusted_movement = movement_component / range_multiplier
+            return reaction_component + adjusted_movement
+        else:
+            # Long distance: add reaction time and apply range multiplier
+            reaction_time = self.get_reaction_time_seconds()
+            range_multiplier = self.get_effective_range_multiplier()
+            adjusted_movement = base_time / range_multiplier
+            return reaction_time + adjusted_movement
     
     def can_reach_ball(self, ball_position: FieldPosition, ball_arrival_time: float) -> bool:
         """
@@ -835,17 +855,19 @@ class Fielder:
         
         if self.current_position is None:
             return 0.0
-        
-        # Calculate distance and movement direction
-        distance = self.current_position.distance_to(ball_position)
+
+        # Calculate horizontal distance and movement direction (fielders move on the ground)
+        # Create ground position under the ball for accurate fielder movement calculation
+        ground_position = FieldPosition(ball_position.x, ball_position.y, 0.0)
+        distance = self.current_position.horizontal_distance_to(ball_position)
         movement_vector = np.array([
             ball_position.x - self.current_position.x,
             ball_position.y - self.current_position.y,
             0.0
         ])
-        
-        # Calculate fielder time to position
-        fielder_time = self.calculate_effective_time_to_position(ball_position)
+
+        # Calculate fielder time to reach ground position under ball
+        fielder_time = self.calculate_effective_time_to_position(ground_position)
         
         # Base probability for routine plays
         probability = CATCH_PROB_BASE
