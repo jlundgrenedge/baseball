@@ -248,42 +248,146 @@ class PlaySimulator:
         # Remove batter-runner
         self.baserunning_simulator.remove_runner("home")
     
-    def _handle_ball_in_play(self, ball_position: FieldPosition, 
+    def _handle_ball_in_play(self, ball_position: FieldPosition,
                             initial_time: float, result: PlayResult):
-        """Handle ball in play (hit that wasn't caught)."""
-        # Simulate fielder retrieving ball
+        """Handle ball in play (hit that wasn't caught) - uses time-based racing."""
+        import numpy as np
+
+        # Check for home run first (ball clears fence)
+        distance_ft = np.sqrt(ball_position.x**2 + ball_position.y**2)
+        batted_ball = result.batted_ball_result
+        peak_height = batted_ball.peak_height if batted_ball else 0
+
+        # Home run: Needs both distance and height to clear 10 ft fence
+        # At 330-400 ft fence distance, ball needs to be high enough
+        is_home_run = False
+        if distance_ft >= 380 and peak_height >= 40:
+            is_home_run = True
+        elif distance_ft >= 400:  # Deep enough that it clears regardless
+            is_home_run = True
+
+        if is_home_run:
+            result.outcome = PlayOutcome.HOME_RUN
+            result.runs_scored = 1  # Batter scores
+            # Count runners on base
+            for base in ["first", "second", "third"]:
+                if self.baserunning_simulator.get_runner_at_base(base):
+                    result.runs_scored += 1
+            result.outs_made = 0
+            # Clear all runners
+            for base in ["home", "first", "second", "third"]:
+                self.baserunning_simulator.remove_runner(base)
+            result.add_event(PlayEvent(initial_time + 4.0, "home_run", "Ball clears the fence! Home run!"))
+            return
+
+        # Not a home run - simulate fielding and baserunning race
         responsible_position = self.fielding_simulator.determine_responsible_fielder(ball_position)
         fielder = self.fielding_simulator.fielders[responsible_position]
-        
-        # Calculate time for fielder to reach ball
+
+        # Time for fielder to reach ball and prepare throw
         retrieval_time = fielder.calculate_time_to_position(ball_position)
         ball_retrieved_time = initial_time + retrieval_time
-        
+
         result.add_event(PlayEvent(
             ball_retrieved_time, "ball_retrieved",
             f"Ball retrieved by {responsible_position}"
         ))
-        
-        # Start baserunners
+
+        # Get batter as runner
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
-        if batter_runner:
-            batter_runner.start_running_to("first")
-        
-        # Advance other runners
-        runner_results = self.baserunning_simulator.advance_all_runners(1)
-        result.baserunning_results.extend(runner_results)
-        
-        # Determine if throw is made to first
-        throw_to_first = self._should_throw_to_first(ball_retrieved_time, batter_runner)
-        
-        if throw_to_first:
-            self._simulate_throw_to_first(fielder, ball_retrieved_time, batter_runner, result)
+        if not batter_runner:
+            return  # Safety check
+
+        # Calculate runner times to each base
+        time_to_first = batter_runner.calculate_time_to_base("home", "first", include_leadoff=False)
+        time_to_second = batter_runner.calculate_time_to_base("home", "second", include_leadoff=False)
+        time_to_third = batter_runner.calculate_time_to_base("home", "third", include_leadoff=False)
+        # Full circuit: home->1st->2nd->3rd->home
+        time_to_home = (time_to_first +
+                       batter_runner.calculate_time_to_base("first", "second", include_leadoff=False) +
+                       batter_runner.calculate_time_to_base("second", "third", include_leadoff=False) +
+                       batter_runner.calculate_time_to_base("third", "home", include_leadoff=False))
+
+        # Calculate fielder throw times to each base (with transfer time)
+        first_base_pos = self.field_layout.get_base_position("first")
+        second_base_pos = self.field_layout.get_base_position("second")
+        third_base_pos = self.field_layout.get_base_position("third")
+        home_pos = self.field_layout.get_base_position("home")
+
+        throw_to_first_result = fielder.throw_ball(first_base_pos)
+        throw_to_second_result = fielder.throw_ball(second_base_pos)
+        throw_to_third_result = fielder.throw_ball(third_base_pos)
+        throw_to_home_result = fielder.throw_ball(home_pos)
+
+        # Ball arrival times at each base (retrieval + transfer + flight)
+        ball_at_first = ball_retrieved_time + throw_to_first_result.release_time + throw_to_first_result.flight_time
+        ball_at_second = ball_retrieved_time + throw_to_second_result.release_time + throw_to_second_result.flight_time
+        ball_at_third = ball_retrieved_time + throw_to_third_result.release_time + throw_to_third_result.flight_time
+        ball_at_home = ball_retrieved_time + throw_to_home_result.release_time + throw_to_home_result.flight_time
+
+        # DEBUG: Print times to understand what's happening
+        DEBUG = False
+        if DEBUG:
+            print(f"    DEBUG Times:")
+            print(f"      Ball retrieved: {ball_retrieved_time:.2f}s")
+            print(f"      Runner to 1st: {time_to_first:.2f}s, Ball to 1st: {ball_at_first:.2f}s")
+            print(f"      Runner to 2nd: {time_to_second:.2f}s, Ball to 2nd: {ball_at_second:.2f}s")
+            print(f"      Runner to 3rd: {time_to_third:.2f}s, Ball to 3rd: {ball_at_third:.2f}s")
+
+        # Determine how far runner can go (with conservative margin)
+        # Runners are cautious - they need significant advantage to take extra base
+        SAFE_MARGIN = 1.5  # Runner needs big advantage to attempt next base (increased from 0.3)
+
+        # Can runner make home? (inside-the-park home run)
+        if time_to_home + SAFE_MARGIN < ball_at_home:
+            bases_to_try = 4  # Try for home
+        # Can runner make third?
+        elif time_to_third + SAFE_MARGIN < ball_at_third:
+            bases_to_try = 3
+        # Can runner make second?
+        elif time_to_second + SAFE_MARGIN < ball_at_second:
+            bases_to_try = 2
+        # Just try for first
         else:
-            # Batter reaches first safely
-            result.outcome = PlayOutcome.SINGLE
-            batter_runner.current_base = "first"
+            bases_to_try = 1
+
+        # Simulate the actual attempt based on decision
+        if bases_to_try >= 2:
+            # Advance existing runners proportionally
+            runner_results = self.baserunning_simulator.advance_all_runners(bases_to_try)
+            result.baserunning_results.extend(runner_results)
+
+        # Determine outcome for batter
+        if bases_to_try == 4:
+            # Inside-the-park home run attempt
+            if time_to_home < ball_at_home:
+                result.outcome = PlayOutcome.HOME_RUN
+                result.runs_scored = 1
+                self.baserunning_simulator.remove_runner("home")
+            else:
+                result.outcome = PlayOutcome.TRIPLE  # Held at third
+                batter_runner.current_base = "third"
+                self.baserunning_simulator.remove_runner("home")
+                self.baserunning_simulator.add_runner("third", batter_runner)
+        elif bases_to_try == 3:
+            result.outcome = PlayOutcome.TRIPLE
+            batter_runner.current_base = "third"
             self.baserunning_simulator.remove_runner("home")
-            self.baserunning_simulator.add_runner("first", batter_runner)
+            self.baserunning_simulator.add_runner("third", batter_runner)
+        elif bases_to_try == 2:
+            result.outcome = PlayOutcome.DOUBLE
+            batter_runner.current_base = "second"
+            self.baserunning_simulator.remove_runner("home")
+            self.baserunning_simulator.add_runner("second", batter_runner)
+        else:
+            # Try for first - simulate throw
+            if ball_at_first < time_to_first - 0.1:  # Ball beats runner
+                self._simulate_throw_to_first(fielder, ball_retrieved_time, batter_runner, result)
+            else:
+                result.outcome = PlayOutcome.SINGLE
+                batter_runner.current_base = "first"
+                self.baserunning_simulator.remove_runner("home")
+                self.baserunning_simulator.add_runner("first", batter_runner)
     
     def _handle_ground_ball(self, ball_position: FieldPosition, result: PlayResult):
         """Handle ground ball fielding."""
