@@ -70,6 +70,14 @@ from .play_simulation import (
     create_elite_defense,
     simulate_play_from_trajectory,
 )
+from .game_simulation import (
+    GameSimulator,
+    GameState,
+    Team,
+    BaseState,
+    PlayByPlayEvent,
+    create_test_team,
+)
 
 from .constants import *
 
@@ -156,6 +164,14 @@ __all__ = [
     'create_standard_defense',
     'create_elite_defense',
     'simulate_play_from_trajectory',
+
+    # Game simulation
+    'GameSimulator',
+    'GameState',
+    'Team',
+    'BaseState',
+    'PlayByPlayEvent',
+    'create_test_team',
 ]
 
 # Add performance modules if available
