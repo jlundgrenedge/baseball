@@ -344,8 +344,17 @@ class Fielder:
             remaining_distance = distance - distance_during_acceleration
             time_at_max_speed = remaining_distance / max_speed
             total_time = reaction_time + time_to_max_speed + time_at_max_speed
-        
+
         return total_time
+
+    def calculate_effective_time_to_position(self, target: FieldPosition) -> float:
+        """Calculate time to reach a target after accounting for range skill."""
+        base_time = self.calculate_time_to_position(target)
+        reaction_time = self.get_reaction_time_seconds()
+        movement_time = max(base_time - reaction_time, 0.0)
+        range_multiplier = max(self.get_effective_range_multiplier(), 1e-3)
+        adjusted_movement = movement_time / range_multiplier
+        return reaction_time + adjusted_movement
     
     def can_reach_ball(self, ball_position: FieldPosition, ball_arrival_time: float) -> bool:
         """
@@ -363,12 +372,8 @@ class Fielder:
         bool
             True if fielder can reach ball in time
         """
-        fielder_time = self.calculate_time_to_position(ball_position)
-        
-        # Apply range multiplier to effective time
-        range_multiplier = self.get_effective_range_multiplier()
-        effective_time = fielder_time / range_multiplier
-        
+        effective_time = self.calculate_effective_time_to_position(ball_position)
+
         return effective_time <= ball_arrival_time
     
     def attempt_fielding(self, ball_position: FieldPosition, 
@@ -388,13 +393,11 @@ class Fielder:
         FieldingResult
             Result of fielding attempt
         """
-        fielder_time = self.calculate_time_to_position(ball_position)
-        range_multiplier = self.get_effective_range_multiplier()
-        effective_fielder_time = fielder_time / range_multiplier
-        
+        effective_fielder_time = self.calculate_effective_time_to_position(ball_position)
+
         # Determine success
         success = effective_fielder_time <= ball_arrival_time
-        
+
         # If close, there's a small chance for a diving catch
         if not success and (effective_fielder_time - ball_arrival_time) <= 0.3:
             # 20% chance for diving play if within 0.3 seconds
@@ -565,9 +568,7 @@ class FieldingSimulator:
         
         for pos_name, fielder in self.fielders.items():
             try:
-                time_needed = fielder.calculate_time_to_position(ball_position)
-                range_multiplier = fielder.get_effective_range_multiplier()
-                effective_time = time_needed / range_multiplier
+                effective_time = fielder.calculate_effective_time_to_position(ball_position)
                 
                 if effective_time <= ball_arrival_time:
                     # Base probability if they can get there
