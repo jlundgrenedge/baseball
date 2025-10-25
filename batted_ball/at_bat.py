@@ -397,6 +397,7 @@ class AtBatSimulator:
             pitch_trajectory_angle_deg=7.0,  # Typical downward angle
             vertical_contact_offset_inches=v_offset,
             horizontal_contact_offset_inches=total_h_offset,
+            distance_from_sweet_spot_inches=total_offset  # Use calculated offset for contact quality
         )
 
         # Simulate batted ball trajectory

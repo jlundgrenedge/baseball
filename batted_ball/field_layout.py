@@ -25,6 +25,7 @@ from .constants import (
     SECOND_BASE_X, SECOND_BASE_Y,
     THIRD_BASE_X, THIRD_BASE_Y,
     # Defensive positions
+    PITCHER_X, PITCHER_Y,
     CATCHER_X, CATCHER_Y,
     FIRST_BASEMAN_X, FIRST_BASEMAN_Y,
     SECOND_BASEMAN_X, SECOND_BASEMAN_Y,
@@ -286,6 +287,7 @@ class FieldLayout:
     def get_nearest_fielder_position(self, ball_position: FieldPosition) -> str:
         """
         Determine which fielder should handle a ball at given position.
+        Uses realistic fielding zones instead of just distance.
         
         Parameters
         ----------
@@ -297,19 +299,41 @@ class FieldLayout:
         str
             Name of the responsible fielder position
         """
-        min_distance = float('inf')
-        nearest_position = None
+        ball_x = ball_position.x
+        ball_y = ball_position.y
         
-        for pos_name, def_pos in self.defensive_positions.items():
-            if pos_name == 'pitcher':  # Pitcher doesn't field routine balls
-                continue
-                
-            distance = ball_position.distance_to(def_pos.standard_position)
-            if distance < min_distance:
-                min_distance = distance
-                nearest_position = pos_name
+        # Calculate distance from home plate
+        distance_from_home = (ball_x**2 + ball_y**2)**0.5
         
-        return nearest_position
+        # Very close to home plate - catcher territory
+        if distance_from_home < 30.0:
+            return 'catcher'
+        
+        # Close to pitcher's mound
+        pitcher_distance = ((ball_x - 0)**2 + (ball_y - 60.5)**2)**0.5
+        if pitcher_distance < 25.0:
+            return 'pitcher'
+        
+        # Determine infield vs outfield based on distance
+        # Balls beyond 180 feet go to outfielders
+        if distance_from_home > 180.0:
+            # Outfield responsibility based on angle
+            if ball_x < -50:  # Left side
+                return 'left_field'
+            elif ball_x > 50:  # Right side  
+                return 'right_field'
+            else:  # Center
+                return 'center_field'
+        else:
+            # Infield responsibility
+            if ball_x > 45:  # Right side of infield
+                return 'first_base'
+            elif ball_x < -45:  # Left side of infield
+                return 'third_base'
+            elif ball_x > 0:  # Right of center
+                return 'second_base'
+            else:  # Left of center
+                return 'shortstop'
     
     def calculate_base_path_distance(self, from_base: str, to_base: str) -> float:
         """
