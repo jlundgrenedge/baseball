@@ -266,31 +266,43 @@ class PlaySimulator:
         
         return min_distance if min_distance != float('inf') else 100.0  # Default fallback
     
-    def _simulate_ground_ball_fielding(self, fielder, ball_position: FieldPosition, ball_time: float, result: PlayResult):
+    def _simulate_ground_ball_fielding(self, fielder, ball_position: FieldPosition,
+                                       ball_time: float, result: PlayResult,
+                                       ground_ball_result: Optional[GroundBallResult] = None):
         """Simulate ground ball fielding and throwing sequence."""
-        # Time for ball to roll/bounce to final position (simplified)
-        initial_velocity = 80.0  # mph estimated ball speed off bat
-        distance_to_fielder = self._get_closest_fielder_distance(ball_position)
-        
-        # Ball slows down due to friction/bouncing
-        roll_time = distance_to_fielder / (initial_velocity * 0.3)  # Ball slows significantly
+        # Estimate when the ball arrives based on ground ball physics data if available.
+        if ground_ball_result is not None:
+            roll_time = ground_ball_result.total_time
+        else:
+            # Fallback to legacy approximation if physics data isn't provided.
+            initial_velocity = 80.0  # mph estimated ball speed off bat
+            distance_to_fielder = self._get_closest_fielder_distance(ball_position)
+            roll_time = distance_to_fielder / max(initial_velocity * 0.3, 1e-3)
+
         fielder_arrival_time = ball_time + roll_time
-        
-        # Fielding time (getting ball under control)
-        fielding_time = 0.5 if fielder.range > 75 else 1.0
-        
-        # Throwing time to first base (simplified)
-        distance_to_first = ball_position.distance_to(FieldPosition(90, 0, 0))  # 90 ft to first base
-        throw_speed = fielder.arm_strength * 1.2  # mph
-        throw_time = distance_to_first / (throw_speed * 1.467)  # Convert mph to ft/s
-        
+
+        # Fielding time (getting ball under control) scales with range quality.
+        range_multiplier = fielder.get_effective_range_multiplier()
+        base_control_time = 0.75  # Average glove-to-hand control time (seconds)
+        fielding_time = max(0.4, min(base_control_time / max(range_multiplier, 1e-3), 1.1))
+
+        # Throwing time to first base using the fielder's throwing profile.
+        first_base_pos = self.field_layout.get_base_position("first")
+        distance_to_first = ball_position.distance_to(first_base_pos)
+
+        throw_velocity_mph = max(fielder.get_throw_velocity_mph(), 1.0)
+        throw_velocity_fps = throw_velocity_mph * 1.467
+        transfer_time = fielder.get_transfer_time_seconds()
+        flight_time = distance_to_first / throw_velocity_fps
+        throw_time = transfer_time + flight_time
+
         total_fielder_time = fielder_arrival_time + fielding_time + throw_time
         
         # Runner time to first base
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
         if batter_runner:
-            runner_time_to_first = self.baserunning_simulator.calculate_base_time(
-                batter_runner, "home", "first"
+            runner_time_to_first = batter_runner.calculate_time_to_base(
+                "home", "first", include_leadoff=False
             )
             
             # Compare times to determine out or safe
