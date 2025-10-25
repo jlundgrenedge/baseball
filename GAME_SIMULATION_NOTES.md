@@ -1,5 +1,20 @@
 # Game Simulation Implementation Notes
 
+## Summary
+
+✅ **Working:** Full baseball game simulation with realistic physics!
+- Exit velocities: 95-115 mph (MLB-realistic)
+- Variety of outcomes: HRs, triples, doubles, singles, strikeouts
+- Scoring system functional
+- Detailed play-by-play with physics data
+
+⚠️ **Needs Tuning:** Offense/defense balance
+- Too many hits (needs more outs)
+- Fielders should catch more fly balls
+- Ground ball outs need improvement
+
+**Current State:** Playable game that demonstrates all the physics working together. Just needs statistical balancing to match MLB averages.
+
 ## What's Been Built
 
 We've successfully created a full baseball game simulation system that integrates all the physics-based mechanics:
@@ -41,49 +56,71 @@ We've successfully created a full baseball game simulation system that integrate
 - ✅ Multiple outcomes (strikeouts, walks, hits)
 - ✅ Safety limits to prevent infinite loops
 
-## Known Issues to Address
+## Fixed Issues ✓
 
-### 1. Exit Velocities Too High (HIGH PRIORITY)
-**Current:** 220-235 mph
-**Expected:** 80-120 mph (MLB max ~122 mph)
+### 1. Exit Velocities (FIXED)
+**Was:** 220-235 mph (double conversion bug)
+**Now:** 95-115 mph (realistic MLB range)
+
+**Root cause:** Exit velocity was being converted from m/s to mph twice
+- Once in contact model (already returned mph)
+- Again in game_simulation.py (multiplied by 2.237 again)
+
+**Fix:** Removed double conversion in `game_simulation.py` line 375
+
+### 2. Outcome Variety (IMPROVED)
+**Was:** Almost every ball = single
+**Now:** Mix of home runs, doubles, triples, singles, strikeouts
+
+**Improvements made:**
+- Added distance-based outcome classification in `play_simulation.py`
+- Home runs: 380+ ft with 40+ ft peak, or 400+ ft
+- Triples: 380+ ft
+- Doubles: 280+ ft or slow retrieval time
+- Singles: everything else
+
+**Still needs:** More fly outs and ground outs (too offense-heavy)
+
+### 3. Scoring (FIXED)
+**Was:** Score stayed 0-0
+**Now:** Runs are scored and tallied properly
+
+**Improvements made:**
+- Home runs count all runners on base
+- Runners advance on extra-base hits
+- Score updates correctly each play
+
+## Remaining Issues to Address
+
+### 1. Too Offense-Heavy (MEDIUM PRIORITY)
+**Current:** Lots of home runs and doubles, very few outs
+**Expected:** More balanced - roughly 3 outs per inning from balls in play
 
 **Likely causes:**
-- Contact model coefficients may need tuning
-- Conversion factor from m/s to mph might be wrong (should be 2.237)
-- Bat speed or pitch speed attributes may be scaled incorrectly
+- Fielders not catching enough fly balls
+- Launch angle distribution may favor line drives too much
+- Catch probability in fielding simulator may be too low
 
 **Fix locations:**
-- `batted_ball/contact.py` - Check COR and collision physics
-- `batted_ball/player.py` - Review how attributes convert to actual velocities
-- `batted_ball/game_simulation.py` line 367 - Verify conversion formula
+- `batted_ball/fielding.py` - Increase catch success rates
+- `batted_ball/play_simulation.py` - Tune when balls are catchable vs HRs
+- May need to adjust launch angle distributions in contact model
 
-### 2. Too Many Singles, No Variety (HIGH PRIORITY)
-**Current:** Almost every ball in play = single
-**Expected:** Mix of ground outs, fly outs, singles, doubles, triples, home runs
-
-**Likely causes:**
-- PlaySimulator may be classifying outcomes based on distance/trajectory
-- Fielders may not be making plays on catchable balls
-- All exit velocities and launch angles falling in "single" range
+### 2. Missing Ground Outs
+**Current:** Very few ground balls result in outs
+**Expected:** Ground balls should often result in outs
 
 **Fix locations:**
-- `batted_ball/play_simulation.py` - Review outcome classification logic
-- `batted_ball/fielding.py` - Check fielding catch probability
-- May need to review trajectory landing positions vs field dimensions
+- `batted_ball/play_simulation.py` _handle_ground_ball method
+- May need faster fielder movement or slower runners
 
-### 3. No Runs Being Scored
-**Current:** Score stays 0-0
-**Expected:** Runners should advance and score on hits
-
-**Likely causes:**
-- PlaySimulator's `final_runner_positions` may not include scoring runners
-- Baserunning advancement logic may need review
-- Fallback logic only places batter on base, not existing runners
+### 3. No Pop Outs / Infield Flies
+**Current:** All fly balls either caught for outs in outfield or become hits
+**Expected:** Some high pop-ups should be easy outs
 
 **Fix locations:**
-- `batted_ball/game_simulation.py` lines 464-471 - Fallback logic is too simple
-- `batted_ball/play_simulation.py` - Check how runners advance on hits
-- `batted_ball/baserunning.py` - Review runner advancement decisions
+- Need to classify very high, short-distance fly balls as pop-ups
+- Infielders should have near 100% catch rate on pop-ups
 
 ### 4. Players Not Tracked Properly on Bases
 **Current:** Using simplified logic that just stores the batter
