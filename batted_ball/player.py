@@ -405,13 +405,13 @@ class Hitter:
             (horizontal_offset_inches, vertical_offset_inches) from sweet spot
         """
         # Higher barrel accuracy = smaller offsets
-        # 20 = 2" max offset, 50 = 1" max offset, 80 = 0.3" max offset, 100 = 0.1" max offset
-        max_offset = 2.0 - (self.barrel_accuracy - 20) * 0.02375
-        max_offset = max(max_offset, 0.1)
+        # 20 = 3" max offset, 50 = 1.5" max offset, 80 = 0.5" max offset, 100 = 0.2" max offset
+        max_offset = 3.0 - (self.barrel_accuracy - 20) * 0.035
+        max_offset = max(max_offset, 0.2)
 
-        # Add random error based on bat control
+        # Add random error based on bat control - more variance for worse control
         control_factor = self.bat_control / 100.0
-        error_std = max_offset * (1.0 - control_factor * 0.7)
+        error_std = max_offset * (1.0 - control_factor * 0.5)  # Less control reduction
 
         horizontal_offset = np.random.normal(0, error_std)
         vertical_offset = np.random.normal(0, error_std)

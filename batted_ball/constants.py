@@ -465,6 +465,10 @@ OUTFIELD_WALL_HEIGHT = 10.0  # feet (varies by ballpark)
 # ============================================================================
 
 # Standard defensive positions (feet from home plate)
+# Pitcher
+PITCHER_X = 0.0
+PITCHER_Y = 60.5  # On the mound
+
 # Catcher
 CATCHER_X = 0.0
 CATCHER_Y = -2.0  # Behind home plate
@@ -480,12 +484,12 @@ THIRD_BASEMAN_X = -80.0
 THIRD_BASEMAN_Y = 15.0
 
 # Outfielders (standard depth)
-LEFT_FIELDER_X = -200.0
-LEFT_FIELDER_Y = 200.0
+LEFT_FIELDER_X = -220.0
+LEFT_FIELDER_Y = 150.0
 CENTER_FIELDER_X = 0.0
-CENTER_FIELDER_Y = 280.0
-RIGHT_FIELDER_X = 200.0
-RIGHT_FIELDER_Y = 200.0
+CENTER_FIELDER_Y = 250.0
+RIGHT_FIELDER_X = 220.0
+RIGHT_FIELDER_Y = 150.0
 
 # ============================================================================
 # FIELDING ATTRIBUTES AND PHYSICS
@@ -493,24 +497,24 @@ RIGHT_FIELDER_Y = 200.0
 
 # Sprint speed constants (feet per second)
 # Based on MLB Statcast data: https://baseballsavant.mlb.com/sprint_speed_leaderboard
-FIELDER_SPRINT_SPEED_MIN = 23.0    # ft/s (~15.7 mph) - slowest MLB players
-FIELDER_SPRINT_SPEED_AVG = 27.0    # ft/s (~18.4 mph) - MLB average
-FIELDER_SPRINT_SPEED_ELITE = 30.0  # ft/s (~20.5 mph) - elite sprinters
-FIELDER_SPRINT_SPEED_MAX = 32.0    # ft/s (~21.8 mph) - absolute fastest
+FIELDER_SPRINT_SPEED_MIN = 30.0    # ft/s (~20.5 mph) - slowest MLB players
+FIELDER_SPRINT_SPEED_AVG = 35.0    # ft/s (~23.9 mph) - MLB average
+FIELDER_SPRINT_SPEED_ELITE = 40.0  # ft/s (~27.3 mph) - elite sprinters
+FIELDER_SPRINT_SPEED_MAX = 42.0    # ft/s (~28.6 mph) - absolute fastest
 
 # Acceleration constants (feet per second squared)
 # Time to reach 80% of top speed for different athlete types
-FIELDER_ACCELERATION_MIN = 12.0    # ft/s² - poor acceleration
-FIELDER_ACCELERATION_AVG = 16.0    # ft/s² - average MLB acceleration
-FIELDER_ACCELERATION_ELITE = 20.0  # ft/s² - elite first step
-FIELDER_ACCELERATION_MAX = 24.0    # ft/s² - exceptional acceleration
+FIELDER_ACCELERATION_MIN = 40.0    # ft/s² - poor acceleration
+FIELDER_ACCELERATION_AVG = 60.0    # ft/s² - average MLB acceleration
+FIELDER_ACCELERATION_ELITE = 80.0  # ft/s² - elite first step
+FIELDER_ACCELERATION_MAX = 100.0   # ft/s² - exceptional acceleration
 
 # Reaction time constants (seconds)
 # Time from bat contact to first movement
 FIELDER_REACTION_TIME_MIN = 0.0    # s - perfect anticipation/jump
-FIELDER_REACTION_TIME_AVG = 0.15   # s - typical MLB fielder
-FIELDER_REACTION_TIME_POOR = 0.30  # s - poor jump/late read
-FIELDER_REACTION_TIME_MAX = 0.50   # s - very poor reaction
+FIELDER_REACTION_TIME_AVG = 0.10   # s - typical MLB fielder
+FIELDER_REACTION_TIME_POOR = 0.20  # s - poor jump/late read
+FIELDER_REACTION_TIME_MAX = 0.30   # s - very poor reaction
 
 # Throwing velocity constants (mph)
 # Position-specific throwing speeds
