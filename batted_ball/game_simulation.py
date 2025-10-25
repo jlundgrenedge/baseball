@@ -87,10 +87,8 @@ class GameState:
         self.runner_on_third = None
 
     def add_out(self):
-        """Add an out and check if inning is over"""
+        """Add an out"""
         self.outs += 1
-        if self.outs >= 3:
-            self.end_half_inning()
 
     def end_half_inning(self):
         """End the current half inning"""
@@ -211,6 +209,10 @@ class GameSimulator:
         while self.game_state.outs < 3 and at_bats < max_at_bats:
             self.simulate_at_bat(batting_team, pitching_team)
             at_bats += 1
+            
+            # Check if inning should end after processing the at-bat
+            if self.game_state.outs >= 3:
+                break
 
         if at_bats >= max_at_bats:
             print(f"  WARNING: Hit max at-bats limit ({max_at_bats}), ending inning")
@@ -286,8 +288,8 @@ class GameSimulator:
                 batter_runner=batter_runner
             )
 
-            # Process the play result with both play result and batted ball dict
-            self.process_play_result(play_result, batter, pitcher, at_bat_result.batted_ball_result)
+            # Process the play result with enhanced physics data
+            self.process_play_result(play_result, batter, pitcher, at_bat_result)
 
             # Reset play simulator for next play
             self.play_simulator.reset_simulation()
@@ -359,7 +361,7 @@ class GameSimulator:
         return runner
 
     def process_play_result(self, play_result: PlayResult, batter: Hitter, pitcher: Pitcher,
-                           batted_ball_dict: Dict = None):
+                           at_bat_result=None):
         """Process the result of a play and update game state"""
         outcome = play_result.outcome
 
@@ -369,16 +371,22 @@ class GameSimulator:
             if outcome == PlayOutcome.HOME_RUN:
                 self.game_state.total_home_runs += 1
 
-        # Collect physics data from the batted ball dict if available
-        if batted_ball_dict:
+        # Enhanced physics data collection from at_bat_result
+        last_pitch = {}  # Initialize to avoid scope issues
+        
+        if at_bat_result and at_bat_result.batted_ball_result:
+            batted_ball_dict = at_bat_result.batted_ball_result
             physics_data = {
-                "exit_velocity_mph": round(batted_ball_dict['exit_velocity'], 1),  # Already in mph!
-                "launch_angle_deg": round(batted_ball_dict['launch_angle'], 1),
+                "exit_velocity_mph": round(batted_ball_dict['exit_velocity'], 1),
+                "launch_angle_deg": round(batted_ball_dict['launch_angle'], 1), 
                 "distance_ft": round(batted_ball_dict['distance'], 1),
                 "hang_time_sec": round(batted_ball_dict['hang_time'], 2),
+                "contact_quality": batted_ball_dict.get('contact_quality', 'unknown'),
                 "peak_height_ft": round(batted_ball_dict['peak_height'], 1),
-                "spin_rpm": 0,  # Not available in dict
             }
+            
+            # Get the last pitch (the one that was hit)
+            last_pitch = at_bat_result.pitches[-1] if at_bat_result.pitches else {}
         else:
             # Fallback to trajectory object (though we always have dict now)
             bb_result = play_result.batted_ball_result
@@ -396,9 +404,29 @@ class GameSimulator:
 
         if self.verbose:
             print(f"  {description}")
-            print(f"    Physics: EV={physics_data['exit_velocity_mph']} mph, "
-                  f"LA={physics_data['launch_angle_deg']}°, "
-                  f"Dist={physics_data['distance_ft']} ft")
+            
+            # Enhanced physics display
+            physics_line = (f"    Physics: EV={physics_data['exit_velocity_mph']} mph, "
+                          f"LA={physics_data['launch_angle_deg']}°, "
+                          f"Dist={physics_data['distance_ft']} ft")
+            
+            # Add contact quality if available
+            if 'contact_quality' in physics_data:
+                physics_line += f", Contact: {physics_data['contact_quality']}"
+                
+            print(physics_line)
+            
+            # Add pitch information if available  
+            if last_pitch:
+                pitch_type = last_pitch.get('pitch_type', 'fastball')
+                pitch_velocity = last_pitch.get('velocity_plate', 0)
+                pitch_location = last_pitch.get('final_location', (0, 0))
+                pitch_line = f"    Pitch: {pitch_type} {pitch_velocity:.1f} mph"
+                if pitch_location and len(pitch_location) >= 2:
+                    zone_x = pitch_location[0] / 12.0  # Convert inches to feet for display
+                    zone_z = pitch_location[1] / 12.0  
+                    pitch_line += f" at zone ({zone_x:.1f}', {zone_z:.1f}')"
+                print(pitch_line)
 
         # Update game state based on outcome
         self.update_game_state_from_play(play_result, batter)
@@ -425,10 +453,10 @@ class GameSimulator:
         elif outcome == PlayOutcome.SINGLE:
             return f"✓ SINGLE"
         elif outcome == PlayOutcome.GROUND_OUT:
-            fielder_pos = play_result.primary_fielder.position.name if play_result.primary_fielder else "infield"
+            fielder_pos = play_result.primary_fielder.position if play_result.primary_fielder else "infield"
             return f"⚾ Ground out to {fielder_pos}"
         elif outcome == PlayOutcome.FLY_OUT:
-            fielder_pos = play_result.primary_fielder.position.name if play_result.primary_fielder else "outfield"
+            fielder_pos = play_result.primary_fielder.position if play_result.primary_fielder else "outfield"
             return f"⚾ Fly out to {fielder_pos}"
         elif outcome == PlayOutcome.LINE_OUT:
             return f"⚾ Line out"
@@ -444,8 +472,6 @@ class GameSimulator:
         # Use the outs_made and runs_scored from play result
         for _ in range(play_result.outs_made):
             self.game_state.add_out()
-            if self.game_state.outs >= 3:
-                return  # Inning over
 
         # Score runs
         for _ in range(play_result.runs_scored):

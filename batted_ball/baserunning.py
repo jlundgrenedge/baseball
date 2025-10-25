@@ -275,12 +275,16 @@ class BaseRunner:
             total_distance = BASE_PATH_LENGTH
         elif from_base == "first" and to_base == "third":
             total_distance = 2 * BASE_PATH_LENGTH
+        elif from_base == "first" and to_base == "home":
+            total_distance = 3 * BASE_PATH_LENGTH
         elif from_base == "second" and to_base == "home":
             total_distance = 2 * BASE_PATH_LENGTH
         elif from_base == "home" and to_base == "second":
             total_distance = 2 * BASE_PATH_LENGTH
         elif from_base == "home" and to_base == "third":
             total_distance = 3 * BASE_PATH_LENGTH
+        elif from_base == "home" and to_base == "home":  # Complete circuit
+            total_distance = 4 * BASE_PATH_LENGTH
         else:
             raise ValueError(f"Invalid base combination: {from_base} to {to_base}")
         
