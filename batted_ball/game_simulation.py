@@ -535,7 +535,13 @@ class GameSimulator:
 
 def create_test_team(name: str, team_quality: str = "average") -> Team:
     """
-    Create a test team with randomized but realistic players
+    Create a test team with randomized but realistic players.
+
+    Creates a mix of different batter types:
+    - Ground ball hitters (low launch angle ~8-15°)
+    - Line drive hitters (medium launch angle ~15-22°)
+    - Fly ball hitters (high launch angle ~22-32°)
+    - Power hitters (high launch angle + high exit velo ~25-35°)
 
     Args:
         name: Team name
@@ -572,24 +578,58 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
         )
         pitchers.append(pitcher)
 
-    # Create hitters (9-player lineup)
+    # Define batter type profiles
+    # Each profile has (swing_path_angle_range, launch_angle_tendency_range, description)
+    batter_types = [
+        ((6, 12), (8, 15), "ground ball"),      # Ground ball hitter
+        ((10, 16), (12, 20), "line drive"),     # Line drive hitter
+        ((14, 20), (18, 26), "balanced"),       # Balanced
+        ((16, 22), (22, 30), "fly ball"),       # Fly ball hitter
+        ((18, 24), (25, 35), "power"),          # Power hitter
+    ]
+
+    # Create hitters (9-player lineup) with varied types
     hitters = []
     position_names = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
     for i, pos in enumerate(position_names):
+        # Randomly select batter type
+        # Weight towards balanced/line drive hitters (more common in MLB)
+        type_weights = [0.15, 0.25, 0.30, 0.20, 0.10]  # GB, LD, Balanced, FB, Power
+        batter_type = random.choices(batter_types, weights=type_weights)[0]
+
+        swing_path_range, launch_angle_range, type_desc = batter_type
+
+        # Generate attributes based on type
+        swing_path_angle = float(random.randint(*swing_path_range))
+        launch_angle_tendency = float(random.randint(*launch_angle_range))
+
+        # Power hitters get higher exit velocity ceiling
+        if type_desc == "power":
+            exit_velo_bonus = 15
+        else:
+            exit_velo_bonus = 0
+
         hitter = Hitter(
             name=f"{name} {pos}",
             bat_speed=random.randint(min_attr, max_attr),
             barrel_accuracy=random.randint(min_attr, max_attr),
-            swing_path_angle=float(random.randint(10, 20)),
+            swing_path_angle=swing_path_angle,
             swing_timing_precision=random.randint(min_attr, max_attr),
             bat_control=random.randint(min_attr, max_attr),
-            exit_velocity_ceiling=random.randint(min_attr, max_attr),
-            launch_angle_tendency=float(random.randint(10, 25)),
+            exit_velocity_ceiling=min(random.randint(min_attr, max_attr) + exit_velo_bonus, 95),
+            launch_angle_tendency=launch_angle_tendency,
             pitch_recognition_speed=random.randint(min_attr, max_attr),
             zone_discipline=random.randint(min_attr, max_attr),
             swing_decision_aggressiveness=random.randint(min_attr, max_attr)
         )
         hitters.append(hitter)
+
+        # Debug output for first team created
+        if not hasattr(create_test_team, 'debug_shown'):
+            print(f"    {pos}: {type_desc} hitter (LA tendency: {launch_angle_tendency:.1f}°)")
+
+    if not hasattr(create_test_team, 'debug_shown'):
+        create_test_team.debug_shown = True
 
     # Create fielders using standard defense
     fielders = create_standard_defense()
