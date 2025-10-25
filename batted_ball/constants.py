@@ -419,3 +419,247 @@ PITCH_BREAK_CHANGE_PER_10_DEG_F = 0.3  # inches per 10°F
 # Wind effect on pitch movement
 # Headwind increases Magnus effect, tailwind decreases it
 WIND_MAGNUS_MULTIPLIER_PER_MPH = 0.02  # 2% per mph wind
+
+# ============================================================================
+# FIELD LAYOUT AND DIMENSIONS (REGULATION MLB)
+# ============================================================================
+
+# Base distances (feet)
+BASE_PATH_LENGTH = 90.0  # feet from base to base
+HOME_TO_FIRST_DISTANCE = 90.0  # feet
+FIRST_TO_SECOND_DISTANCE = 90.0 * math.sqrt(2)  # feet (diagonal)
+SECOND_TO_THIRD_DISTANCE = 90.0 * math.sqrt(2)  # feet (diagonal)
+THIRD_TO_HOME_DISTANCE = 90.0  # feet
+PITCHERS_MOUND_DISTANCE = 60.5  # feet from home plate
+
+# Base coordinates (feet from home plate)
+# Using standard right-handed coordinate system:
+# X: toward right field (positive), toward left field (negative)
+# Y: toward center field (positive), toward home plate (negative)
+# Z: upward (positive), downward (negative)
+HOME_PLATE_X = 0.0
+HOME_PLATE_Y = 0.0
+FIRST_BASE_X = 90.0
+FIRST_BASE_Y = 0.0
+SECOND_BASE_X = 0.0
+SECOND_BASE_Y = 90.0
+THIRD_BASE_X = -90.0
+THIRD_BASE_Y = 0.0
+
+# Foul territory dimensions (approximate)
+FOUL_TERRITORY_FIRST_BASE = 50.0  # feet from first base line
+FOUL_TERRITORY_THIRD_BASE = 50.0  # feet from third base line
+BACKSTOP_DISTANCE = 60.0  # feet behind home plate
+
+# Outfield wall distances (feet from home plate)
+# These are approximate for a typical MLB ballpark
+LEFT_FIELD_WALL_DISTANCE = 330.0  # feet down the line
+LEFT_CENTER_WALL_DISTANCE = 370.0  # feet
+CENTER_FIELD_WALL_DISTANCE = 400.0  # feet
+RIGHT_CENTER_WALL_DISTANCE = 370.0  # feet
+RIGHT_FIELD_WALL_DISTANCE = 330.0  # feet down the line
+OUTFIELD_WALL_HEIGHT = 10.0  # feet (varies by ballpark)
+
+# ============================================================================
+# DEFENSIVE POSITIONING (TYPICAL MLB)
+# ============================================================================
+
+# Standard defensive positions (feet from home plate)
+# Catcher
+CATCHER_X = 0.0
+CATCHER_Y = -2.0  # Behind home plate
+
+# Infielders
+FIRST_BASEMAN_X = 80.0
+FIRST_BASEMAN_Y = 15.0
+SECOND_BASEMAN_X = 45.0
+SECOND_BASEMAN_Y = 50.0
+SHORTSTOP_X = -25.0
+SHORTSTOP_Y = 60.0
+THIRD_BASEMAN_X = -80.0
+THIRD_BASEMAN_Y = 15.0
+
+# Outfielders (standard depth)
+LEFT_FIELDER_X = -200.0
+LEFT_FIELDER_Y = 200.0
+CENTER_FIELDER_X = 0.0
+CENTER_FIELDER_Y = 280.0
+RIGHT_FIELDER_X = 200.0
+RIGHT_FIELDER_Y = 200.0
+
+# ============================================================================
+# FIELDING ATTRIBUTES AND PHYSICS
+# ============================================================================
+
+# Sprint speed constants (feet per second)
+# Based on MLB Statcast data: https://baseballsavant.mlb.com/sprint_speed_leaderboard
+FIELDER_SPRINT_SPEED_MIN = 23.0    # ft/s (~15.7 mph) - slowest MLB players
+FIELDER_SPRINT_SPEED_AVG = 27.0    # ft/s (~18.4 mph) - MLB average
+FIELDER_SPRINT_SPEED_ELITE = 30.0  # ft/s (~20.5 mph) - elite sprinters
+FIELDER_SPRINT_SPEED_MAX = 32.0    # ft/s (~21.8 mph) - absolute fastest
+
+# Acceleration constants (feet per second squared)
+# Time to reach 80% of top speed for different athlete types
+FIELDER_ACCELERATION_MIN = 12.0    # ft/s² - poor acceleration
+FIELDER_ACCELERATION_AVG = 16.0    # ft/s² - average MLB acceleration
+FIELDER_ACCELERATION_ELITE = 20.0  # ft/s² - elite first step
+FIELDER_ACCELERATION_MAX = 24.0    # ft/s² - exceptional acceleration
+
+# Reaction time constants (seconds)
+# Time from bat contact to first movement
+FIELDER_REACTION_TIME_MIN = 0.0    # s - perfect anticipation/jump
+FIELDER_REACTION_TIME_AVG = 0.15   # s - typical MLB fielder
+FIELDER_REACTION_TIME_POOR = 0.30  # s - poor jump/late read
+FIELDER_REACTION_TIME_MAX = 0.50   # s - very poor reaction
+
+# Throwing velocity constants (mph)
+# Position-specific throwing speeds
+INFIELDER_THROW_VELOCITY_MIN = 70.0   # mph
+INFIELDER_THROW_VELOCITY_AVG = 82.0   # mph
+INFIELDER_THROW_VELOCITY_ELITE = 90.0 # mph
+INFIELDER_THROW_VELOCITY_MAX = 95.0   # mph
+
+OUTFIELDER_THROW_VELOCITY_MIN = 75.0   # mph
+OUTFIELDER_THROW_VELOCITY_AVG = 85.0   # mph
+OUTFIELDER_THROW_VELOCITY_ELITE = 95.0 # mph
+OUTFIELDER_THROW_VELOCITY_MAX = 105.0  # mph
+
+# Transfer time constants (seconds)
+# Time from catch/pickup to release
+INFIELDER_TRANSFER_TIME_MIN = 0.3     # s - elite double play turn
+INFIELDER_TRANSFER_TIME_AVG = 0.5     # s - average infielder
+INFIELDER_TRANSFER_TIME_POOR = 0.8    # s - slow hands
+INFIELDER_TRANSFER_TIME_MAX = 1.2     # s - very slow
+
+OUTFIELDER_TRANSFER_TIME_MIN = 0.6    # s - quick release
+OUTFIELDER_TRANSFER_TIME_AVG = 0.9    # s - average outfielder
+OUTFIELDER_TRANSFER_TIME_POOR = 1.3   # s - slow to set and throw
+OUTFIELDER_TRANSFER_TIME_MAX = 1.8    # s - very slow
+
+# Throwing accuracy constants (degrees standard deviation)
+# Accuracy of throw direction
+THROWING_ACCURACY_ELITE = 0.3      # ±0.3° - pinpoint accuracy
+THROWING_ACCURACY_AVG = 2.0        # ±2.0° - average accuracy
+THROWING_ACCURACY_POOR = 4.0       # ±4.0° - inconsistent
+THROWING_ACCURACY_TERRIBLE = 8.0   # ±8.0° - wild throws
+
+# Fielding range factors
+# Multipliers for effective fielding range based on skill
+FIELDING_RANGE_ELITE = 1.25    # 25% larger effective range
+FIELDING_RANGE_AVG = 1.00      # Standard range
+FIELDING_RANGE_POOR = 0.80     # 20% smaller effective range
+
+# ============================================================================
+# BASERUNNING ATTRIBUTES AND PHYSICS
+# ============================================================================
+
+# Runner sprint speed constants (feet per second)
+# Based on MLB Statcast data
+RUNNER_SPRINT_SPEED_MIN = 22.0     # ft/s (~15 mph) - slowest
+RUNNER_SPRINT_SPEED_AVG = 27.0     # ft/s (~18.4 mph) - MLB average
+RUNNER_SPRINT_SPEED_ELITE = 30.0   # ft/s (~20.5 mph) - elite speed
+RUNNER_SPRINT_SPEED_MAX = 32.0     # ft/s (~21.8 mph) - absolute fastest
+
+# Runner acceleration constants (feet per second squared)
+RUNNER_ACCELERATION_MIN = 10.0     # ft/s² - poor burst
+RUNNER_ACCELERATION_AVG = 14.0     # ft/s² - average acceleration
+RUNNER_ACCELERATION_ELITE = 18.0   # ft/s² - explosive first step
+RUNNER_ACCELERATION_MAX = 22.0     # ft/s² - exceptional burst
+
+# Base-to-base times (seconds) for validation
+# These emerge from physics but used for calibration
+HOME_TO_FIRST_TIME_MIN = 3.7       # s - elite speedsters
+HOME_TO_FIRST_TIME_AVG = 4.3       # s - MLB average
+HOME_TO_FIRST_TIME_SLOW = 5.2      # s - slow runners
+HOME_TO_FIRST_TIME_MAX = 6.0       # s - very slow
+
+# Baserunning reaction time (seconds)
+# Time from bat contact to start of advance
+RUNNER_REACTION_TIME_MIN = 0.05    # s - excellent jump
+RUNNER_REACTION_TIME_AVG = 0.15    # s - average reaction
+RUNNER_REACTION_TIME_POOR = 0.25   # s - poor jump
+RUNNER_REACTION_TIME_MAX = 0.40    # s - very poor reaction
+
+# Base rounding physics
+# Turn efficiency around bases
+TURN_RADIUS_MIN = 8.0              # ft - tight turns (speed loss)
+TURN_RADIUS_AVG = 12.0             # ft - average base rounding
+TURN_RADIUS_ELITE = 15.0           # ft - wide, efficient turns
+
+# Speed retention during turns (fraction of straight-line speed)
+TURN_SPEED_RETENTION_POOR = 0.75   # 25% speed loss in turn
+TURN_SPEED_RETENTION_AVG = 0.85    # 15% speed loss in turn
+TURN_SPEED_RETENTION_ELITE = 0.92  # 8% speed loss in turn
+
+# Sliding mechanics
+SLIDE_DECELERATION_RATE = 20.0     # ft/s² - friction deceleration
+SLIDE_DISTANCE_MIN = 8.0           # ft - short slide
+SLIDE_DISTANCE_AVG = 12.0          # ft - typical slide
+SLIDE_DISTANCE_MAX = 18.0          # ft - long slide
+
+# Lead-off distances (feet)
+LEADOFF_FIRST_BASE_MIN = 8.0       # ft - conservative lead
+LEADOFF_FIRST_BASE_AVG = 12.0      # ft - standard lead
+LEADOFF_FIRST_BASE_MAX = 18.0      # ft - aggressive lead
+
+LEADOFF_SECOND_BASE_MIN = 12.0     # ft
+LEADOFF_SECOND_BASE_AVG = 18.0     # ft
+LEADOFF_SECOND_BASE_MAX = 25.0     # ft
+
+LEADOFF_THIRD_BASE_MIN = 15.0      # ft
+LEADOFF_THIRD_BASE_AVG = 20.0      # ft
+LEADOFF_THIRD_BASE_MAX = 28.0      # ft
+
+# ============================================================================
+# ATTRIBUTE RATING SCALES (0-100) FOR FIELDING/BASERUNNING
+# ============================================================================
+
+# Fielding attribute scales
+FIELDING_SPEED_RATING_MIN = 20     # 23 ft/s sprint speed
+FIELDING_SPEED_RATING_AVG = 50     # 27 ft/s sprint speed  
+FIELDING_SPEED_RATING_ELITE = 80   # 30 ft/s sprint speed
+FIELDING_SPEED_RATING_MAX = 100    # 32 ft/s sprint speed
+
+FIELDING_REACTION_RATING_MIN = 20   # 0.5s reaction time
+FIELDING_REACTION_RATING_AVG = 50   # 0.15s reaction time
+FIELDING_REACTION_RATING_ELITE = 80 # 0.05s reaction time
+FIELDING_REACTION_RATING_MAX = 100  # 0.0s reaction time
+
+FIELDING_ARM_RATING_MIN = 20       # 70 mph (inf), 75 mph (of)
+FIELDING_ARM_RATING_AVG = 50       # 82 mph (inf), 85 mph (of)
+FIELDING_ARM_RATING_ELITE = 80     # 90 mph (inf), 95 mph (of)
+FIELDING_ARM_RATING_MAX = 100      # 95 mph (inf), 105 mph (of)
+
+FIELDING_ACCURACY_RATING_MIN = 20   # 8° standard deviation
+FIELDING_ACCURACY_RATING_AVG = 50   # 2° standard deviation
+FIELDING_ACCURACY_RATING_ELITE = 80 # 1° standard deviation
+FIELDING_ACCURACY_RATING_MAX = 100  # 0.5° standard deviation
+
+# Baserunning attribute scales
+BASERUNNING_SPEED_RATING_MIN = 20   # 22 ft/s sprint speed
+BASERUNNING_SPEED_RATING_AVG = 50   # 27 ft/s sprint speed
+BASERUNNING_SPEED_RATING_ELITE = 80 # 30 ft/s sprint speed
+BASERUNNING_SPEED_RATING_MAX = 100  # 32 ft/s sprint speed
+
+BASERUNNING_ACCELERATION_RATING_MIN = 20    # 10 ft/s² acceleration
+BASERUNNING_ACCELERATION_RATING_AVG = 50    # 14 ft/s² acceleration
+BASERUNNING_ACCELERATION_RATING_ELITE = 80  # 18 ft/s² acceleration
+BASERUNNING_ACCELERATION_RATING_MAX = 100   # 22 ft/s² acceleration
+
+BASERUNNING_BASERUNNING_RATING_MIN = 20     # Poor base running IQ
+BASERUNNING_BASERUNNING_RATING_AVG = 50     # Average base running
+BASERUNNING_BASERUNNING_RATING_ELITE = 80   # Elite base running IQ
+BASERUNNING_BASERUNNING_RATING_MAX = 100    # Perfect base running
+
+# ============================================================================
+# PLAY OUTCOME TIMING TOLERANCES
+# ============================================================================
+
+# Close play timing tolerances (seconds)
+# "Tie goes to runner" implementation
+CLOSE_PLAY_TOLERANCE = 0.05        # s - within 0.05s considered tie
+SAFE_RUNNER_BIAS = 0.02            # s - slight bias toward runner
+
+# Tag play timing
+TAG_APPLICATION_TIME = 0.10        # s - time to apply tag after catch
+TAG_AVOIDANCE_SUCCESS_RATE = 0.15  # 15% chance to avoid tag if close
