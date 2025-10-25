@@ -735,21 +735,22 @@ class Fielder:
 
         # Calculate effective speed based on distance (fielders don't reach full sprint on short plays)
         # This is a smooth curve that increases with distance
+        # Tuned for ~4.5 hits/inning through empirical testing
         if distance < 30.0:
-            # Short burst: 75-85% of max speed depending on distance
-            speed_percentage = 0.75 + (distance / 30.0) * 0.10  # 75% at 0ft, 85% at 30ft
+            # Short burst: 78-86% of max speed depending on distance
+            speed_percentage = 0.78 + (distance / 30.0) * 0.08  # 78% at 0ft, 86% at 30ft
             effective_speed = directional_max_speed * speed_percentage
             route_penalty = 1.0  # No route inefficiency on short plays
         elif distance < 60.0:
-            # Medium range: 85-92% of max speed
+            # Medium range: 86-92% of max speed
             normalized_dist = (distance - 30.0) / 30.0  # 0 to 1
-            speed_percentage = 0.85 + normalized_dist * 0.07  # 85% to 92%
+            speed_percentage = 0.86 + normalized_dist * 0.06  # 86% to 92%
             effective_speed = directional_max_speed * speed_percentage
             # Minor route inefficiency starts to appear
             route_efficiency = self.get_route_efficiency() / 100.0
             route_penalty = 1.0 + (1.0 - route_efficiency) * 0.5  # Partial route penalty
         else:
-            # Long range: 92-95% of max speed (never quite full sprint while fielding)
+            # Long range: 92-95% of max speed
             normalized_dist = min((distance - 60.0) / 60.0, 1.0)  # 0 to 1, capped
             speed_percentage = 0.92 + normalized_dist * 0.03  # 92% to 95%
             effective_speed = directional_max_speed * speed_percentage
