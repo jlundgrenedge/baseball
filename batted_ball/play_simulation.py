@@ -13,7 +13,7 @@ from .constants import (
     # Field dimensions
     HOME_PLATE_HEIGHT,
     # Physics constants
-    FEET_TO_METERS, METERS_TO_FEET,
+    FEET_TO_METERS, METERS_TO_FEET, MPH_TO_MS,
     # Play timing
     CLOSE_PLAY_TOLERANCE, SAFE_RUNNER_BIAS,
     TAG_APPLICATION_TIME, TAG_AVOIDANCE_SUCCESS_RATE,
@@ -272,12 +272,13 @@ class PlaySimulator:
         """Simulate ground ball fielding and throwing sequence."""
         # Estimate when the ball arrives based on ground ball physics data if available.
         if ground_ball_result is not None:
-            roll_time = ground_ball_result.total_time
+            roll_time = ground_ball_result.time_to_target if ground_ball_result.time_to_target is not None else ground_ball_result.total_time
         else:
             # Fallback to legacy approximation if physics data isn't provided.
             initial_velocity = 80.0  # mph estimated ball speed off bat
             distance_to_fielder = self._get_closest_fielder_distance(ball_position)
-            roll_time = distance_to_fielder / max(initial_velocity * 0.3, 1e-3)
+            initial_velocity_fps = max(initial_velocity * MPH_TO_MS * METERS_TO_FEET, 1e-3)
+            roll_time = distance_to_fielder / initial_velocity_fps
 
         fielder_arrival_time = ball_time + roll_time
 
@@ -291,7 +292,7 @@ class PlaySimulator:
         distance_to_first = ball_position.distance_to(first_base_pos)
 
         throw_velocity_mph = max(fielder.get_throw_velocity_mph(), 1.0)
-        throw_velocity_fps = throw_velocity_mph * 1.467
+        throw_velocity_fps = throw_velocity_mph * MPH_TO_MS * METERS_TO_FEET
         transfer_time = fielder.get_transfer_time_seconds()
         flight_time = distance_to_first / throw_velocity_fps
         throw_time = transfer_time + flight_time
@@ -841,7 +842,8 @@ class PlaySimulator:
         )
 
         # Time for ball to reach fielder's area
-        ball_to_fielder_time = batted_ball.flight_time + ground_ball_result.total_time
+        time_to_target = ground_ball_result.time_to_target if ground_ball_result.time_to_target is not None else ground_ball_result.total_time
+        ball_to_fielder_time = batted_ball.flight_time + time_to_target
 
         # Fielder reaction and movement time
         fielder_reaction_time = fielder.get_reaction_time_seconds()

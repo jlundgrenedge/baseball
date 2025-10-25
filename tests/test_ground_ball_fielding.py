@@ -18,6 +18,7 @@ class TestGroundBallFielding(unittest.TestCase):
     def _create_ground_ball_result(self, total_time: float) -> GroundBallResult:
         result = GroundBallResult()
         result.total_time = total_time
+        result.time_to_target = total_time
         return result
 
     def _create_infielder(self, fielding_range: int, arm_strength: int,

@@ -40,6 +40,7 @@ class GroundBallResult:
         self.final_position = np.array([0.0, 0.0, 0.0])  # Final (x, y, z) in feet
         self.bounces = []  # List of bounce events [(time, x, y, height), ...]
         self.rolling_start_time = 0.0  # When ball transitioned to rolling
+        self.time_to_target = None  # Time to reach requested target (seconds)
         self.trajectory_points = []  # List of (time, x, y, z) for visualization
 
 
@@ -140,10 +141,11 @@ class GroundBallSimulator:
         """
         result = GroundBallResult()
 
-        # Convert velocities to ft/s
-        vx = vx_mph * 1.467  # mph to ft/s
-        vy = vy_mph * 1.467
-        vz = vz_mph * 1.467
+        # Convert velocities to ft/s using shared constants to avoid drift
+        mph_to_fps = MPH_TO_MS * METERS_TO_FEET
+        vx = vx_mph * mph_to_fps
+        vy = vy_mph * mph_to_fps
+        vz = vz_mph * mph_to_fps
 
         # Current state
         x, y, z = x0, y0, 0.0  # Start at ground level after first bounce
@@ -176,6 +178,7 @@ class GroundBallSimulator:
                 target_x, target_y = target_position
                 dist_to_target = np.sqrt((x - target_x)**2 + (y - target_y)**2)
                 if dist_to_target < 2.0:  # Within 2 feet of target
+                    result.time_to_target = t
                     break
 
             # Check if ball is rolling (low vertical velocity and multiple bounces)
@@ -260,6 +263,7 @@ class GroundBallSimulator:
                     target_x, target_y = target_position
                     dist_to_target = np.sqrt((x - target_x)**2 + (y - target_y)**2)
                     if dist_to_target < 3.0:  # Within 3 feet of target
+                        result.time_to_target = t
                         break
 
                 # Update velocity (simple friction model)
@@ -284,6 +288,8 @@ class GroundBallSimulator:
         # Finalize result
         result.total_distance = np.sqrt((x - x0)**2 + (y - y0)**2)
         result.total_time = t
+        if result.time_to_target is None:
+            result.time_to_target = t
         result.final_position = np.array([x, y, 0.0])
         result.trajectory_points.append((t, x, y, 0.0))
 
