@@ -656,6 +656,48 @@ BASERUNNING_BASERUNNING_RATING_ELITE = 80   # Elite base running IQ
 BASERUNNING_BASERUNNING_RATING_MAX = 100    # Perfect base running
 
 # ============================================================================
+# GROUND BALL PHYSICS
+# ============================================================================
+
+# Coefficient of restitution for ground bounces
+# Ratio of relative velocity after/before bounce
+# Source: Physics of Baseball (Adair), turf studies
+GROUND_BALL_COR_GRASS = 0.45       # Natural grass (moderate bounce)
+GROUND_BALL_COR_TURF = 0.55        # Artificial turf (higher bounce)
+GROUND_BALL_COR_DIRT = 0.40        # Dirt infield (lower bounce)
+GROUND_BALL_COR_DEFAULT = 0.45     # Default to grass
+
+# Coefficient of rolling friction
+# Source: Sports science studies on baseball surfaces
+ROLLING_FRICTION_GRASS = 0.08      # Natural grass rolling friction
+ROLLING_FRICTION_TURF = 0.06       # Artificial turf (smoother)
+ROLLING_FRICTION_DIRT = 0.10       # Dirt infield (rougher)
+ROLLING_FRICTION_DEFAULT = 0.08    # Default to grass
+
+# Ground ball deceleration from air resistance (ft/s²)
+# Additional to rolling friction
+GROUND_BALL_AIR_RESISTANCE = 2.0   # ft/s² (minor effect)
+
+# Bounce height threshold (feet)
+# Below this height, ball is considered rolling (no more bounces)
+BOUNCE_HEIGHT_THRESHOLD = 0.5      # ft - below this, transitions to pure rolling
+
+# Minimum bounce count before transition to rolling
+# High backspin balls can bounce multiple times before rolling
+MIN_BOUNCES_BEFORE_ROLLING = 2
+
+# Maximum number of bounces to simulate
+MAX_GROUND_BALL_BOUNCES = 10
+
+# Spin decay rate on ground contact
+# Fraction of spin retained after each bounce
+SPIN_RETENTION_PER_BOUNCE = 0.70   # 30% spin loss per bounce
+
+# Launch angle threshold for ground balls vs line drives
+# Below this angle with low peak height = ground ball
+GROUND_BALL_LAUNCH_ANGLE_MAX = 15.0  # degrees
+
+# ============================================================================
 # PLAY OUTCOME TIMING TOLERANCES
 # ============================================================================
 
