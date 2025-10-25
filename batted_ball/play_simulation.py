@@ -272,25 +272,37 @@ class PlaySimulator:
     def _simulate_ground_ball_fielding(self, fielder, ball_position: FieldPosition,
                                        ball_time: float, result: PlayResult,
                                        ground_ball_result: Optional[GroundBallResult] = None):
-        """Simulate ground ball fielding and throwing sequence."""
-        # Estimate when the ball arrives based on ground ball physics data if available.
+        """Simulate ground ball fielding and throwing sequence with proper fielder movement physics."""
+
+        # Calculate fielder movement time to ball position (fielder runs while ball rolls)
+        fielder_movement_time = fielder.calculate_effective_time_to_position(ball_position)
+
+        # Calculate ball roll time to fielder's interception point
         if ground_ball_result is not None:
-            roll_time = ground_ball_result.time_to_target if ground_ball_result.time_to_target is not None else ground_ball_result.total_time
+            ball_roll_time = ground_ball_result.time_to_target if ground_ball_result.time_to_target is not None else ground_ball_result.total_time
         else:
-            # Fallback to legacy approximation if physics data isn't provided.
-            initial_velocity = 80.0  # mph estimated ball speed off bat
+            # Fallback: estimate roll time based on distance and initial velocity
             distance_to_fielder = self._get_closest_fielder_distance(ball_position)
+            initial_velocity = 80.0  # mph estimated ball speed off bat
             initial_velocity_fps = max(initial_velocity * MPH_TO_MS * METERS_TO_FEET, 1e-3)
-            roll_time = distance_to_fielder / initial_velocity_fps
 
-        fielder_arrival_time = ball_time + roll_time
+            # Account for deceleration during roll
+            friction = GROUND_BALL_AIR_RESISTANCE + (GRAVITY * METERS_TO_FEET * 0.08)
+            # Solve: distance = v0*t - 0.5*friction*t^2
+            # Using quadratic formula: t = (v0 - sqrt(v0^2 - 2*friction*distance)) / friction
+            under_sqrt = max(initial_velocity_fps**2 - 2.0 * friction * distance_to_fielder, 0.0)
+            ball_roll_time = (initial_velocity_fps - np.sqrt(under_sqrt)) / max(friction, 0.5)
+            ball_roll_time = max(ball_roll_time, 0.15)  # Minimum roll time
 
-        # Fielding time (getting ball under control) scales with range quality.
+        # Fielder can field when BOTH arrive: max(fielder_time, ball_time)
+        fielding_moment = ball_time + max(fielder_movement_time, ball_roll_time)
+
+        # Fielding control time (getting ball under control) scales with range quality
         range_multiplier = fielder.get_effective_range_multiplier()
-        base_control_time = 0.75  # Average glove-to-hand control time (seconds)
-        fielding_time = max(0.4, min(base_control_time / max(range_multiplier, 1e-3), 1.1))
+        base_control_time = 0.5  # Reduced from 0.75 - average glove-to-hand control time (seconds)
+        fielding_control_time = max(0.25, min(base_control_time / max(range_multiplier, 1e-3), 0.8))
 
-        # Throwing time to first base using the fielder's throwing profile.
+        # Throwing time to first base using the fielder's throwing profile
         first_base_pos = self.field_layout.get_base_position("first")
         distance_to_first = ball_position.distance_to(first_base_pos)
 
@@ -300,34 +312,45 @@ class PlaySimulator:
         flight_time = distance_to_first / throw_velocity_fps
         throw_time = transfer_time + flight_time
 
-        total_fielder_time = fielder_arrival_time + fielding_time + throw_time
-        
-        # Runner time to first base
+        # Total time for ball to reach first base
+        ball_arrival_at_first = fielding_moment + fielding_control_time + throw_time
+
+        # Runner time to first base using proper physics
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
         if batter_runner:
             runner_time_to_first = batter_runner.calculate_time_to_base(
                 "home", "first", include_leadoff=False
             )
-            
-            # Compare times to determine out or safe
-            if total_fielder_time < runner_time_to_first:
-                # Out at first
+
+            # Apply close play tolerance (tie goes to runner)
+            time_difference = runner_time_to_first - ball_arrival_at_first
+
+            if time_difference <= -CLOSE_PLAY_TOLERANCE:
+                # Runner beats throw easily
+                result.outcome = PlayOutcome.SINGLE
+                result.add_event(PlayEvent(
+                    runner_time_to_first, "infield_single",
+                    f"Infield single, beats throw by {abs(time_difference):.2f}s"
+                ))
+                self._handle_hit_baserunning(result)
+            elif time_difference <= SAFE_RUNNER_BIAS:
+                # Close play, tie goes to runner
+                result.outcome = PlayOutcome.SINGLE
+                result.add_event(PlayEvent(
+                    runner_time_to_first, "infield_single",
+                    f"Infield single on close play (runner {runner_time_to_first:.2f}s vs ball {ball_arrival_at_first:.2f}s)"
+                ))
+                self._handle_hit_baserunning(result)
+            else:
+                # Ball beats runner - out at first
                 result.outcome = PlayOutcome.GROUND_OUT
                 result.outs_made = 1
                 result.primary_fielder = fielder
                 result.add_event(PlayEvent(
-                    total_fielder_time, "ground_out",
-                    f"Ground out to {fielder.position}, fielded and thrown to first"
+                    ball_arrival_at_first, "ground_out",
+                    f"Ground out to {fielder.position}, throw beats runner by {time_difference:.2f}s"
                 ))
                 self.baserunning_simulator.remove_runner("home")
-            else:
-                # Safe - it's a hit
-                result.outcome = PlayOutcome.SINGLE
-                result.add_event(PlayEvent(
-                    runner_time_to_first, "infield_single",
-                    f"Infield single, beats throw to first"
-                ))
-                self._handle_hit_baserunning(result)
     
     def _attempt_trajectory_interception(self, batted_ball_result: BattedBallResult, result: PlayResult) -> bool:
         """
@@ -340,7 +363,7 @@ class PlaySimulator:
         """
         # Sample trajectory at multiple time points to find interception opportunities
         flight_time = batted_ball_result.flight_time
-        time_steps = 30  # Check 30 points along trajectory (increased for better coverage)
+        time_steps = 50  # Check 50 points along trajectory (increased for better coverage)
         dt = flight_time / time_steps
 
         # Debug first few attempts
@@ -359,8 +382,9 @@ class PlaySimulator:
             if debug and i <= 3:
                 print(f"  t={t:.2f}s: ball at ({ball_pos_t.x:.0f}, {ball_pos_t.y:.0f}, {ball_pos_t.z:.1f})")
 
-            # Skip very high fly balls (>12ft) until they come down
-            if ball_pos_t.z > 12.0:
+            # Skip very high fly balls (>20ft) until they come down to more catchable height
+            # This allows fielders to position themselves while ball is descending
+            if ball_pos_t.z > 20.0:
                 continue
 
             # Check ALL fielders to see who can reach this position
@@ -369,40 +393,47 @@ class PlaySimulator:
             all_fielder_times = []  # Track all fielders for debug
 
             for position_name, fielder in self.fielding_simulator.fielders.items():
+                # Calculate fielder movement time to the ground position under the ball
+                # Fielders run on the ground (z=0), not through the air!
+                ground_position = FieldPosition(ball_pos_t.x, ball_pos_t.y, 0.0)
+
                 # Enable advanced AI pursuit for better fielding intelligence
-                USE_ADVANCED_AI = True
-                
+                USE_ADVANCED_AI = False  # Disable for now - use simpler calculation
+
                 if USE_ADVANCED_AI:
                     # Create trajectory data for advanced AI pursuit methods
                     trajectory_data = self._create_trajectory_data_for_pursuit(batted_ball_result, t)
-                    
+
                     # Use advanced AI pursuit calculation instead of basic method
                     try:
                         # First try optimal intercept calculation
                         optimal_intercept = fielder.calculate_optimal_intercept_point(
                             trajectory_data, current_time=t
                         )
-                        
+
                         # Calculate time to optimal intercept using advanced route calculation
                         intercept_position = FieldPosition(optimal_intercept[0], optimal_intercept[1], 0.0)
                         route_result = fielder.calculate_optimal_route(
                             intercept_position, trajectory_data
                         )
-                        
+
                         # Extract time from route result (route_positions, total_time, efficiency)
                         effective_time = route_result[1] if isinstance(route_result, tuple) else route_result
-                        
+
                     except Exception:
                         # Fallback to basic method if advanced AI fails
-                        effective_time = fielder.calculate_effective_time_to_position(ball_pos_t)
+                        effective_time = fielder.calculate_effective_time_to_position(ground_position)
                 else:
-                    # Use basic method for now
-                    effective_time = fielder.calculate_effective_time_to_position(ball_pos_t)
+                    # Use basic method - calculate time to reach ground position
+                    effective_time = fielder.calculate_effective_time_to_position(ground_position)
 
-                # Time margin = how early the fielder arrives (positive = early, negative = late)
-                time_margin = t - effective_time
+                # Time margin = how much time fielder has to spare
+                # Fielder needs to arrive before ball at time t (when we're sampling the trajectory)
+                # If fielder can get there in less time than it takes ball to reach this point, they can catch it
+                time_margin = t - effective_time  # Positive = fielder arrives before ball at this point
 
-                distance = fielder.current_position.distance_to(ball_pos_t)
+                # Use horizontal distance for display (not 3D distance)
+                distance = fielder.current_position.horizontal_distance_to(ball_pos_t)
 
                 # Track for debug
                 all_fielder_times.append({
@@ -412,8 +443,9 @@ class PlaySimulator:
                     'effective_time': effective_time
                 })
 
-                # Give fielders a bit of leeway (can be up to 0.15s late and still make the play)
-                if time_margin >= -0.15:
+                # Give fielders more leeway (can be up to 0.5s late and still make the play)
+                # This accounts for diving catches, last-second adjustments, and reaching/jumping
+                if time_margin >= -0.5:
                     candidates.append({
                         'position': position_name,
                         'fielder': fielder,
@@ -440,7 +472,8 @@ class PlaySimulator:
                 position_name = best_candidate['position']
 
                 # Fielder can intercept! Determine catch vs field
-                if ball_pos_t.z > 3.0:  # Air ball catch
+                # Catch if ball is above waist height (2.5ft) to allow for low line drive catches
+                if ball_pos_t.z > 2.5:  # Air ball catch
                     if debug:
                         print(f"    CAUGHT by {position_name} at t={t:.2f}s! (margin: {best_candidate['time_margin']:.2f}s)")
                     result.outcome = PlayOutcome.FLY_OUT
@@ -540,59 +573,89 @@ class PlaySimulator:
     def _attempt_ground_ball_out(self, fielder, ball_position: FieldPosition,
                                 catch_time: float, result: PlayResult,
                                 position_name: str = None) -> bool:
-        """Attempt to field ground ball and throw out runner."""
+        """Attempt to field ground ball and throw out runner using proper physics."""
         # Use position name if provided, otherwise use fielder's position attribute
         if position_name is None:
             position_name = fielder.position
 
-        # Calculate time for fielder to reach ball, field it, and throw to first
+        # Calculate time for fielder to reach ball position
         fielder_reach_time = fielder.calculate_effective_time_to_position(ball_position)
-        fielding_time = 0.3 + (fielder.fielding_range / 100.0) * 0.2  # 0.3-0.5s based on skill
 
-        # Calculate throw time to first base
+        # Fielding control time (getting ball under control) scales with skill
+        range_multiplier = fielder.get_effective_range_multiplier()
+        fielding_control_time = max(0.25, 0.5 / max(range_multiplier, 1e-3))
+        fielding_control_time = min(fielding_control_time, 0.8)  # Cap at 0.8s
+
+        # Calculate throw time to first base using fielder's actual attributes
         first_base_pos = self.fielding_simulator.field_layout.get_base_position('first')
         throw_distance = ball_position.distance_to(first_base_pos)
-        throw_velocity_mph = 70 + (fielder.arm_strength / 100.0) * 25  # 70-95 mph throws
-        throw_velocity_fps = throw_velocity_mph * 1.467  # Convert mph to ft/s
-        throw_time = throw_distance / throw_velocity_fps
 
-        # Total time for fielder to complete the play
-        total_fielder_time = catch_time + fielder_reach_time + fielding_time + throw_time
+        # Use fielder's actual throwing velocity
+        throw_velocity_mph = fielder.get_throw_velocity_mph()
+        throw_velocity_fps = throw_velocity_mph * MPH_TO_MS * METERS_TO_FEET
+        transfer_time = fielder.get_transfer_time_seconds()
+        flight_time = throw_distance / throw_velocity_fps
+        throw_time = transfer_time + flight_time
 
-        # Calculate runner time to first base
-        runner_speed_fps = 25.0  # Average runner speed (about 17 mph)
-        distance_to_first = 90.0  # Base path distance
-        runner_time = distance_to_first / runner_speed_fps  # About 3.6 seconds
+        # Total time for ball to reach first base
+        # Fielder intercepts at catch_time, then needs to reach ball, control it, and throw
+        ball_arrival_at_first = catch_time + max(fielder_reach_time, 0.0) + fielding_control_time + throw_time
+
+        # Get runner from baserunning simulator and use proper physics
+        batter_runner = self.baserunning_simulator.get_runner_at_base("home")
+        if not batter_runner:
+            # Fallback: create a default runner if none exists
+            from .baserunning import create_average_runner
+            batter_runner = create_average_runner("Batter")
+
+        runner_time_to_first = batter_runner.calculate_time_to_base(
+            "home", "first", include_leadoff=False
+        )
+
+        # Apply close play tolerance (tie goes to runner)
+        time_difference = runner_time_to_first - ball_arrival_at_first
 
         # Debug ground ball attempt
         debug = not hasattr(self, 'ground_ball_debug_done')
         if debug:
             self.ground_ball_debug_done = True
-            print(f"      GROUND BALL: {position_name} fielder_time={total_fielder_time:.1f}s vs runner_time={runner_time:.1f}s")
+            print(f"      GROUND BALL: {position_name} ball_arrival={ball_arrival_at_first:.2f}s vs runner_time={runner_time_to_first:.2f}s")
 
-        if total_fielder_time < runner_time:
+        if time_difference <= -CLOSE_PLAY_TOLERANCE:
+            # Runner beats throw easily
+            result.outcome = PlayOutcome.SINGLE
+            result.add_event(PlayEvent(
+                runner_time_to_first, "safe_at_first",
+                f"Safe at first, beats throw by {abs(time_difference):.2f}s"
+            ))
+            self._handle_hit_baserunning(result)
+            if debug:
+                print(f"      SAFE AT FIRST (fielded by {position_name})")
+            return True
+        elif time_difference <= SAFE_RUNNER_BIAS:
+            # Close play, tie goes to runner
+            result.outcome = PlayOutcome.SINGLE
+            result.add_event(PlayEvent(
+                runner_time_to_first, "safe_at_first",
+                f"Safe at first on close play ({runner_time_to_first:.2f}s vs {ball_arrival_at_first:.2f}s)"
+            ))
+            self._handle_hit_baserunning(result)
+            if debug:
+                print(f"      SAFE AT FIRST on close play (fielded by {position_name})")
+            return True
+        else:
+            # Ball beats runner - out!
             result.outcome = PlayOutcome.GROUND_OUT
             result.outs_made = 1
             result.primary_fielder = fielder
             result.add_event(PlayEvent(
-                total_fielder_time, "ground_out",
-                f"Ground out to {position_name} ({total_fielder_time:.1f}s vs {runner_time:.1f}s)"
+                ball_arrival_at_first, "ground_out",
+                f"Ground out to {position_name}, throw beats runner by {time_difference:.2f}s"
             ))
             self.baserunning_simulator.remove_runner("home")
             if debug:
                 print(f"      GROUND OUT to {position_name}!")
             return True
-        else:
-            # Safe at first - it's a hit
-            result.outcome = PlayOutcome.SINGLE
-            result.add_event(PlayEvent(
-                runner_time, "safe_at_first",
-                f"Safe at first - {position_name} too slow ({total_fielder_time:.1f}s vs {runner_time:.1f}s)"
-            ))
-            self._handle_hit_baserunning(result)
-            if debug:
-                print(f"      SAFE AT FIRST (fielded by {position_name})")
-            return True  # Still handled, just as hit instead of out
     
     def _determine_hit_type(self, ball_position: FieldPosition, distance_ft: float, result: PlayResult):
         """Determine hit type when no fielder can intercept."""
