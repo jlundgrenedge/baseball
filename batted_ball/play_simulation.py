@@ -450,9 +450,10 @@ class PlaySimulator:
                     'effective_time': effective_time
                 })
 
-                # Give fielders more leeway (can be up to 0.5s late and still make the play)
-                # This accounts for diving catches, last-second adjustments, and reaching/jumping
-                if time_margin >= -0.5:
+                # Give fielders generous leeway (can be up to 0.75s late and still make the play)
+                # This accounts for diving catches, last-second adjustments, reaching, and jumping
+                # MLB fielders regularly make spectacular plays when "late" by traditional metrics
+                if time_margin >= -0.75:
                     candidates.append({
                         'position': position_name,
                         'fielder': fielder,
