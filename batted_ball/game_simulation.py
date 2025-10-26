@@ -675,12 +675,13 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
 
     # Define batter type profiles
     # Each profile has (swing_path_angle_range, launch_angle_tendency_range, description)
+    # Increased swing path angles for fly ball/power hitters to enable home runs (need 25-30° launch)
     batter_types = [
         ((6, 12), (8, 15), "ground ball"),      # Ground ball hitter
         ((10, 16), (12, 20), "line drive"),     # Line drive hitter
         ((14, 20), (18, 26), "balanced"),       # Balanced
-        ((16, 22), (22, 30), "fly ball"),       # Fly ball hitter
-        ((18, 24), (25, 35), "power"),          # Power hitter
+        ((20, 28), (22, 30), "fly ball"),       # Fly ball hitter (increased from 16-22)
+        ((24, 32), (25, 35), "power"),          # Power hitter (increased from 18-24)
     ]
 
     # Create hitters (9-player lineup) with varied types
@@ -698,15 +699,21 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
         swing_path_angle = float(random.randint(*swing_path_range))
         launch_angle_tendency = float(random.randint(*launch_angle_range))
 
-        # Power hitters get higher exit velocity ceiling
+        # Power hitters get higher bat speed and exit velocity ceiling
+        # Fly ball hitters also get moderate bat speed boost
         if type_desc == "power":
             exit_velo_bonus = 15
+            bat_speed_bonus = random.randint(10, 15)  # Power hitters swing harder
+        elif type_desc == "fly ball":
+            exit_velo_bonus = 8
+            bat_speed_bonus = random.randint(5, 10)   # Fly ball hitters need good bat speed
         else:
             exit_velo_bonus = 0
+            bat_speed_bonus = 0
 
         hitter = Hitter(
             name=f"{name} {pos}",
-            bat_speed=random.randint(min_attr, max_attr),
+            bat_speed=min(random.randint(min_attr, max_attr) + bat_speed_bonus, 95),
             barrel_accuracy=random.randint(min_attr, max_attr),
             swing_path_angle=swing_path_angle,
             swing_timing_precision=random.randint(min_attr, max_attr),

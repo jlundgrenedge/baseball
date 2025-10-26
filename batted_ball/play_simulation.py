@@ -373,13 +373,20 @@ class PlaySimulator:
             print(f"INTERCEPTION DEBUG: flight_time={flight_time:.2f}s, peak_height={batted_ball_result.peak_height:.1f}ft")
 
         # Sample entire trajectory, checking ALL fielders at each point
+        # Skip very early trajectory (first 0.15s or 10% of flight) - ball rising too fast near batter
+        start_time_threshold = min(0.15, flight_time * 0.10)
+
         for i in range(1, time_steps):  # Skip t=0 (still at bat)
             t = i * dt
+
+            # Skip very early trajectory when ball is still near batter
+            if t < start_time_threshold:
+                continue
 
             # Get ball position at time t
             ball_pos_t = self._calculate_ball_position_at_time(batted_ball_result, t)
 
-            if debug and i <= 3:
+            if debug and i <= 5:
                 print(f"  t={t:.2f}s: ball at ({ball_pos_t.x:.0f}, {ball_pos_t.y:.0f}, {ball_pos_t.z:.1f})")
 
             # Skip very high fly balls (>20ft) until they come down to more catchable height
@@ -443,9 +450,10 @@ class PlaySimulator:
                     'effective_time': effective_time
                 })
 
-                # Give fielders more leeway (can be up to 0.5s late and still make the play)
-                # This accounts for diving catches, last-second adjustments, and reaching/jumping
-                if time_margin >= -0.5:
+                # Give fielders generous leeway (can be up to 0.75s late and still make the play)
+                # This accounts for diving catches, last-second adjustments, reaching, and jumping
+                # MLB fielders regularly make spectacular plays when "late" by traditional metrics
+                if time_margin >= -0.75:
                     candidates.append({
                         'position': position_name,
                         'fielder': fielder,
@@ -471,20 +479,36 @@ class PlaySimulator:
                 fielder = best_candidate['fielder']
                 position_name = best_candidate['position']
 
-                # Fielder can intercept! Determine catch vs field
+                # Fielder can intercept! Use probabilistic catch model
                 # Catch if ball is above waist height (2.5ft) to allow for low line drive catches
-                if ball_pos_t.z > 2.5:  # Air ball catch
+                if ball_pos_t.z > 2.5:  # Air ball catch attempt
+                    # Calculate catch probability using the fielder's model
+                    catch_prob = fielder.calculate_catch_probability(ground_position, t)
+
+                    # Roll for success based on probability
+                    catch_roll = np.random.random()
+                    catch_success = catch_roll < catch_prob
+
                     if debug:
-                        print(f"    CAUGHT by {position_name} at t={t:.2f}s! (margin: {best_candidate['time_margin']:.2f}s)")
-                    result.outcome = PlayOutcome.FLY_OUT
-                    result.outs_made = 1
-                    result.primary_fielder = fielder
-                    result.add_event(PlayEvent(
-                        t, "catch",
-                        f"Caught by {position_name} at {ball_pos_t.x:.0f}ft, {ball_pos_t.z:.1f}ft high"
-                    ))
-                    self.baserunning_simulator.remove_runner("home")
-                    return True
+                        print(f"    {position_name} catch attempt: prob={catch_prob:.2%}, roll={catch_roll:.2f}, {'SUCCESS' if catch_success else 'MISS'}")
+
+                    if catch_success:
+                        # Catch made!
+                        result.outcome = PlayOutcome.FLY_OUT
+                        result.outs_made = 1
+                        result.primary_fielder = fielder
+                        result.add_event(PlayEvent(
+                            t, "catch",
+                            f"Caught by {position_name} ({catch_prob:.0%} prob)"
+                        ))
+                        self.baserunning_simulator.remove_runner("home")
+                        return True
+                    else:
+                        # Catch attempt failed - ball drops, continue checking other time points
+                        # Don't return here, let the ball keep going to see if another fielder can field it
+                        if debug:
+                            print(f"    {position_name} missed catch (prob was {catch_prob:.0%})")
+                        continue
                 else:  # Ground ball / line drive fielding
                     if debug:
                         print(f"    {position_name} fielding at t={t:.2f}s, z={ball_pos_t.z:.1f}ft (margin: {best_candidate['time_margin']:.2f}s)")

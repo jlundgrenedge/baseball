@@ -697,11 +697,12 @@ class Fielder:
     
     def calculate_time_to_position(self, target: FieldPosition) -> float:
         """
-        Calculate time required to reach a target position using research-based multi-phase model.
+        Calculate time required to reach a target position using simplified empirical model.
 
-        Implements:
-        - Fast reaction model for short distances (< 15ft)
-        - Multi-phase model for longer distances
+        Uses distance-based effective speeds calibrated to real fielding plays:
+        - Short distances (< 30ft): Quick burst speed (~75-85% of max)
+        - Medium distances (30-60ft): Acceleration phase (~80-90% of max)
+        - Long distances (> 60ft): Near full sprint with route efficiency
 
         Parameters
         ----------
@@ -711,7 +712,7 @@ class Fielder:
         Returns
         -------
         float
-            Time in seconds to reach position
+            Time in seconds to reach position (includes reaction/first-step time)
         """
         if self.current_position is None:
             raise ValueError("Current position not set")
@@ -724,63 +725,67 @@ class Fielder:
             0.0
         ])
 
-        # Get research-based physical attributes
+        # Get base physical attributes
         max_speed = self.get_sprint_speed_fps_statcast()
-
-        # For very short distances (pop-ups, etc), use simplified model
-        # These are quick reactions without full acceleration phase
-        if distance < 15.0:
-            # Quick reaction model: minimal delay + fast movement at partial speed
-            quick_reaction_time = 0.15  # Reduced from first_step_time for close plays
-            # Use 60% of max speed for short bursts (not full sprint)
-            burst_speed = max_speed * 0.6
-            movement_time = distance / burst_speed
-            return quick_reaction_time + movement_time
-
-        # For longer distances, use full multi-phase model
         first_step_time = self.get_first_step_time()
-        acceleration = self.get_acceleration_fps2()
-        route_efficiency = self.get_route_efficiency() / 100.0  # Convert to fraction
 
         # Apply directional speed penalty
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
-        effective_max_speed = max_speed * direction_penalty
+        directional_max_speed = max_speed * direction_penalty
 
-        # Apply route efficiency (affects effective distance)
-        effective_distance = distance / route_efficiency
-
-        # Multi-phase movement model:
-        # Phase 1: First step time (from research)
-        phase1_time = first_step_time
-
-        # Phase 2: Acceleration phase
-        # Time to reach 80% of max speed (research shows this is typical acceleration target)
-        target_speed = 0.80 * effective_max_speed
-        acceleration_time = target_speed / acceleration
-        acceleration_distance = 0.5 * acceleration * acceleration_time**2
-
-        if effective_distance <= acceleration_distance:
-            # Never reach target speed - solve quadratic equation
-            # distance = 0.5 * acceleration * time^2
-            acceleration_time = np.sqrt(2 * effective_distance / acceleration)
-            constant_velocity_time = 0.0
+        # Calculate effective speed based on distance (fielders don't reach full sprint on short plays)
+        # This is a smooth curve that increases with distance
+        # Tuned for ~4.5 hits/inning through empirical testing
+        if distance < 30.0:
+            # Short burst: 78-86% of max speed depending on distance
+            speed_percentage = 0.78 + (distance / 30.0) * 0.08  # 78% at 0ft, 86% at 30ft
+            effective_speed = directional_max_speed * speed_percentage
+            route_penalty = 1.0  # No route inefficiency on short plays
+        elif distance < 60.0:
+            # Medium range: 86-92% of max speed
+            normalized_dist = (distance - 30.0) / 30.0  # 0 to 1
+            speed_percentage = 0.86 + normalized_dist * 0.06  # 86% to 92%
+            effective_speed = directional_max_speed * speed_percentage
+            # Minor route inefficiency starts to appear
+            route_efficiency = self.get_route_efficiency() / 100.0
+            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.5  # Partial route penalty
         else:
-            # Phase 3: Constant velocity phase
-            remaining_distance = effective_distance - acceleration_distance
-            constant_velocity_time = remaining_distance / target_speed
+            # Long range: 92-95% of max speed
+            normalized_dist = min((distance - 60.0) / 60.0, 1.0)  # 0 to 1, capped
+            speed_percentage = 0.92 + normalized_dist * 0.03  # 92% to 95%
+            effective_speed = directional_max_speed * speed_percentage
+            # Full route efficiency penalty
+            route_efficiency = self.get_route_efficiency() / 100.0
+            route_penalty = 1.0 / route_efficiency  # Full penalty
 
-        total_time = phase1_time + acceleration_time + constant_velocity_time
+        # Calculate movement time
+        effective_distance = distance * route_penalty
+        movement_time = effective_distance / effective_speed
+
+        # Total time = first step + movement
+        total_time = first_step_time + movement_time
         return total_time
 
     def calculate_effective_time_to_position(self, target: FieldPosition) -> float:
-        """Calculate time to reach a target after accounting for range skill and reaction time."""
-        base_time = self.calculate_time_to_position(target)  # Pure movement time
-        reaction_time = self.get_reaction_time_seconds()     # Delay before moving
+        """Calculate time to reach target after accounting for fielder range skill."""
+        if self.current_position is None:
+            raise ValueError("Current position not set")
+
+        # Get base time (already includes first-step/reaction time)
+        base_time = self.calculate_time_to_position(target)
+
+        # Apply range multiplier to improve/reduce effective time
+        # Higher range = faster effective movement
         range_multiplier = self.get_effective_range_multiplier()
-        # Range multiplier improves movement efficiency (higher = faster effective movement)
-        adjusted_movement = base_time / range_multiplier
-        # Total time = reaction delay + adjusted movement time
-        return reaction_time + adjusted_movement
+
+        # Separate first-step from movement to apply range only to movement
+        first_step_time = self.get_first_step_time()
+        movement_time = max(base_time - first_step_time, 0.0)
+
+        # Range affects movement efficiency
+        adjusted_movement = movement_time / range_multiplier
+
+        return first_step_time + adjusted_movement
     
     def can_reach_ball(self, ball_position: FieldPosition, ball_arrival_time: float) -> bool:
         """
@@ -835,17 +840,19 @@ class Fielder:
         
         if self.current_position is None:
             return 0.0
-        
-        # Calculate distance and movement direction
-        distance = self.current_position.distance_to(ball_position)
+
+        # Calculate horizontal distance and movement direction (fielders move on the ground)
+        # Create ground position under the ball for accurate fielder movement calculation
+        ground_position = FieldPosition(ball_position.x, ball_position.y, 0.0)
+        distance = self.current_position.horizontal_distance_to(ball_position)
         movement_vector = np.array([
             ball_position.x - self.current_position.x,
             ball_position.y - self.current_position.y,
             0.0
         ])
-        
-        # Calculate fielder time to position
-        fielder_time = self.calculate_effective_time_to_position(ball_position)
+
+        # Calculate fielder time to reach ground position under ball
+        fielder_time = self.calculate_effective_time_to_position(ground_position)
         
         # Base probability for routine plays
         probability = CATCH_PROB_BASE
@@ -857,11 +864,17 @@ class Fielder:
         # Time bonus/penalty: more time = higher probability
         time_margin = ball_arrival_time - fielder_time
         if time_margin > 0:
+            # Extra time available - bonus for routine plays
             time_bonus = min(time_margin, 2.0) * CATCH_PROB_TIME_BONUS
             probability += time_bonus
+        elif time_margin >= -0.75:
+            # Close play - fielder slightly late but can still make diving/reaching catch
+            # Linear penalty from 0s (no penalty) to -0.75s (30% penalty)
+            time_penalty = abs(time_margin) * 0.40  # 40% penalty per second late
+            probability -= time_penalty
         else:
-            # Time deficit - very low probability
-            probability *= max(0.1, (1.0 + time_margin / 0.5))  # Severe penalty for late arrival
+            # Very late - unlikely to make play even with diving
+            probability *= 0.1  # Severe penalty for plays beyond reasonable diving range
         
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY
