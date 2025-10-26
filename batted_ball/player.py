@@ -7,6 +7,7 @@ realistic baseball gameplay with individual player characteristics.
 
 import numpy as np
 from typing import Dict, List, Optional, Tuple
+from .attributes import HitterAttributes, FielderAttributes
 from .constants import (
     # Pitcher attribute scales
     VELOCITY_RATING_MIN,
@@ -321,6 +322,8 @@ class Hitter:
         zone_discipline: int = 50,
         swing_decision_aggressiveness: int = 50,
         adjustment_ability: int = 50,
+        # NEW: Physics-first attributes (0-100,000 scale)
+        attributes_v2: Optional[HitterAttributes] = None,
     ):
         """
         Initialize hitter with attribute ratings.
@@ -358,18 +361,21 @@ class Hitter:
         """
         self.name = name
 
-        # Core physical attributes
+        # Store new attribute system if provided
+        self.attributes_v2 = attributes_v2
+
+        # Core physical attributes (legacy 0-100 scale, or defaults if using attributes_v2)
         self.bat_speed = np.clip(bat_speed, 0, 100)
-        self.swing_path_angle = swing_path_angle
+        self.swing_path_angle = swing_path_angle if attributes_v2 is None else 15.0
         self.barrel_accuracy = np.clip(barrel_accuracy, 0, 100)
         self.swing_timing_precision = np.clip(swing_timing_precision, 0, 100)
         self.bat_control = np.clip(bat_control, 0, 100)
 
         # Outcome-influencing attributes
         self.exit_velocity_ceiling = np.clip(exit_velocity_ceiling, 0, 100)
-        self.launch_angle_tendency = launch_angle_tendency
+        self.launch_angle_tendency = launch_angle_tendency if attributes_v2 is None else 15.0
         self.spin_control = np.clip(spin_control, 0, 100)
-        self.spray_tendency = spray_tendency
+        self.spray_tendency = spray_tendency if attributes_v2 is None else 0.0  # Neutral spray for new system
 
         # Perception & decision attributes
         self.pitch_recognition_speed = np.clip(pitch_recognition_speed, 0, 100)
@@ -386,9 +392,36 @@ class Hitter:
         float
             Bat speed in MPH
         """
-        # 20 = 60 mph, 50 = 70 mph, 80 = 77 mph, 100 = 82 mph
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            return self.attributes_v2.get_bat_speed_mph()
+
+        # Legacy: 20 = 60 mph, 50 = 70 mph, 80 = 77 mph, 100 = 82 mph
         bat_speed_mph = 60.0 + (self.bat_speed - 20) * 0.275
         return bat_speed_mph
+
+    def get_swing_path_angle_deg(self) -> float:
+        """
+        Get swing path angle (attack angle) in degrees.
+
+        For new attribute system: samples from mean with variance
+        For legacy: returns fixed swing_path_angle
+
+        Returns
+        -------
+        float
+            Swing path angle in degrees
+        """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            mean_angle = self.attributes_v2.get_attack_angle_mean_deg()
+            variance = self.attributes_v2.get_attack_angle_variance_deg()
+
+            # Sample from normal distribution
+            return np.random.normal(mean_angle, variance)
+
+        # Legacy: fixed angle
+        return self.swing_path_angle
 
     def get_contact_point_offset(self, pitch_location: Tuple[float, float]) -> Tuple[float, float]:
         """
@@ -404,6 +437,19 @@ class Hitter:
         tuple
             (horizontal_offset_inches, vertical_offset_inches) from sweet spot
         """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            # Get barrel accuracy in mm, convert to inches
+            error_mm = self.attributes_v2.get_barrel_accuracy_mm()
+            error_inches = error_mm / 25.4  # mm to inches
+
+            # Sample from normal distribution
+            horizontal_offset = np.random.normal(0, error_inches)
+            vertical_offset = np.random.normal(0, error_inches)
+
+            return horizontal_offset, vertical_offset
+
+        # Legacy calculation
         # Higher barrel accuracy = smaller offsets (adjusted for realism)
         # 20 = 1.5" max offset, 50 = 0.8" max offset, 75 = 0.4" max offset, 100 = 0.15" max offset
         max_offset = 1.5 - (self.barrel_accuracy - 20) * 0.017
@@ -535,6 +581,19 @@ class Hitter:
         float
             Timing error in milliseconds (positive = early, negative = late)
         """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            # Get base timing precision (RMS error in ms)
+            error_ms = self.attributes_v2.get_timing_precision_ms()
+
+            # Faster pitches harder to time (velocity difficulty adjustment)
+            velocity_difficulty = (pitch_velocity - 80) / 20.0
+            adjusted_error = error_ms * (1.0 + velocity_difficulty * 0.3)
+
+            # Sample from normal distribution
+            return np.random.normal(0, adjusted_error)
+
+        # Legacy calculation
         # Faster pitches are harder to time
         velocity_difficulty = (pitch_velocity - 80) / 20.0  # Normalized difficulty
 

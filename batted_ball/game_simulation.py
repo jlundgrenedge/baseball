@@ -16,6 +16,11 @@ from .fielding import Fielder
 from .baserunning import BaseRunner, create_average_runner, create_speed_runner, create_slow_runner
 from .play_simulation import PlaySimulator, PlayResult, PlayOutcome, create_standard_defense
 from .at_bat import AtBatSimulator
+from .attributes import (
+    create_power_hitter,
+    create_balanced_hitter,
+    create_groundball_hitter
+)
 
 
 class BaseState(Enum):
@@ -684,51 +689,38 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
         ((24, 32), (25, 35), "power"),          # Power hitter (increased from 18-24)
     ]
 
-    # Create hitters (9-player lineup) with varied types
+    # Create hitters (9-player lineup) with varied types using PHYSICS-FIRST approach
+    # No profiles needed - power emerges from HIGH bat speed + HIGH attack angle
     hitters = []
     position_names = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
+    hitter_type_weights = [0.15, 0.25, 0.30, 0.20, 0.10]  # GB, LD, Balanced, FB, Power
+    hitter_type_names = ["groundball", "line drive", "balanced", "fly ball", "power"]
+
     for i, pos in enumerate(position_names):
-        # Randomly select batter type
-        # Weight towards balanced/line drive hitters (more common in MLB)
-        type_weights = [0.15, 0.25, 0.30, 0.20, 0.10]  # GB, LD, Balanced, FB, Power
-        batter_type = random.choices(batter_types, weights=type_weights)[0]
+        # Randomly select hitter type (for display only - physics determines outcomes)
+        hitter_type_idx = random.choices(range(5), weights=hitter_type_weights)[0]
+        hitter_type = hitter_type_names[hitter_type_idx]
 
-        swing_path_range, launch_angle_range, type_desc = batter_type
+        # Use physics-first attribute creators
+        if hitter_type == "power":
+            attributes_v2 = create_power_hitter(team_quality)
+        elif hitter_type == "groundball":
+            attributes_v2 = create_groundball_hitter(team_quality)
+        else:  # balanced, fly ball, line drive
+            attributes_v2 = create_balanced_hitter(team_quality)
 
-        # Generate attributes based on type
-        swing_path_angle = float(random.randint(*swing_path_range))
-        launch_angle_tendency = float(random.randint(*launch_angle_range))
-
-        # Power hitters get higher bat speed and exit velocity ceiling
-        # Fly ball hitters also get moderate bat speed boost
-        if type_desc == "power":
-            exit_velo_bonus = 15
-            bat_speed_bonus = random.randint(10, 15)  # Power hitters swing harder
-        elif type_desc == "fly ball":
-            exit_velo_bonus = 8
-            bat_speed_bonus = random.randint(5, 10)   # Fly ball hitters need good bat speed
-        else:
-            exit_velo_bonus = 0
-            bat_speed_bonus = 0
-
+        # Create hitter with new attribute system
         hitter = Hitter(
             name=f"{name} {pos}",
-            bat_speed=min(random.randint(min_attr, max_attr) + bat_speed_bonus, 95),
-            barrel_accuracy=random.randint(min_attr, max_attr),
-            swing_path_angle=swing_path_angle,
-            swing_timing_precision=random.randint(min_attr, max_attr),
-            bat_control=random.randint(min_attr, max_attr),
-            exit_velocity_ceiling=min(random.randint(min_attr, max_attr) + exit_velo_bonus, 95),
-            launch_angle_tendency=launch_angle_tendency,
-            pitch_recognition_speed=random.randint(min_attr, max_attr),
-            zone_discipline=random.randint(min_attr, max_attr),
-            swing_decision_aggressiveness=random.randint(min_attr, max_attr)
+            attributes_v2=attributes_v2
         )
         hitters.append(hitter)
 
         # Debug output for first team created
         if not hasattr(create_test_team, 'debug_shown'):
-            print(f"    {pos}: {type_desc} hitter (LA tendency: {launch_angle_tendency:.1f}°)")
+            bat_speed = attributes_v2.get_bat_speed_mph()
+            attack_angle = attributes_v2.get_attack_angle_mean_deg()
+            print(f"    {pos}: {hitter_type} hitter (bat: {bat_speed:.1f} mph, angle: {attack_angle:.1f}°)")
 
     if not hasattr(create_test_team, 'debug_shown'):
         create_test_team.debug_shown = True
