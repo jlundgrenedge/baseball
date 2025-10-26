@@ -19,7 +19,9 @@ from .at_bat import AtBatSimulator
 from .attributes import (
     create_power_hitter,
     create_balanced_hitter,
-    create_groundball_hitter
+    create_groundball_hitter,
+    create_starter_pitcher,
+    create_reliever_pitcher
 )
 
 
@@ -660,23 +662,35 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
 
     min_attr, max_attr = quality_ranges.get(team_quality, (45, 65))
 
-    # Create pitchers (starting pitcher + some relievers)
+    # Create pitchers using PHYSICS-FIRST approach
+    # Starters have balanced attributes + high stamina
+    # Relievers have high velocity/spin + low stamina
     pitchers = []
     for i in range(3):
         role = "Starter" if i == 0 else "Reliever"
+
+        # Use physics-first attribute creators
+        if i == 0:
+            attributes_v2 = create_starter_pitcher(team_quality)
+        else:
+            attributes_v2 = create_reliever_pitcher(team_quality)
+
+        # Create pitcher with new attribute system
         pitcher = Pitcher(
             name=f"{name} Pitcher {i+1} ({role})",
-            velocity=random.randint(min_attr, max_attr),
-            spin_rate=random.randint(min_attr, max_attr),
-            spin_efficiency=random.randint(min_attr, max_attr),
-            command=random.randint(min_attr, max_attr),
-            control=random.randint(min_attr, max_attr),
-            pitch_tunneling=random.randint(min_attr, max_attr),
-            deception=random.randint(min_attr, max_attr),
-            stamina=random.randint(min_attr + 10, max_attr + 10) if i == 0 else random.randint(min_attr, max_attr),
-            fatigue_resistance=random.randint(min_attr, max_attr)
+            attributes_v2=attributes_v2
         )
         pitchers.append(pitcher)
+
+        # Debug output for first team created
+        if not hasattr(create_test_team, 'pitchers_debug_shown'):
+            velo = attributes_v2.get_raw_velocity_mph()
+            spin = attributes_v2.get_spin_rate_rpm()
+            stamina = attributes_v2.get_stamina_pitches()
+            print(f"    {role}: {velo:.1f} mph, {spin:.0f} rpm, {stamina:.0f} pitch stamina")
+
+    if not hasattr(create_test_team, 'pitchers_debug_shown'):
+        create_test_team.pitchers_debug_shown = True
 
     # Define batter type profiles
     # Each profile has (swing_path_angle_range, launch_angle_tendency_range, description)

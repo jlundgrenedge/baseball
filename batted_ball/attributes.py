@@ -494,3 +494,183 @@ def create_groundball_hitter(quality: str = "average") -> HitterAttributes:
         SWING_DECISION_LATENCY=np.random.randint(min_r, max_r),
         ZONE_DISCERNMENT=np.random.randint(min_r, max_r)
     )
+
+
+# =============================================================================
+# PITCHING ATTRIBUTES
+# =============================================================================
+
+class PitcherAttributes:
+    """
+    Physics-based pitching attributes (0-100,000 scale).
+
+    Maps to pitch velocity, spin rate/axis, release point, and command
+    that deterministically produce pitch trajectories via physics.
+    """
+
+    def __init__(
+        self,
+        RAW_VELOCITY_CAP: float = 50000,
+        SPIN_RATE_CAP: float = 50000,
+        SPIN_EFFICIENCY: float = 50000,
+        SPIN_AXIS_CONTROL: float = 50000,
+        RELEASE_EXTENSION: float = 50000,
+        ARM_SLOT: float = 50000,
+        RELEASE_HEIGHT: float = 50000,
+        COMMAND: float = 50000,
+        CONTROL: float = 50000,
+        TUNNELING: float = 50000,
+        DECEPTION: float = 50000,
+        STAMINA: float = 50000,
+        FATIGUE_RESISTANCE: float = 50000
+    ):
+        """Initialize pitcher attributes (default: league average = 50,000)"""
+        self.RAW_VELOCITY_CAP = np.clip(RAW_VELOCITY_CAP, 0, 100000)
+        self.SPIN_RATE_CAP = np.clip(SPIN_RATE_CAP, 0, 100000)
+        self.SPIN_EFFICIENCY = np.clip(SPIN_EFFICIENCY, 0, 100000)
+        self.SPIN_AXIS_CONTROL = np.clip(SPIN_AXIS_CONTROL, 0, 100000)
+        self.RELEASE_EXTENSION = np.clip(RELEASE_EXTENSION, 0, 100000)
+        self.ARM_SLOT = np.clip(ARM_SLOT, 0, 100000)
+        self.RELEASE_HEIGHT = np.clip(RELEASE_HEIGHT, 0, 100000)
+        self.COMMAND = np.clip(COMMAND, 0, 100000)
+        self.CONTROL = np.clip(CONTROL, 0, 100000)
+        self.TUNNELING = np.clip(TUNNELING, 0, 100000)
+        self.DECEPTION = np.clip(DECEPTION, 0, 100000)
+        self.STAMINA = np.clip(STAMINA, 0, 100000)
+        self.FATIGUE_RESISTANCE = np.clip(FATIGUE_RESISTANCE, 0, 100000)
+
+    def get_raw_velocity_mph(self) -> float:
+        """
+        Convert RAW_VELOCITY_CAP to fastball velocity (mph).
+
+        Anchors:
+        - 0: 70 mph (very slow)
+        - 50k: 91 mph (average MLB)
+        - 85k: 98 mph (elite MLB)
+        - 100k: 108 mph (superhuman)
+        """
+        return piecewise_logistic_map(
+            self.RAW_VELOCITY_CAP,
+            human_min=70.0,
+            human_cap=98.0,
+            super_cap=108.0
+        )
+
+    def get_spin_rate_rpm(self) -> float:
+        """
+        Convert SPIN_RATE_CAP to spin rate (rpm) for 4-seam fastball.
+
+        Anchors:
+        - 0: 1600 rpm (low spin)
+        - 50k: 2250 rpm (average MLB)
+        - 85k: 2700 rpm (elite MLB)
+        - 100k: 3400 rpm (superhuman)
+        """
+        return piecewise_logistic_map(
+            self.SPIN_RATE_CAP,
+            human_min=1600.0,
+            human_cap=2700.0,
+            super_cap=3400.0
+        )
+
+    def get_spin_efficiency_pct(self) -> float:
+        """
+        Convert SPIN_EFFICIENCY to percentage (0-100).
+
+        Anchors:
+        - 0: 70% (poor efficiency)
+        - 50k: 88% (average)
+        - 85k: 96% (elite)
+        - 100k: 99% (nearly perfect)
+        """
+        return piecewise_logistic_map(
+            self.SPIN_EFFICIENCY,
+            human_min=70.0,
+            human_cap=96.0,
+            super_cap=99.0
+        )
+
+    def get_command_sigma_inches(self) -> float:
+        """
+        Convert COMMAND to target dispersion (inches, standard deviation).
+
+        Lower rating = worse command (more scatter)
+
+        Anchors:
+        - 0: 8.0 in (poor command)
+        - 50k: 3.5 in (average)
+        - 85k: 1.8 in (elite)
+        - 100k: 0.8 in (pinpoint)
+        """
+        return piecewise_logistic_map_inverse(
+            self.COMMAND,
+            human_min=1.8,
+            human_cap=8.0,
+            super_cap=0.8
+        )
+
+    def get_stamina_pitches(self) -> float:
+        """
+        Convert STAMINA to effective pitch count before fatigue.
+
+        Anchors:
+        - 0: 40 pitches (poor stamina)
+        - 50k: 90 pitches (average starter)
+        - 85k: 110 pitches (workhorse)
+        - 100k: 135 pitches (superhuman)
+        """
+        return piecewise_logistic_map(
+            self.STAMINA,
+            human_min=40.0,
+            human_cap=110.0,
+            super_cap=135.0
+        )
+
+
+# =============================================================================
+# HELPER FUNCTIONS FOR PITCHER CREATION
+# =============================================================================
+
+def create_starter_pitcher(quality: str = "average") -> PitcherAttributes:
+    """
+    Create a starting pitcher with balanced attributes and good stamina.
+    """
+    quality_ranges = {
+        "poor": (25000, 45000),
+        "average": (45000, 65000),
+        "good": (60000, 80000),
+        "elite": (75000, 95000)
+    }
+
+    min_r, max_r = quality_ranges.get(quality, (45000, 65000))
+
+    # Starters: balanced with GOOD stamina
+    return PitcherAttributes(
+        RAW_VELOCITY_CAP=np.random.randint(min_r, max_r + 5000),
+        SPIN_RATE_CAP=np.random.randint(min_r, max_r + 5000),
+        SPIN_EFFICIENCY=np.random.randint(min_r, max_r),
+        COMMAND=np.random.randint(min_r, max_r + 5000),  # Starters have better command
+        STAMINA=np.random.randint(max_r, 85000),  # HIGH stamina for starters
+    )
+
+
+def create_reliever_pitcher(quality: str = "average") -> PitcherAttributes:
+    """
+    Create a relief pitcher with high velocity/spin but lower stamina.
+    """
+    quality_ranges = {
+        "poor": (25000, 45000),
+        "average": (45000, 65000),
+        "good": (60000, 80000),
+        "elite": (75000, 95000)
+    }
+
+    min_r, max_r = quality_ranges.get(quality, (45000, 65000))
+
+    # Relievers: HIGH velocity/spin, LOW stamina
+    return PitcherAttributes(
+        RAW_VELOCITY_CAP=np.random.randint(max_r, 90000),  # Higher velo
+        SPIN_RATE_CAP=np.random.randint(max_r, 85000),     # Higher spin
+        COMMAND=np.random.randint(min_r, max_r),
+        STAMINA=np.random.randint(20000, 45000),  # LOW stamina (short relief)
+    )
