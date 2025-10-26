@@ -490,7 +490,7 @@ class AtBatSimulator:
         collision_result = self.contact_model.full_collision(
             bat_speed_mph=bat_speed,
             pitch_speed_mph=pitch_velocity,
-            bat_path_angle_deg=self.hitter.swing_path_angle,  # Hitter's swing path
+            bat_path_angle_deg=self.hitter.get_swing_path_angle_deg(),  # Hitter's swing path (sampled)
             pitch_trajectory_angle_deg=7.0,  # Typical downward angle
             vertical_contact_offset_inches=v_offset,
             horizontal_contact_offset_inches=total_h_offset,
