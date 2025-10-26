@@ -7,7 +7,7 @@ realistic baseball gameplay with individual player characteristics.
 
 import numpy as np
 from typing import Dict, List, Optional, Tuple
-from .attributes import HitterAttributes, FielderAttributes
+from .attributes import HitterAttributes, FielderAttributes, PitcherAttributes
 from .constants import (
     # Pitcher attribute scales
     VELOCITY_RATING_MIN,
@@ -81,6 +81,8 @@ class Pitcher:
         fatigue_resistance: int = 50,
         # Pitch arsenal
         pitch_arsenal: Optional[Dict[str, Dict[str, int]]] = None,
+        # NEW: Physics-first attributes (0-100,000 scale)
+        attributes_v2: Optional[PitcherAttributes] = None,
     ):
         """
         Initialize pitcher with attribute ratings.
@@ -119,7 +121,10 @@ class Pitcher:
         """
         self.name = name
 
-        # Core physics attributes (0-100 scale)
+        # Store new attribute system if provided
+        self.attributes_v2 = attributes_v2
+
+        # Core physics attributes (legacy 0-100 scale, or defaults if using attributes_v2)
         self.velocity = np.clip(velocity, 0, 100)
         self.spin_rate = np.clip(spin_rate, 0, 100)
         self.spin_efficiency = np.clip(spin_efficiency, 0, 100)
@@ -127,12 +132,12 @@ class Pitcher:
         self.release_extension = np.clip(release_extension, 0, 100)
         self.arm_slot = arm_slot
 
-        # Skill attributes (0-100 scale)
+        # Skill attributes (legacy 0-100 scale, or defaults if using attributes_v2)
         self.command = np.clip(command, 0, 100)
         self.control = np.clip(control, 0, 100)
         self.pitch_tunneling = np.clip(pitch_tunneling, 0, 100)
         self.deception = np.clip(deception, 0, 100)
-        self.stamina = np.clip(stamina, 0, 100)
+        self.stamina = np.clip(stamina, 0, 100) if attributes_v2 is None else 50
         self.fatigue_resistance = np.clip(fatigue_resistance, 0, 100)
 
         # Pitch arsenal
@@ -165,6 +170,27 @@ class Pitcher:
         float
             Velocity in MPH
         """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            # Get base velocity from physics-first attributes
+            velocity_mph = self.attributes_v2.get_raw_velocity_mph()
+
+            # Apply pitch-type modifiers (fastball = 100%, changeup = ~85%, etc.)
+            if pitch_type == 'changeup':
+                velocity_mph *= 0.85
+            elif pitch_type == 'curveball':
+                velocity_mph *= 0.88
+            elif pitch_type == 'slider':
+                velocity_mph *= 0.92
+
+            # Apply stamina degradation based on pitches thrown
+            stamina_cap = self.attributes_v2.get_stamina_pitches()
+            stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
+            stamina_loss = (1.0 - stamina_factor) * 4.0  # Up to 4 mph loss when exhausted
+
+            return max(velocity_mph - stamina_loss, 70.0)
+
+        # Legacy calculation
         # Get pitch-specific velocity rating or use general rating
         if pitch_type in self.pitch_arsenal:
             velocity_rating = self.pitch_arsenal[pitch_type].get('velocity', self.velocity)
@@ -197,6 +223,29 @@ class Pitcher:
         float
             Spin rate in RPM
         """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            # Get base spin rate from physics-first attributes (for 4-seam fastball)
+            base_spin_rpm = self.attributes_v2.get_spin_rate_rpm()
+
+            # Apply pitch-type modifiers
+            if pitch_type == 'changeup':
+                spin_rpm = base_spin_rpm * 0.70  # Lower spin
+            elif pitch_type == 'curveball':
+                spin_rpm = base_spin_rpm * 1.10  # Higher spin
+            elif pitch_type == 'slider':
+                spin_rpm = base_spin_rpm * 0.95  # Slightly lower
+            else:  # fastball
+                spin_rpm = base_spin_rpm
+
+            # Apply stamina degradation
+            stamina_cap = self.attributes_v2.get_stamina_pitches()
+            stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
+            stamina_loss = (1.0 - stamina_factor) * 0.12  # Up to 12% spin loss when exhausted
+
+            return spin_rpm * (1.0 - stamina_loss)
+
+        # Legacy calculation
         # Get pitch-specific movement rating (which affects spin)
         if pitch_type in self.pitch_arsenal:
             movement_rating = self.pitch_arsenal[pitch_type].get('movement', self.spin_rate)
