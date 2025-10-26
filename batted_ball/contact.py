@@ -633,9 +633,11 @@ class ContactModel:
         )
         
         # Apply additional exit velocity reduction for extreme off-center contact
+        # Softened penalty - MLB players can still hit hard with 1-2" offsets
         if contact_offset_total > 1.0:  # Beyond reasonable contact area
-            # Exponential degradation for very poor contact
-            contact_efficiency = np.exp(-contact_offset_total / 3.0)
+            # Gentler exponential degradation (divisor 8 instead of 3)
+            # 1.5": 17% penalty, 2.0": 22% penalty, 2.5": 27% penalty
+            contact_efficiency = np.exp(-(contact_offset_total - 1.0) / 8.0)
             exit_velocity *= contact_efficiency
             
         # Ensure minimum exit velocity for any contact

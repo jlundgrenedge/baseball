@@ -200,7 +200,8 @@ COR_DEGRADATION_PER_INCH = 0.03  # COR reduction per inch from sweet spot
 
 # Collision geometry effects
 # The angle between bat and ball paths affects launch angle and spin
-COLLISION_ANGLE_TO_LAUNCH_ANGLE_RATIO = 0.85  # How much collision angle affects launch
+# Increased from 0.85 to 0.95 to allow power hitters to achieve HR launch angles (28-32°)
+COLLISION_ANGLE_TO_LAUNCH_ANGLE_RATIO = 0.95  # How much collision angle affects launch
 FRICTION_COEFFICIENT = 0.35  # Ball-bat friction (affects spin generation)
 
 # Spin generation from collision
