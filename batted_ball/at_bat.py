@@ -490,18 +490,31 @@ class AtBatSimulator:
         collision_result = self.contact_model.full_collision(
             bat_speed_mph=bat_speed,
             pitch_speed_mph=pitch_velocity,
-            bat_path_angle_deg=self.hitter.get_swing_path_angle_deg(),  # Hitter's swing path (sampled)
+            bat_path_angle_deg=self.hitter.get_swing_path_angle_deg(
+                pitch_location=pitch_location,
+                pitch_type=pitch_type
+            ),  # Sample swing path with realistic variance influenced by pitch
             pitch_trajectory_angle_deg=7.0,  # Typical downward angle
             vertical_contact_offset_inches=v_offset,
             horizontal_contact_offset_inches=total_h_offset,
             distance_from_sweet_spot_inches=adjusted_offset  # Use adjusted offset for contact quality
         )
 
+        # Generate spray angle for this at-bat
+        # MLB hitters spray the ball across the field, not straight down the line
+        # Use a normal distribution centered at the hitter's spray tendency
+        # Standard deviation of ~20-25 degrees creates realistic spray patterns
+        base_spray = self.hitter.spray_tendency  # Usually 0.0 for new attribute system
+        spray_std_dev = 22.0  # degrees - realistic MLB spray variation
+        spray_angle = np.random.normal(base_spray, spray_std_dev)
+        # Clamp to reasonable bounds (-45° to +45°, pull to opposite field)
+        spray_angle = np.clip(spray_angle, -45.0, 45.0)
+
         # Simulate batted ball trajectory
         batted_ball_result = self.batted_ball_sim.simulate(
             exit_velocity=collision_result['exit_velocity'],
             launch_angle=collision_result['launch_angle'],
-            spray_angle=self.hitter.spray_tendency,  # Use hitter's spray tendency
+            spray_angle=spray_angle,  # Use generated spray angle, not fixed tendency
             backspin_rpm=collision_result['backspin_rpm'],
             altitude=self.altitude,
             temperature=self.temperature,
@@ -515,7 +528,7 @@ class AtBatSimulator:
             'contact_quality': contact_quality,
             'exit_velocity': collision_result['exit_velocity'],
             'launch_angle': collision_result['launch_angle'],
-            'spray_angle': self.hitter.spray_tendency,
+            'spray_angle': spray_angle,  # Return actual spray angle used
             'distance': batted_ball_result.distance,
             'hang_time': batted_ball_result.flight_time,
             'peak_height': batted_ball_result.peak_height,

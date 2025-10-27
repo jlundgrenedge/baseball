@@ -56,9 +56,14 @@ class BattedBallResult:
         """Calculate derived quantities from trajectory."""
         # Landing point (last point in trajectory)
         landing_pos = self.position[-1]
-        self.landing_x = landing_pos[0] * METERS_TO_FEET  # feet
-        self.landing_y = landing_pos[1] * METERS_TO_FEET  # feet
-        self.landing_z = landing_pos[2] * METERS_TO_FEET  # feet
+        
+        # Coordinate system conversion:
+        # Integrator uses: x=toward outfield, y=lateral (left field positive), z=up
+        # Field layout uses: x=lateral (right field positive), y=toward center field, z=up
+        # Therefore: field_x = -integrator_y, field_y = integrator_x
+        self.landing_x = -landing_pos[1] * METERS_TO_FEET  # Negate for right-handed coords
+        self.landing_y = landing_pos[0] * METERS_TO_FEET   # Toward center field
+        self.landing_z = landing_pos[2] * METERS_TO_FEET   # Up
 
         # Distance from home plate (horizontal distance)
         self.distance = np.sqrt(landing_pos[0]**2 + landing_pos[1]**2) * METERS_TO_FEET

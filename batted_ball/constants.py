@@ -529,15 +529,15 @@ THIRD_BASEMAN_X = -75.0   # Slightly closer to the line
 THIRD_BASEMAN_Y = 20.0    # Moved up slightly
 
 # Outfielders (optimized depth and spacing)
-# Positioned at 270ft for corners, 290ft for center (realistic MLB depths)
+# Positioned for optimal fly ball coverage (250-380ft range)
 # Spaced at 30° from center for balanced gap coverage (~146ft gaps)
-# Previous positions had fielders too close together and too shallow
-LEFT_FIELDER_X = -135.0   # 30° left of center at 270ft depth
-LEFT_FIELDER_Y = 234.0    # Optimized for 250-310ft fly ball coverage
+# Shallow enough to cover 270ft balls, deep enough for 350ft balls
+LEFT_FIELDER_X = -135.0   # 30° left of center
+LEFT_FIELDER_Y = 265.0    # Split difference: between 260 (too shallow) and 275 (too deep)
 CENTER_FIELDER_X = 0.0    # Straight up the middle
-CENTER_FIELDER_Y = 290.0  # Deepest fielder at 290ft (was 250ft - too shallow)
-RIGHT_FIELDER_X = 135.0   # 30° right of center at 270ft depth
-RIGHT_FIELDER_Y = 234.0   # Optimized for 250-310ft fly ball coverage
+CENTER_FIELDER_Y = 310.0  # Split difference: between 305 (too shallow) and 320 (too deep)
+RIGHT_FIELDER_X = 135.0   # 30° right of center
+RIGHT_FIELDER_Y = 265.0   # Split difference: between 260 (too shallow) and 275 (too deep)
 
 # ============================================================================
 # FIELDING ATTRIBUTES AND PHYSICS

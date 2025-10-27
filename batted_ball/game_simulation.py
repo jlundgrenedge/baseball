@@ -292,10 +292,11 @@ class GameSimulator:
             # Extract the actual trajectory result from the dict
             trajectory = at_bat_result.batted_ball_result['trajectory']
 
-            # Simulate the play
+            # Simulate the play with current outs for realistic baserunning decisions
             play_result = self.play_simulator.simulate_complete_play(
                 batted_ball_result=trajectory,
-                batter_runner=batter_runner
+                batter_runner=batter_runner,
+                current_outs=self.game_state.outs
             )
 
             # Process the play result with enhanced physics data
@@ -511,13 +512,35 @@ class GameSimulator:
             print(f"    Runners after play: {', '.join(runner_descriptions)}")
 
         # Update base runners from final positions
+        # We need to figure out which hitter corresponds to each runner
+        # The play_result has BaseRunner objects, but game_state tracks Hitter objects
+        # Match by name: BaseRunner.name should equal Hitter.name
+        
+        # Create reverse lookup: runner name -> hitter
+        runner_to_hitter = {}
+        
+        # Add current batter
+        runner_to_hitter[batter.name] = batter
+        
+        # Add existing runners (if they weren't changed)
+        if self.game_state.runner_on_first and self.game_state.runner_on_first.name not in runner_to_hitter:
+            runner_to_hitter[self.game_state.runner_on_first.name] = self.game_state.runner_on_first
+        if self.game_state.runner_on_second and self.game_state.runner_on_second.name not in runner_to_hitter:
+            runner_to_hitter[self.game_state.runner_on_second.name] = self.game_state.runner_on_second
+        if self.game_state.runner_on_third and self.game_state.runner_on_third.name not in runner_to_hitter:
+            runner_to_hitter[self.game_state.runner_on_third.name] = self.game_state.runner_on_third
+        
+        # Now update bases from final positions
         for base, runner in play_result.final_runner_positions.items():
+            runner_name = getattr(runner, 'name', batter.name)
+            hitter = runner_to_hitter.get(runner_name, batter)  # Default to batter if not found
+            
             if base == "first":
-                self.game_state.runner_on_first = batter  # Simplified - should track actual hitter
+                self.game_state.runner_on_first = hitter
             elif base == "second":
-                self.game_state.runner_on_second = batter
+                self.game_state.runner_on_second = hitter
             elif base == "third":
-                self.game_state.runner_on_third = batter
+                self.game_state.runner_on_third = hitter
 
         # If it was a hit and no runners in final positions, at least put batter on appropriate base
         if outcome in [PlayOutcome.SINGLE, PlayOutcome.DOUBLE, PlayOutcome.TRIPLE] and len(play_result.final_runner_positions) == 0:
@@ -589,7 +612,7 @@ class GameSimulator:
 
             print(
                 f"    #{index}: {pitch_type} {velocity:.1f} mph to {location_str} "
-                f"[{count_before[0]}-{count_before[1]} → {count_after[0]}-{count_after[1]}] "
+                f"[{count_before[0]}-{count_before[1]} -> {count_after[0]}-{count_after[1]}] "
                 f"{outcome_desc}{contact_details}"
             )
 
@@ -616,7 +639,7 @@ class GameSimulator:
             print("    Baserunning results:")
             for baserun in play_result.baserunning_results:
                 print(
-                    f"      {baserun.runner_name}: {baserun.from_base} → {baserun.to_base} "
+                    f"      {baserun.runner_name}: {baserun.from_base} -> {baserun.to_base} "
                     f"in {baserun.arrival_time:.2f}s ({baserun.outcome})"
                 )
 

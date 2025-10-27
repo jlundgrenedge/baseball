@@ -449,28 +449,84 @@ class Hitter:
         bat_speed_mph = 60.0 + (self.bat_speed - 20) * 0.275
         return bat_speed_mph
 
-    def get_swing_path_angle_deg(self) -> float:
+    def get_swing_path_angle_deg(self, pitch_location: Optional[Tuple[float, float]] = None,
+                                  pitch_type: Optional[str] = None) -> float:
         """
-        Get swing path angle (attack angle) in degrees.
+        Get swing path angle (attack angle) in degrees with realistic variance.
 
-        For new attribute system: samples from mean with variance
-        For legacy: returns fixed swing_path_angle
+        In reality, even "fly ball hitters" hit ground balls 40-45% of the time.
+        Launch angle is influenced by:
+        - Player tendency (mean)
+        - Pitch location (high/low)
+        - Pitch type (fastball/breaking ball)
+        - Random variation from contact point
+        
+        MLB Launch Angle Distribution:
+        - Ground balls: < 10°
+        - Line drives: 10-25°
+        - Fly balls: 25-50°
+        - Pop-ups: > 50°
+
+        Parameters
+        ----------
+        pitch_location : tuple, optional
+            (horizontal_inches, vertical_inches) at plate
+        pitch_type : str, optional
+            Type of pitch ('fastball', 'curveball', etc.)
 
         Returns
         -------
         float
-            Swing path angle in degrees
+            Swing path angle in degrees with realistic variance
         """
         # Use new attribute system if available
         if self.attributes_v2 is not None:
             mean_angle = self.attributes_v2.get_attack_angle_mean_deg()
-            variance = self.attributes_v2.get_attack_angle_variance_deg()
-
-            # Sample from normal distribution
-            return np.random.normal(mean_angle, variance)
-
-        # Legacy: fixed angle
-        return self.swing_path_angle
+            base_variance = self.attributes_v2.get_attack_angle_variance_deg()
+        else:
+            # Legacy: use launch_angle_tendency as mean
+            mean_angle = self.launch_angle_tendency
+            base_variance = 3.0  # Default variance
+        
+        # CRITICAL: Add much larger natural variance to create realistic outcome distribution
+        # Even the best hitters have huge variance in launch angle (15-20° std dev)
+        # This is what creates the ground ball / line drive / fly ball distribution
+        natural_variance = 15.0  # Standard deviation in degrees
+        
+        # Adjust mean based on pitch location (if provided)
+        location_adjustment = 0.0
+        if pitch_location is not None:
+            vertical_location = pitch_location[1]  # inches from center of zone
+            # High pitches (~+12") tend to produce fly balls
+            # Low pitches (~-12") tend to produce ground balls
+            # REDUCED: Was 0.8 deg/inch, now 0.3 deg/inch for more realistic effect
+            # At 0.3: +12" pitch adds ~+3.6° (not +9.6°)
+            location_adjustment = vertical_location * 0.3  # ~0.3 deg per inch
+        
+        # Adjust based on pitch type (if provided)
+        pitch_adjustment = 0.0
+        if pitch_type is not None:
+            # Breaking balls (downward movement) tend to be topped more often
+            if pitch_type in ['curveball', 'slider', 'slurve']:
+                pitch_adjustment = -2.0  # Slightly more ground balls (was -5.0)
+            # Rising fastballs tend to be lifted more
+            elif pitch_type in ['four_seam', 'two_seam']:
+                pitch_adjustment = 1.0  # Slightly more fly balls (was +2.0)
+        
+        # Combine all factors
+        adjusted_mean = mean_angle + location_adjustment + pitch_adjustment
+        
+        # Sample from distribution with large natural variance
+        # Use player's base_variance to modulate the natural variance slightly
+        # (more consistent hitters have slightly less extreme outcomes)
+        consistency_factor = np.clip(base_variance / 3.0, 0.7, 1.3)
+        total_variance = natural_variance * consistency_factor
+        
+        # Sample from normal distribution
+        launch_angle = np.random.normal(adjusted_mean, total_variance)
+        
+        # Realistic bounds: -25° (extreme topper) to +70° (extreme pop-up)
+        return np.clip(launch_angle, -25.0, 70.0)
 
     def get_contact_point_offset(self, pitch_location: Tuple[float, float]) -> Tuple[float, float]:
         """

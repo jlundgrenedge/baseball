@@ -496,9 +496,11 @@ class FielderAttributes:
 
 def create_power_hitter(quality: str = "average") -> HitterAttributes:
     """
-    Create a power hitter with high BAT_SPEED and high ATTACK_ANGLE.
+    Create a power hitter with high BAT_SPEED and MODERATE attack angle.
 
-    This naturally produces home runs through physics, no profiles needed.
+    With the new 15° variance system + pitch adjustments, power hitters need slightly higher base.
+    Power hitters should have MEAN ~10-14° to get realistic fly ball rates.
+    Their power comes from BOTH bat speed AND slightly elevated launch angle tendency.
     """
     quality_ranges = {
         "poor": (25000, 45000),
@@ -509,10 +511,17 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
 
     min_r, max_r = quality_ranges.get(quality, (45000, 65000))
 
-    # Power hitters: HIGH bat speed + HIGH attack angle
+    # Power hitters: HIGH bat speed + MODERATE attack angle
+    # Attack angle: ~48k-62k → mean of ~10-14° (slightly higher than balanced)
+    # Combined with elite bat speed + 15° variance, creates power
+    bat_speed_min = min(max_r, 85000)
+    bat_speed_max = min(95000, bat_speed_min + 12000)
+    attack_angle_min = min_r  # ~45k-50k
+    attack_angle_max = min(62000, min_r + 12000)  # Up to ~62k
+    
     return HitterAttributes(
-        BAT_SPEED=np.random.randint(max_r, 95000),  # Elite bat speed
-        ATTACK_ANGLE_CONTROL=np.random.randint(max_r, 90000),  # High launch angle
+        BAT_SPEED=np.random.randint(bat_speed_min, bat_speed_max),  # Elite bat speed
+        ATTACK_ANGLE_CONTROL=np.random.randint(attack_angle_min, attack_angle_max),  # Moderate-high launch angle
         ATTACK_ANGLE_VARIANCE=np.random.randint(min_r, max_r),
         BARREL_ACCURACY=np.random.randint(min_r + 5000, max_r + 10000),
         TIMING_PRECISION=np.random.randint(min_r, max_r),
@@ -523,7 +532,12 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
 
 
 def create_balanced_hitter(quality: str = "average") -> HitterAttributes:
-    """Create a balanced contact hitter."""
+    """
+    Create a balanced contact hitter with MODERATE attack angle.
+
+    With 15° variance + pitch adjustments, we want MEAN ~5-10° for balanced hitters.
+    This produces realistic distribution: good mix of ground balls, line drives, fly balls.
+    """
     quality_ranges = {
         "poor": (25000, 45000),
         "average": (45000, 65000),
@@ -533,12 +547,21 @@ def create_balanced_hitter(quality: str = "average") -> HitterAttributes:
 
     min_r, max_r = quality_ranges.get(quality, (45000, 65000))
 
-    # Balanced: moderate bat speed + moderate attack angle + HIGH barrel accuracy
+    # Balanced: moderate bat speed + MODERATE attack angle
+    # Attack angle: ~35k-50k → mean of ~5-10° (balanced base)
+    # Combined with 15° variance + pitch adjustments, produces good mix
+    attack_angle_min = max(25000, min_r - 15000)  # ~35k for average
+    attack_angle_max = min(50000, min_r)           # Up to ~50k
+    
+    # For barrel accuracy: ensure valid range
+    barrel_min = min(max_r, 75000)
+    barrel_max = min(85000, barrel_min + 12000)
+    
     return HitterAttributes(
         BAT_SPEED=np.random.randint(min_r, max_r + 5000),
-        ATTACK_ANGLE_CONTROL=np.random.randint(min_r - 5000, min_r + 10000),  # More neutral
+        ATTACK_ANGLE_CONTROL=np.random.randint(attack_angle_min, attack_angle_max),  # Moderate launch angle
         ATTACK_ANGLE_VARIANCE=np.random.randint(min_r + 5000, max_r + 5000),  # Consistent
-        BARREL_ACCURACY=np.random.randint(max_r, 85000),  # HIGH contact skill
+        BARREL_ACCURACY=np.random.randint(barrel_min, barrel_max),  # HIGH contact skill
         TIMING_PRECISION=np.random.randint(min_r + 5000, max_r + 10000),
         PITCH_PLANE_MATCH=np.random.randint(min_r, max_r),
         SWING_DECISION_LATENCY=np.random.randint(min_r, max_r),
@@ -830,28 +853,32 @@ def create_starter_pitcher(quality: str = "average") -> PitcherAttributes:
     Create a starting pitcher with balanced attributes and good stamina.
 
     Velocity targets (per get_raw_velocity_mph mapping: 50k=91mph, 85k=98mph):
-    - poor: 85-90 mph (40k-48k range)
-    - average: 91-94 mph (50k-60k range)
-    - good: 93-96 mph (58k-68k range)
-    - elite: 95-99 mph (70k-88k range)
+    - poor: 88-91 mph (48k-55k range) - Soft-tossing starter
+    - average: 91-94 mph (55k-65k range) - MLB average starter
+    - good: 93-96 mph (63k-73k range) - Above average starter
+    - elite: 95-99 mph (72k-88k range) - Ace level starter
     """
     quality_ranges = {
-        "poor": (40000, 48000),      # 85-90 mph starters
-        "average": (50000, 60000),   # 91-94 mph starters (MLB average)
-        "good": (58000, 68000),      # 93-96 mph starters (above average)
-        "elite": (70000, 88000)      # 95-99 mph starters (ace level)
+        "poor": (48000, 55000),      # 88-91 mph starters (was 85-90)
+        "average": (55000, 65000),   # 91-94 mph starters (was 50-60k)
+        "good": (63000, 73000),      # 93-96 mph starters (was 58-68k)
+        "elite": (72000, 88000)      # 95-99 mph starters (was 70-88k)
     }
 
-    min_r, max_r = quality_ranges.get(quality, (50000, 60000))
+    min_r, max_r = quality_ranges.get(quality, (55000, 65000))
 
     # Starters: balanced with GOOD stamina
     # Add +3000 variance to velocity for some randomness
+    # For stamina: ensure we have valid range (min_stamina < max_stamina)
+    stamina_min = min(max_r, 75000)  # Cap at 75k to ensure valid range
+    stamina_max = min(85000, stamina_min + 15000)  # Add range, cap at 85k
+    
     return PitcherAttributes(
         RAW_VELOCITY_CAP=np.random.randint(min_r, max_r + 3000),
         SPIN_RATE_CAP=np.random.randint(min_r, max_r + 3000),
         SPIN_EFFICIENCY=np.random.randint(min_r, max_r),
         COMMAND=np.random.randint(min_r, max_r + 3000),  # Starters have better command
-        STAMINA=np.random.randint(max_r, 85000),  # HIGH stamina for starters
+        STAMINA=np.random.randint(stamina_min, stamina_max),  # HIGH stamina for starters
     )
 
 
@@ -861,19 +888,19 @@ def create_reliever_pitcher(quality: str = "average") -> PitcherAttributes:
 
     Relievers typically throw 1-3 mph harder than starters.
     Velocity targets:
-    - poor: 87-92 mph (43k-55k range)
-    - average: 93-97 mph (57k-75k range)
-    - good: 95-98 mph (70k-82k range)
-    - elite: 97-102 mph (78k-92k range)
+    - poor: 89-93 mph (50k-60k range) - Soft-tossing reliever
+    - average: 93-97 mph (62k-78k range) - Average MLB reliever
+    - good: 95-98 mph (72k-85k range) - Good setup man
+    - elite: 97-102 mph (80k-92k range) - Elite closer
     """
     quality_ranges = {
-        "poor": (43000, 55000),      # 87-92 mph relievers
-        "average": (57000, 75000),   # 93-97 mph relievers
-        "good": (70000, 82000),      # 95-98 mph relievers
-        "elite": (78000, 92000)      # 97-102 mph closers
+        "poor": (50000, 60000),      # 89-93 mph relievers (was 87-92)
+        "average": (62000, 78000),   # 93-97 mph relievers (was 57-75k)
+        "good": (72000, 85000),      # 95-98 mph relievers (was 70-82k)
+        "elite": (80000, 92000)      # 97-102 mph closers (was 78-92k)
     }
 
-    min_r, max_r = quality_ranges.get(quality, (57000, 75000))
+    min_r, max_r = quality_ranges.get(quality, (62000, 78000))
 
     # Relievers: HIGH velocity/spin, LOW stamina
     return PitcherAttributes(

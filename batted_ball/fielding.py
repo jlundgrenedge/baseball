@@ -906,19 +906,24 @@ class Fielder:
         # Time margin is the key factor
         time_margin = ball_arrival_time - fielder_time
 
-        # Time-based catch probability bands
-        if time_margin > 0:
-            # Fielder arrives before ball - should catch almost everything
-            probability = 0.99
-        elif time_margin > -0.5:
-            # Fielder slightly late (-0.5-0s) - diving/stretching range
-            probability = 0.92
-        elif time_margin > -1.2:
-            # Fielder late (-1.2--0.5s) - difficult diving plays
-            probability = 0.75
+        # Time-based catch probability bands (adjusted for MLB BABIP of ~.300)
+        # MLB fielders convert ~70% of balls in play into outs
+        # These base probabilities get multiplied by secure_prob (~0.92) and other penalties
+        if time_margin >= 0.0:
+            # Fielder arrives on time or early - routine play
+            probability = 0.98  # After penalties: 0.98 * 0.92 = 0.90
+        elif time_margin > -0.3:
+            # Fielder slightly late (-0.3-0.0s) - diving/stretching range
+            probability = 0.85  # After penalties: 0.85 * 0.92 = 0.78
+        elif time_margin > -0.6:
+            # Fielder late (-0.6--0.3s) - difficult diving plays
+            probability = 0.60  # After penalties: 0.60 * 0.92 = 0.55
+        elif time_margin > -1.0:
+            # Very late (-1.0--0.6s) - extremely difficult
+            probability = 0.25  # After penalties: 0.25 * 0.92 = 0.23
         else:
-            # Very late (< -1.2s) - nearly impossible
-            probability = 0.20
+            # Impossibly late (< -1.0s)
+            probability = 0.05
 
         # Apply fielder's hands rating as a multiplier (typically 0.90-0.93 for average)
         probability *= base_secure_prob
@@ -1044,6 +1049,152 @@ class Fielder:
         return (f"Fielder(name='{self.name}', position='{self.position}', "
                 f"speed={self.sprint_speed}, arm={self.arm_strength}, "
                 f"range={self.fielding_range})")
+
+
+# =============================================================================
+# THROW PHYSICS SIMULATION
+# =============================================================================
+
+class DetailedThrowResult:
+    """
+    Detailed result of a throw from fielder to base.
+    
+    This extends the basic ThrowResult with baserunning-relevant timing info.
+    """
+    def __init__(self,
+                 from_position: FieldPosition,
+                 to_base: str,
+                 throw_velocity_mph: float,
+                 transfer_time: float,
+                 flight_time: float,
+                 arrival_time: float,  # Total: transfer + flight
+                 accuracy_sigma_ft: float,
+                 on_target: bool):
+        """
+        Initialize detailed throw result.
+        
+        Parameters
+        ----------
+        from_position : FieldPosition
+            Position where throw was made from
+        to_base : str
+            Target base name
+        throw_velocity_mph : float
+            Velocity of throw in mph
+        transfer_time : float
+            Time from fielding ball to release (seconds)
+        flight_time : float
+            Time ball is in flight (seconds)
+        arrival_time : float
+            Total time from fielding to arrival at base (seconds)
+        accuracy_sigma_ft : float
+            Standard deviation of throw accuracy (feet)
+        on_target : bool
+            Whether throw arrived on-target (catchable immediately)
+        """
+        self.from_position = from_position
+        self.to_base = to_base
+        self.throw_velocity_mph = throw_velocity_mph
+        self.transfer_time = transfer_time
+        self.flight_time = flight_time
+        self.arrival_time = arrival_time
+        self.accuracy_sigma_ft = accuracy_sigma_ft
+        self.on_target = on_target
+
+
+def simulate_fielder_throw(fielder: 'Fielder',
+                           from_position: FieldPosition,
+                           to_base: str,
+                           field_layout: FieldLayout) -> DetailedThrowResult:
+    """
+    Simulate a throw from fielder to base using physics-based timing.
+    
+    Incorporates:
+    - Transfer time (glove-to-release): 0.4-0.8s based on fielder attributes
+    - Throw velocity: 60-105 mph based on arm strength
+    - Flight time: distance / velocity with 7% arc penalty
+    - Accuracy: probabilistic on-target determination
+    
+    Parameters
+    ----------
+    fielder : Fielder
+        Fielder making the throw
+    from_position : FieldPosition
+        Position where fielder is throwing from
+    to_base : str
+        Target base ('first', 'second', 'third', 'home')
+    field_layout : FieldLayout
+        Field layout for base positions
+        
+    Returns
+    -------
+    DetailedThrowResult
+        Complete throw timing and accuracy information
+        
+    Examples
+    --------
+    >>> # Shortstop throws to first base
+    >>> ss_position = FieldPosition(40, 150, 0)  # SS fielding position
+    >>> throw_result = simulate_fielder_throw(shortstop, ss_position, "first", field_layout)
+    >>> print(f"Throw arrives in {throw_result.arrival_time:.2f}s")
+    Throw arrives in 1.12s
+    
+    Notes
+    -----
+    - Throws have slight arc, adding ~7% to straight-line flight time
+    - Inaccurate throws add 0.5-1.0s for receiving fielder to handle
+    - Transfer time varies by position (infielders faster than outfielders)
+    """
+    # Get fielder throwing attributes
+    if fielder.attributes_v2:
+        arm_strength_mph = fielder.attributes_v2.get_arm_strength_mph()  # 60-105 mph
+        transfer_time = fielder.attributes_v2.get_transfer_time_s()  # 0.4-0.8s
+        accuracy_sigma_ft = fielder.attributes_v2.get_arm_accuracy_sigma_ft()  # 2-12 ft
+    else:
+        # Legacy: use basic attributes
+        arm_strength_mph = 82.0  # Average infielder
+        transfer_time = 0.6
+        accuracy_sigma_ft = 5.0
+    
+    # Get target base position
+    base_position = field_layout.get_base_position(to_base)
+    
+    # Calculate horizontal distance (throws are ground-level to ground-level)
+    distance_ft = from_position.horizontal_distance_to(base_position)
+    
+    # Convert throw velocity to ft/s
+    throw_velocity_fps = arm_strength_mph * 1.467  # mph to ft/s
+    
+    # Calculate straight-line flight time
+    straight_flight_time = distance_ft / throw_velocity_fps
+    
+    # Add arc penalty (throws have upward arc, adding ~7% to travel time)
+    flight_time = straight_flight_time * 1.07
+    
+    # Determine if throw is on-target using accuracy
+    # Throws with sigma < 3 ft are very accurate (95% on-target)
+    # Throws with sigma > 8 ft are poor (70% on-target)
+    on_target_probability = np.clip(1.0 - (accuracy_sigma_ft - 2.0) / 15.0, 0.70, 0.98)
+    on_target = np.random.random() < on_target_probability
+    
+    # Off-target throws require extra handling time by receiving fielder
+    handling_penalty = 0.0
+    if not on_target:
+        handling_penalty = np.random.uniform(0.5, 1.0)
+    
+    # Total arrival time
+    total_time = transfer_time + flight_time + handling_penalty
+    
+    return DetailedThrowResult(
+        from_position=from_position,
+        to_base=to_base,
+        throw_velocity_mph=arm_strength_mph,
+        transfer_time=transfer_time,
+        flight_time=flight_time,
+        arrival_time=total_time,
+        accuracy_sigma_ft=accuracy_sigma_ft,
+        on_target=on_target
+    )
 
 
 class FieldingSimulator:

@@ -657,5 +657,317 @@ def validate_home_to_first_times():
     print()
 
 
+# =============================================================================
+# FORCE PLAY DETECTION
+# =============================================================================
+
+def detect_force_situation(runners: Dict[str, 'BaseRunner'], batter_running: bool = True) -> Dict[str, bool]:
+    """
+    Determine which runners are forced to advance.
+    
+    A runner is forced when:
+    - A runner behind them is forced to advance (chain reaction)
+    - The batter hits the ball and must run to first
+    
+    Parameters
+    ----------
+    runners : Dict[str, BaseRunner]
+        Current baserunners (base name -> runner)
+    batter_running : bool
+        Whether batter is running to first (default True)
+        
+    Returns
+    -------
+    Dict[str, bool]
+        Mapping of base -> is_forced (True/False)
+        
+    Examples
+    --------
+    >>> # Runner on 1st only - forced to 2nd
+    >>> runners = {"first": runner1}
+    >>> forces = detect_force_situation(runners)
+    >>> forces["first"]  # True - must advance to 2nd
+    
+    >>> # Runners on 1st and 2nd - both forced
+    >>> runners = {"first": runner1, "second": runner2}
+    >>> forces = detect_force_situation(runners)
+    >>> forces["first"]  # True - must advance to 2nd
+    >>> forces["second"]  # True - forced by runner on 1st
+    
+    >>> # Runner on 2nd only - NOT forced
+    >>> runners = {"second": runner2}
+    >>> forces = detect_force_situation(runners)
+    >>> forces.get("second", False)  # False - can stay
+    """
+    forces = {}
+    
+    if not batter_running:
+        return forces  # No forces if batter didn't run
+    
+    # Work backwards from first base
+    # Runner on 1st is ALWAYS forced when batter runs
+    if "first" in runners:
+        forces["first"] = True
+        
+        # If runner on 2nd, they're forced too (by runner on 1st)
+        if "second" in runners:
+            forces["second"] = True
+            
+            # If runner on 3rd, they're forced too (by runner on 2nd)
+            if "third" in runners:
+                forces["third"] = True
+    
+    return forces
+
+
+def get_force_base(current_base: str) -> str:
+    """
+    Get the base a forced runner must advance to.
+    
+    Parameters
+    ----------
+    current_base : str
+        Current base occupied by runner
+        
+    Returns
+    -------
+    str
+        Target base for forced runner
+    """
+    base_advancement = {
+        "home": "first",
+        "first": "second",
+        "second": "third",
+        "third": "home"
+    }
+    return base_advancement.get(current_base, "home")
+
+
+def decide_runner_advancement(
+    current_base: str,
+    hit_type: str,
+    ball_location: FieldPosition,
+    fielder_position: str,
+    fielder_arm_strength: float,
+    is_fly_ball: bool = False,
+    fly_ball_depth: float = 0.0,
+    runner_speed_rating: float = 50.0,
+    runner_baserunning_rating: float = 50.0,
+    is_forced: bool = False,
+    outs: int = 0
+) -> Dict[str, any]:
+    """
+    Decide how far a runner should attempt to advance based on situation.
+    
+    This implements realistic baserunning decision logic:
+    - Force situations: runner MUST advance
+    - Fly balls: tag up if deep enough and runner is fast enough
+    - Singles: advance 1 base (2 bases if ball hit to RF with runner on 1st)
+    - Doubles: advance to 3rd (only score from 2nd with 2 outs or if ball is deep)
+    - Triples: everyone scores
+    
+    Parameters
+    ----------
+    current_base : str
+        Runner's current base ("first", "second", "third")
+    hit_type : str
+        Type of hit ("single", "double", "triple", "fly_ball")
+    ball_location : FieldPosition
+        Where the ball landed/was caught
+    fielder_position : str
+        Position of fielder who fielded the ball
+    fielder_arm_strength : float
+        Fielder's arm strength rating (0-100)
+    is_fly_ball : bool
+        Whether this is a fly ball (for tag-up logic)
+    fly_ball_depth : float
+        Distance of fly ball in feet (for tag-up decisions)
+    runner_speed_rating : float
+        Runner's speed rating (0-100)
+    runner_baserunning_rating : float
+        Runner's baserunning intelligence rating (0-100)
+    is_forced : bool
+        Whether runner is forced to advance
+    outs : int
+        Number of outs (affects aggressiveness)
+        
+    Returns
+    -------
+    dict
+        Dictionary with:
+        - target_base: str - base runner should attempt to reach
+        - should_tag_up: bool - whether runner should tag up (fly balls)
+        - advancement_bases: int - number of bases to advance
+        - risk_level: str - "safe", "aggressive", "very_risky"
+    """
+    import numpy as np
+    
+    # Force situations - runner MUST advance
+    if is_forced:
+        return {
+            "target_base": get_force_base(current_base),
+            "should_tag_up": False,
+            "advancement_bases": 1,
+            "risk_level": "safe"
+        }
+    
+    # Fly ball tag-up logic
+    if is_fly_ball:
+        should_tag = False
+        target = current_base  # Default: stay on base
+        risk = "safe"
+        
+        # Tag up from 3rd base on any fly ball with <2 outs
+        if current_base == "third" and outs < 2:
+            if fly_ball_depth > 200:  # Medium or deep fly
+                should_tag = True
+                target = "home"
+                risk = "safe"
+            elif fly_ball_depth > 150 and runner_speed_rating > 60:
+                should_tag = True
+                target = "home"
+                risk = "aggressive"
+        
+        # Tag up from 2nd to 3rd on deep flies
+        elif current_base == "second":
+            if fly_ball_depth > 300 and runner_speed_rating > 50:
+                should_tag = True
+                target = "third"
+                risk = "safe"
+        
+        # Rarely tag from 1st (need very deep fly + elite speed)
+        elif current_base == "first":
+            if fly_ball_depth > 350 and runner_speed_rating > 80:
+                should_tag = True
+                target = "second"
+                risk = "aggressive"
+        
+        return {
+            "target_base": target,
+            "should_tag_up": should_tag,
+            "advancement_bases": 1 if should_tag else 0,
+            "risk_level": risk
+        }
+    
+    # Ground ball / hit advancement logic
+    distance = np.sqrt(ball_location.x**2 + ball_location.y**2)
+    
+    # Singles
+    if hit_type == "single":
+        if current_base == "third":
+            # Always score from 3rd on single
+            return {
+                "target_base": "home",
+                "should_tag_up": False,
+                "advancement_bases": 1,
+                "risk_level": "safe"
+            }
+        
+        elif current_base == "second":
+            # Usually score from 2nd on single
+            # Don't score only if: strong arm CF + shallow single
+            if fielder_position == "CF" and fielder_arm_strength > 75 and distance < 180:
+                return {
+                    "target_base": "third",
+                    "should_tag_up": False,
+                    "advancement_bases": 1,
+                    "risk_level": "safe"
+                }
+            else:
+                return {
+                    "target_base": "home",
+                    "should_tag_up": False,
+                    "advancement_bases": 2,  # 2nd to home
+                    "risk_level": "safe"
+                }
+        
+        elif current_base == "first":
+            # First to third opportunity on single
+            # Go for it if: ball to RF, weak arm, deep ball, good baserunning
+            angle = np.arctan2(ball_location.x, ball_location.y) * 180 / np.pi
+            is_to_right_field = angle > 20  # Ball to right side
+            
+            if (is_to_right_field and 
+                (fielder_arm_strength < 60 or distance > 250) and
+                runner_baserunning_rating > 60):
+                return {
+                    "target_base": "third",
+                    "should_tag_up": False,
+                    "advancement_bases": 2,
+                    "risk_level": "aggressive"
+                }
+            else:
+                return {
+                    "target_base": "second",
+                    "should_tag_up": False,
+                    "advancement_bases": 1,
+                    "risk_level": "safe"
+                }
+    
+    # Doubles
+    elif hit_type == "double":
+        if current_base == "third":
+            # Always score from 3rd on double
+            return {
+                "target_base": "home",
+                "should_tag_up": False,
+                "advancement_bases": 1,
+                "risk_level": "safe"
+            }
+        
+        elif current_base == "second":
+            # Score from 2nd on double MOST of the time
+            # Don't score only if: shallow double to CF with strong arm
+            if fielder_position == "CF" and fielder_arm_strength > 75 and distance < 300:
+                return {
+                    "target_base": "third",
+                    "should_tag_up": False,
+                    "advancement_bases": 1,
+                    "risk_level": "safe"
+                }
+            else:
+                # Usually score from 2nd on double
+                return {
+                    "target_base": "home",
+                    "should_tag_up": False,
+                    "advancement_bases": 2,
+                    "risk_level": "safe"
+                }
+        
+        elif current_base == "first":
+            # First to third on double (rarely try to score)
+            if outs == 2 and runner_speed_rating > 75 and distance > 380:
+                return {
+                    "target_base": "home",
+                    "should_tag_up": False,
+                    "advancement_bases": 3,
+                    "risk_level": "very_risky"
+                }
+            else:
+                return {
+                    "target_base": "third",
+                    "should_tag_up": False,
+                    "advancement_bases": 2,
+                    "risk_level": "safe"
+                }
+    
+    # Triples - everyone scores
+    elif hit_type == "triple":
+        return {
+            "target_base": "home",
+            "should_tag_up": False,
+            "advancement_bases": 3 if current_base == "first" else (2 if current_base == "second" else 1),
+            "risk_level": "safe"
+        }
+    
+    # Default: advance 1 base
+    return {
+        "target_base": get_force_base(current_base),
+        "should_tag_up": False,
+        "advancement_bases": 1,
+        "risk_level": "safe"
+    }
+
+
 if __name__ == "__main__":
     validate_home_to_first_times()
