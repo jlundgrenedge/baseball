@@ -738,28 +738,28 @@ def create_average_fielder(quality: str = "average") -> FielderAttributes:
     """
     Create an average defensive player (corner outfielders, 2B/3B).
 
-    Balanced attributes
+    Balanced attributes - boosted for competitive gameplay
     """
     quality_ranges = {
         "poor": (25000, 45000),
-        "average": (45000, 65000),
+        "average": (48000, 62000),  # Boosted from 45k-65k
         "good": (60000, 80000),
         "elite": (75000, 95000)
     }
 
-    min_r, max_r = quality_ranges.get(quality, (45000, 65000))
+    min_r, max_r = quality_ranges.get(quality, (48000, 62000))
 
-    # Average fielders: balanced across all attributes
+    # Average fielders: boost speed/reaction/hands for competitive defense
     return FielderAttributes(
-        REACTION_TIME=np.random.randint(min_r, max_r + 5000),
-        ACCELERATION=np.random.randint(min_r, max_r + 5000),
-        TOP_SPRINT_SPEED=np.random.randint(min_r, max_r + 5000),
-        ROUTE_EFFICIENCY=np.random.randint(min_r, max_r),
-        AGILITY=np.random.randint(min_r, max_r),
-        FIELDING_SECURE=np.random.randint(min_r + 5000, max_r + 5000),
-        TRANSFER_TIME=np.random.randint(min_r, max_r),
+        REACTION_TIME=np.random.randint(min_r + 2000, max_r + 8000),  # Faster reactions
+        ACCELERATION=np.random.randint(min_r + 2000, max_r + 8000),   # Better acceleration
+        TOP_SPRINT_SPEED=np.random.randint(min_r + 2000, max_r + 8000),  # Faster speed
+        ROUTE_EFFICIENCY=np.random.randint(min_r + 2000, max_r + 5000),  # Better routes
+        AGILITY=np.random.randint(min_r, max_r + 3000),
+        FIELDING_SECURE=np.random.randint(min_r + 8000, max_r + 12000),  # CRITICAL: better hands
+        TRANSFER_TIME=np.random.randint(min_r + 2000, max_r + 5000),  # Faster transfer
         ARM_STRENGTH=np.random.randint(min_r, max_r + 5000),
-        ARM_ACCURACY=np.random.randint(min_r, max_r)
+        ARM_ACCURACY=np.random.randint(min_r, max_r + 3000)
     )
 
 
