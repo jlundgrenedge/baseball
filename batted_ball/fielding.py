@@ -905,48 +905,35 @@ class Fielder:
             # Legacy: use CATCH_PROB_BASE
             base_secure_prob = CATCH_PROB_BASE
 
-        # Start with fielder's base catch ability
-        probability = base_secure_prob
-
-        # Distance penalty: harder plays farther away
-        # Calibrated: 10ft = 3%, 20ft = 6%, 30ft = 9%, 40ft = 12%
-        distance_penalty = (distance / 10.0) * 0.03
-        probability -= distance_penalty
-
-        # Time margin: CRITICAL for fielding calibration
-        # This is the main tuning parameter to control hit rates
+        # Simplified catch probability model - much more forgiving
+        # Time margin is the key factor
         time_margin = ball_arrival_time - fielder_time
 
-        if time_margin > 1.0:
-            # Plenty of time - routine play (>1s early)
-            # High probability of success
-            time_bonus = min(time_margin - 1.0, 1.0) * 0.05
-            probability += time_bonus
-        elif time_margin > 0.25:
-            # 0.25-1.0s margin - good timing
-            # Slight bonus for comfortable plays
-            time_bonus = (time_margin - 0.25) * 0.02
-            probability += time_bonus
-        elif time_margin > -0.25:
-            # -0.25 to 0.25s - close play
-            # Small penalty, still makeable
-            time_penalty = abs(time_margin) * 0.20
-            probability -= time_penalty
-        elif time_margin >= -0.75:
-            # -0.75 to -0.25s - fielder late, diving range
-            # Significant penalty
-            time_penalty = 0.05 + (abs(time_margin) - 0.25) * 0.60
-            probability -= time_penalty
+        if time_margin > 0.5:
+            # Fielder arrives early - routine play
+            probability = 0.95
+        elif time_margin > 0:
+            # Fielder arrives just in time - close but makeable
+            probability = 0.85
+        elif time_margin > -0.5:
+            # Fielder slightly late - diving/stretching range
+            probability = 0.60
         else:
-            # Very late (< -0.75s)
-            # Extremely unlikely
-            probability *= 0.10
+            # Fielder very late - unlikely
+            probability = 0.15
+
+        # Apply fielder's hands rating as a multiplier
+        probability *= base_secure_prob
+
+        # Small distance penalty for very far plays
+        if distance > 80:
+            probability *= 0.90  # 10% penalty for distant plays
 
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
         if direction_penalty == BACKWARD_MOVEMENT_PENALTY:
-            probability -= 0.10  # 10% penalty for moving backward
+            probability *= 0.85  # 15% penalty
 
         # Clamp to valid range [0.0, 1.0]
         probability = max(0.0, min(1.0, probability))
