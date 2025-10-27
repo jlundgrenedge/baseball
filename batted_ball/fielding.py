@@ -787,7 +787,9 @@ class Fielder:
             speed_percentage = 0.86 + normalized_dist * 0.06  # 86% to 92%
             effective_speed = directional_max_speed * speed_percentage
             # Minor route inefficiency starts to appear
-            route_efficiency = self.get_route_efficiency() / 100.0
+            route_efficiency_raw = self.get_route_efficiency()
+            # attributes_v2 returns fraction (0.88), legacy returns percentage (88.0)
+            route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
             route_penalty = 1.0 + (1.0 - route_efficiency) * 0.5  # Partial route penalty
         else:
             # Long range: 92-95% of max speed
@@ -795,7 +797,9 @@ class Fielder:
             speed_percentage = 0.92 + normalized_dist * 0.03  # 92% to 95%
             effective_speed = directional_max_speed * speed_percentage
             # Full route efficiency penalty
-            route_efficiency = self.get_route_efficiency() / 100.0
+            route_efficiency_raw = self.get_route_efficiency()
+            # attributes_v2 returns fraction (0.88), legacy returns percentage (88.0)
+            route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
             route_penalty = 1.0 / route_efficiency  # Full penalty
 
         # Calculate movement time
