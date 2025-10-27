@@ -683,13 +683,40 @@ class PlaySimulator:
     
     def _determine_hit_type(self, ball_position: FieldPosition, distance_ft: float, result: PlayResult):
         """Determine hit type when no fielder can intercept."""
-        if distance_ft > 350:
+        import numpy as np
+
+        # Calculate spray angle for fence determination
+        spray_angle = np.arctan2(ball_position.x, ball_position.y) * 180.0 / np.pi
+        abs_angle = abs(spray_angle)
+
+        # Determine fence distance based on spray angle
+        if abs_angle < 10:  # Dead center
+            fence_distance = 400.0
+        elif abs_angle < 25:  # Gaps
+            fence_distance = 380.0
+        elif abs_angle < 40:  # Alleys
+            fence_distance = 360.0
+        else:  # Down the lines
+            fence_distance = 330.0
+
+        # Check for home run (this shouldn't happen here since _handle_ball_in_play checks first,
+        # but adding as safety)
+        batted_ball = result.batted_ball_result
+        peak_height = batted_ball.peak_height if batted_ball else 0
+
+        if distance_ft >= fence_distance and peak_height >= 15:
+            result.outcome = PlayOutcome.HOME_RUN
+            result.runs_scored = 1
+        # Triples are RARE - only for balls in the gap that roll far
+        # Require 340+ ft AND in the gap (10-50° angle) AND runner can make it
+        elif distance_ft > 340 and 10 < abs_angle < 50:
             result.outcome = PlayOutcome.TRIPLE
-        elif distance_ft > 250:
-            result.outcome = PlayOutcome.DOUBLE  
+        # Doubles for well-hit balls to the gaps or down the lines
+        elif distance_ft > 260:
+            result.outcome = PlayOutcome.DOUBLE
         else:
             result.outcome = PlayOutcome.SINGLE
-        
+
         self._handle_hit_baserunning(result)
     
     def _handle_hit_baserunning(self, result: PlayResult):
@@ -790,19 +817,45 @@ class PlaySimulator:
         batted_ball = result.batted_ball_result
         peak_height = batted_ball.peak_height if batted_ball else 0
 
-        # Home run: Needs both distance and height to clear 10 ft fence
+        # Calculate spray angle to determine fence distance
+        # Angle from center field (0° = dead center, + = right, - = left)
+        spray_angle = np.arctan2(ball_position.x, ball_position.y) * 180.0 / np.pi
+
+        # Determine fence distance based on spray angle
+        # MLB standard: 325-330 down lines, 375-385 in gaps, 400-410 in center
+        abs_angle = abs(spray_angle)
+        if abs_angle < 10:  # Dead center (within 10° of straight away)
+            fence_distance = 400.0
+            fence_height = 10.0
+        elif abs_angle < 25:  # Center-left/right gaps
+            fence_distance = 380.0
+            fence_height = 10.0
+        elif abs_angle < 40:  # Deeper alleys
+            fence_distance = 360.0
+            fence_height = 8.0
+        else:  # Down the lines
+            fence_distance = 330.0
+            fence_height = 8.0
+
+        # Check if ball clears fence (distance + has sufficient height)
+        # Need to have peak height above fence height at fence distance
+        # Simplified: if distance exceeds fence and peak > fence height, it's a HR
         is_home_run = False
-        if distance_ft >= 380 and peak_height >= 40:
-            is_home_run = True
-        elif distance_ft >= 400:  # Deep enough that it clears regardless
-            is_home_run = True
+        if distance_ft >= fence_distance:
+            # Ball reached fence distance - check if it cleared fence height
+            # Simple approximation: if peak height > fence height, ball likely cleared
+            # More accurate would check height at fence distance from trajectory
+            if peak_height >= fence_height * 1.5:  # 1.5x margin for trajectory arc
+                is_home_run = True
+            elif distance_ft >= fence_distance + 20:  # 20 ft past fence = definite HR
+                is_home_run = True
 
         if is_home_run:
             result.outcome = PlayOutcome.HOME_RUN
             result.runs_scored = 1
             result.add_event(PlayEvent(
                 ball_time, "home_run",
-                f"HOME RUN! Ball travels {distance_ft:.0f} feet"
+                f"HOME RUN! Ball travels {distance_ft:.0f} feet over the fence"
             ))
             return
 
@@ -1135,18 +1188,35 @@ class PlaySimulator:
     
     def _describe_field_location(self, position: FieldPosition) -> str:
         """Generate human-readable description of field location."""
+        import numpy as np
+
         x, y = position.x, position.y
-        
-        if y < 50:
-            return "infield"
-        elif y < 150:
-            return "shallow outfield"
-        elif y < 250:
-            return "outfield"
+
+        # Calculate total distance from home plate (not just y-coordinate)
+        distance = np.sqrt(x**2 + y**2)
+
+        # Calculate spray angle to determine left/center/right
+        spray_angle = np.arctan2(x, y) * 180.0 / np.pi  # degrees from center
+
+        # Determine left/center/right
+        if spray_angle < -20:
+            field_side = "left "
+        elif spray_angle > 20:
+            field_side = "right "
         else:
-            return "deep outfield"
-        
-        # Could be enhanced with more specific locations (left field, etc.)
+            field_side = ""  # center field (no prefix)
+
+        # Determine depth based on total distance
+        if distance < 95:
+            return "infield"
+        elif distance < 180:
+            return f"shallow {field_side}outfield"
+        elif distance < 280:
+            return f"{field_side}outfield"
+        elif distance < 360:
+            return f"deep {field_side}outfield"
+        else:
+            return f"warning track / {field_side}wall"
     
     def reset_simulation(self):
         """Reset simulator for new play."""
