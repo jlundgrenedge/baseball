@@ -44,6 +44,7 @@ from .constants import (
     TAG_APPLICATION_TIME, TAG_AVOIDANCE_SUCCESS_RATE,
 )
 from .field_layout import FieldPosition, FieldLayout
+from .attributes import FielderAttributes
 
 
 class FieldingResult:
@@ -138,10 +139,12 @@ class Fielder:
                  transfer_quickness: int = 50,
                  fielding_range: int = 50,
                  # Position and state
-                 current_position: Optional[FieldPosition] = None):
+                 current_position: Optional[FieldPosition] = None,
+                 # Physics-first attributes (0-100,000 scale)
+                 attributes_v2: Optional[FielderAttributes] = None):
         """
         Initialize fielder with attribute ratings.
-        
+
         Parameters
         ----------
         name : str
@@ -164,23 +167,26 @@ class Fielder:
             Range factor (50=avg, affects effective coverage area)
         current_position : FieldPosition, optional
             Current field position
+        attributes_v2 : FielderAttributes, optional
+            Physics-first attribute system (0-100,000 scale)
         """
         self.name = name
         self.position = position.lower()
-        
-        # Clip all ratings to 0-100 scale
-        self.sprint_speed = np.clip(sprint_speed, 0, 100)
-        self.acceleration = np.clip(acceleration, 0, 100)
-        self.reaction_time = np.clip(reaction_time, 0, 100)
-        self.arm_strength = np.clip(arm_strength, 0, 100)
-        self.throwing_accuracy = np.clip(throwing_accuracy, 0, 100)
-        self.transfer_quickness = np.clip(transfer_quickness, 0, 100)
-        self.fielding_range = np.clip(fielding_range, 0, 100)
-        
+        self.attributes_v2 = attributes_v2
+
+        # Clip all ratings to 0-100 scale (used if attributes_v2 is None)
+        self.sprint_speed = np.clip(sprint_speed, 0, 100) if attributes_v2 is None else 50
+        self.acceleration = np.clip(acceleration, 0, 100) if attributes_v2 is None else 50
+        self.reaction_time = np.clip(reaction_time, 0, 100) if attributes_v2 is None else 50
+        self.arm_strength = np.clip(arm_strength, 0, 100) if attributes_v2 is None else 50
+        self.throwing_accuracy = np.clip(throwing_accuracy, 0, 100) if attributes_v2 is None else 50
+        self.transfer_quickness = np.clip(transfer_quickness, 0, 100) if attributes_v2 is None else 50
+        self.fielding_range = np.clip(fielding_range, 0, 100) if attributes_v2 is None else 50
+
         # Position and state
         self.current_position = current_position
         self.is_infielder = position.lower() in ['infield', 'catcher']
-        
+
         # Movement state
         self.current_velocity = np.array([0.0, 0.0, 0.0])  # ft/s
         self.is_moving = False
@@ -206,14 +212,18 @@ class Fielder:
     
     def get_acceleration_fps2(self) -> float:
         """Convert acceleration rating to feet per second squared using Statcast metrics."""
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            return self.attributes_v2.get_acceleration_fps2()
+
         # Use research-based acceleration times instead of raw ft/s²
         from .constants import (
             FIELDER_ACCELERATION_TIME_ELITE,
-            FIELDER_ACCELERATION_TIME_AVG, 
+            FIELDER_ACCELERATION_TIME_AVG,
             FIELDER_ACCELERATION_TIME_POOR,
             FIELDER_ACCELERATION_TIME_MAX
         )
-        
+
         # Map rating to acceleration time (lower time = better acceleration)
         if self.acceleration >= 80:
             accel_time = FIELDER_ACCELERATION_TIME_ELITE
@@ -229,7 +239,7 @@ class Fielder:
             # Poor to max
             factor = max(0, (self.acceleration - 20) / 20.0)
             accel_time = FIELDER_ACCELERATION_TIME_MAX + factor * (FIELDER_ACCELERATION_TIME_POOR - FIELDER_ACCELERATION_TIME_MAX)
-        
+
         # Convert to acceleration in ft/s²
         # a = v_max / t, assuming velocity reaches ~80% of max during acceleration phase
         max_speed = self.get_sprint_speed_fps_statcast()
@@ -237,13 +247,17 @@ class Fielder:
     
     def get_sprint_speed_fps_statcast(self) -> float:
         """Convert sprint speed rating to fps using Statcast-calibrated values."""
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            return self.attributes_v2.get_top_sprint_speed_fps()
+
         from .constants import (
             FIELDER_SPRINT_SPEED_STATCAST_MIN,
             FIELDER_SPRINT_SPEED_STATCAST_AVG,
             FIELDER_SPRINT_SPEED_STATCAST_ELITE,
             FIELDER_SPRINT_SPEED_STATCAST_MAX
         )
-        
+
         # Use research-based Statcast values
         if self.sprint_speed >= 80:
             # Elite to max
@@ -257,18 +271,22 @@ class Fielder:
             # Min to average
             factor = max(0, (self.sprint_speed - 20) / 30.0)
             speed = FIELDER_SPRINT_SPEED_STATCAST_MIN + factor * (FIELDER_SPRINT_SPEED_STATCAST_AVG - FIELDER_SPRINT_SPEED_STATCAST_MIN)
-        
+
         return speed
     
     def get_first_step_time(self) -> float:
         """Get first step time based on Statcast research."""
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            return self.attributes_v2.get_reaction_time_s()
+
         from .constants import (
             FIELDER_FIRST_STEP_TIME_ELITE,
             FIELDER_FIRST_STEP_TIME_AVG,
             FIELDER_FIRST_STEP_TIME_POOR,
             FIELDER_FIRST_STEP_TIME_MAX
         )
-        
+
         # Higher reaction rating = faster first step (lower time)
         if self.reaction_time >= 80:
             return FIELDER_FIRST_STEP_TIME_ELITE
@@ -284,13 +302,17 @@ class Fielder:
     
     def get_route_efficiency(self) -> float:
         """Get route efficiency based on Statcast research."""
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            return self.attributes_v2.get_route_efficiency_pct()
+
         from .constants import (
             ROUTE_EFFICIENCY_ELITE,
             ROUTE_EFFICIENCY_AVG,
             ROUTE_EFFICIENCY_POOR,
             ROUTE_EFFICIENCY_MIN
         )
-        
+
         # Map fielding range rating to route efficiency
         if self.fielding_range >= 80:
             return ROUTE_EFFICIENCY_ELITE
@@ -627,6 +649,10 @@ class Fielder:
     
     def get_throw_velocity_mph(self) -> float:
         """Convert arm strength rating to throwing velocity in mph."""
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            return self.attributes_v2.get_arm_strength_mph()
+
         if self.is_infielder:
             min_vel = INFIELDER_THROW_VELOCITY_MIN
             max_vel = INFIELDER_THROW_VELOCITY_MAX
@@ -635,18 +661,22 @@ class Fielder:
             min_vel = OUTFIELDER_THROW_VELOCITY_MIN
             max_vel = OUTFIELDER_THROW_VELOCITY_MAX
             avg_vel = OUTFIELDER_THROW_VELOCITY_AVG
-        
+
         if self.arm_strength <= 50:
             factor = (self.arm_strength - 20) / 30.0
             velocity = min_vel + factor * (avg_vel - min_vel)
         else:
             factor = (self.arm_strength - 50) / 50.0
             velocity = avg_vel + factor * (max_vel - avg_vel)
-        
+
         return velocity
     
     def get_transfer_time_seconds(self) -> float:
         """Convert transfer quickness rating to seconds."""
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            return self.attributes_v2.get_transfer_time_s()
+
         if self.is_infielder:
             min_time = INFIELDER_TRANSFER_TIME_MAX   # Slowest (highest time)
             max_time = INFIELDER_TRANSFER_TIME_MIN   # Fastest (lowest time)
@@ -655,7 +685,7 @@ class Fielder:
             min_time = OUTFIELDER_TRANSFER_TIME_MAX
             max_time = OUTFIELDER_TRANSFER_TIME_MIN
             avg_time = OUTFIELDER_TRANSFER_TIME_AVG
-        
+
         # Higher rating = lower transfer time
         if self.transfer_quickness <= 50:
             factor = (self.transfer_quickness - 20) / 30.0
@@ -663,15 +693,25 @@ class Fielder:
         else:
             factor = (self.transfer_quickness - 50) / 50.0
             time = avg_time - factor * (avg_time - max_time)
-        
+
         return time
     
     def get_throwing_accuracy_std_degrees(self) -> float:
         """Convert throwing accuracy rating to standard deviation in degrees."""
+        # Use new attribute system if available (converts feet to degrees)
+        if self.attributes_v2 is not None:
+            # Get error in feet, convert to angular error
+            # Approximate: for typical throw distance of 90 ft, 1 ft error ≈ 0.64 degrees
+            error_ft = self.attributes_v2.get_arm_accuracy_sigma_ft()
+            # Convert feet to degrees assuming average throw distance
+            avg_throw_distance_ft = 90.0
+            std_deg = np.degrees(np.arctan(error_ft / avg_throw_distance_ft))
+            return std_deg
+
         min_accuracy = THROWING_ACCURACY_TERRIBLE  # Worst accuracy (highest error)
         max_accuracy = THROWING_ACCURACY_ELITE     # Best accuracy (lowest error)
         avg_accuracy = THROWING_ACCURACY_AVG
-        
+
         # Higher rating = lower error
         if self.throwing_accuracy <= 50:
             factor = (self.throwing_accuracy - 20) / 30.0
@@ -679,7 +719,7 @@ class Fielder:
         else:
             factor = (self.throwing_accuracy - 50) / 50.0
             std_deg = avg_accuracy - factor * (avg_accuracy - max_accuracy)
-        
+
         return std_deg
     
     def get_effective_range_multiplier(self) -> float:
