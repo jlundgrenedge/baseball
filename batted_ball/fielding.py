@@ -1073,9 +1073,42 @@ class FieldingSimulator:
         
         self.fielders[position_name] = fielder
     
-    def determine_responsible_fielder(self, ball_position: FieldPosition) -> str:
-        """Determine which fielder should attempt to field the ball."""
-        return self.field_layout.get_nearest_fielder_position(ball_position)
+    def determine_responsible_fielder(self, ball_position: FieldPosition, 
+                                     ball_arrival_time: Optional[float] = None) -> str:
+        """
+        Determine which fielder should attempt to field the ball based on
+        proximity and capability rather than simple zone assignment.
+        
+        Parameters
+        ----------
+        ball_position : FieldPosition
+            Position where ball will land
+        ball_arrival_time : float, optional
+            Time when ball will arrive (used for capability assessment)
+            
+        Returns
+        -------
+        str
+            Name of the fielder position best suited to field the ball
+        """
+        # If no arrival time provided, use zone assignment as fallback
+        if ball_arrival_time is None:
+            return self.field_layout.get_nearest_fielder_position(ball_position)
+        
+        # Calculate fielding capabilities for all fielders
+        probabilities = self.get_all_fielding_probabilities(ball_position, ball_arrival_time)
+        
+        # Filter out fielders who can't possibly reach the ball
+        viable_fielders = {pos: prob for pos, prob in probabilities.items() if prob > 0.0}
+        
+        if not viable_fielders:
+            # No one can reach it - fall back to zone assignment
+            return self.field_layout.get_nearest_fielder_position(ball_position)
+        
+        # Choose fielder with highest probability of success
+        best_fielder = max(viable_fielders.items(), key=lambda x: x[1])[0]
+        
+        return best_fielder
     
     def simulate_fielding_attempt(self, ball_position: FieldPosition, 
                                  ball_arrival_time: float) -> FieldingResult:
@@ -1094,7 +1127,7 @@ class FieldingSimulator:
         FieldingResult
             Result of the fielding attempt
         """
-        responsible_position = self.determine_responsible_fielder(ball_position)
+        responsible_position = self.determine_responsible_fielder(ball_position, ball_arrival_time)
         
         if responsible_position not in self.fielders:
             raise ValueError(f"No fielder assigned to position {responsible_position}")

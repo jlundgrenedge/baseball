@@ -743,8 +743,10 @@ class PlaySimulator:
     def _simulate_catch_attempt(self, ball_position: FieldPosition, 
                                hang_time: float, result: PlayResult) -> FieldingResult:
         """Simulate fielder attempting to catch a fly ball."""
-        # Determine responsible fielder
-        responsible_position = self.fielding_simulator.determine_responsible_fielder(ball_position)
+        # Determine responsible fielder based on position and capability
+        responsible_position = self.fielding_simulator.determine_responsible_fielder(
+            ball_position, hang_time
+        )
         
         # Simulate fielding attempt
         catch_result = self.fielding_simulator.simulate_fielding_attempt(
@@ -812,7 +814,9 @@ class PlaySimulator:
         self._determine_hit_type(ball_position, distance_ft, result)
 
         # Not a home run - simulate fielding and baserunning race
-        responsible_position = self.fielding_simulator.determine_responsible_fielder(ball_position)
+        responsible_position = self.fielding_simulator.determine_responsible_fielder(
+            ball_position, ball_time
+        )
         fielder = self.fielding_simulator.fielders[responsible_position]
 
         # Time for fielder to reach ball and prepare throw
@@ -959,8 +963,12 @@ class PlaySimulator:
 
             fielder = closest_fielder
         else:
-            # Normal ground ball - determine responsible fielder by zone
-            responsible_position = self.fielding_simulator.determine_responsible_fielder(ball_position)
+            # Normal ground ball - determine responsible fielder by proximity and capability
+            # Estimate time for ball to reach fielding position
+            fielding_time = distance_from_home / 60.0  # Rough estimate: 60 ft/s ground ball speed
+            responsible_position = self.fielding_simulator.determine_responsible_fielder(
+                ball_position, fielding_time
+            )
 
             if responsible_position not in self.fielding_simulator.fielders:
                 # No fielder responsible - ball gets through
