@@ -415,6 +415,80 @@ class FielderAttributes:
             super_cap=105.0
         )
 
+    def get_agility_factor(self) -> float:
+        """
+        Change-of-direction ability (0-1 scale).
+
+        Higher = better deceleration and direction changes
+
+        Anchors:
+        - 0: 0.50 (poor agility)
+        - 50k: 0.75 (average)
+        - 85k: 0.90 (elite)
+        - 100k: 0.98 (superhuman)
+        """
+        return piecewise_logistic_map(
+            self.AGILITY,
+            human_min=0.50,
+            human_cap=0.90,
+            super_cap=0.98
+        )
+
+    def get_fielding_secure_prob(self) -> float:
+        """
+        Base catch success probability (0-1 scale).
+
+        Probability of securing ball when in position
+
+        Anchors:
+        - 0: 0.60 (poor hands)
+        - 50k: 0.85 (average)
+        - 85k: 0.96 (elite)
+        - 100k: 0.99 (superhuman)
+        """
+        return piecewise_logistic_map(
+            self.FIELDING_SECURE,
+            human_min=0.60,
+            human_cap=0.96,
+            super_cap=0.99
+        )
+
+    def get_arm_accuracy_sigma_ft(self) -> float:
+        """
+        Throw accuracy dispersion (feet, standard deviation).
+
+        Lower rating = worse accuracy (more scatter)
+
+        Anchors:
+        - 0: 12 ft (poor accuracy)
+        - 50k: 5 ft (average)
+        - 85k: 2 ft (elite)
+        - 100k: 0.5 ft (pinpoint)
+        """
+        return piecewise_logistic_map_inverse(
+            self.ARM_ACCURACY,
+            human_min=2.0,
+            human_cap=12.0,
+            super_cap=0.5
+        )
+
+    def get_acceleration_time_s(self) -> float:
+        """
+        Time to reach top speed from stationary (seconds).
+
+        Derived from acceleration rating
+
+        Anchors:
+        - 0: 4.5 s (slow)
+        - 50k: 3.0 s (average)
+        - 85k: 2.2 s (elite)
+        - 100k: 1.5 s (superhuman)
+        """
+        # Use top speed and acceleration to compute time
+        v_max = self.get_top_sprint_speed_fps()
+        a = self.get_acceleration_fps2()
+        return v_max / a  # t = v/a for constant acceleration
+
 
 # =============================================================================
 # HELPER FUNCTIONS FOR LEGACY COMPATIBILITY
@@ -625,6 +699,126 @@ class PitcherAttributes:
             human_cap=110.0,
             super_cap=135.0
         )
+
+
+# =============================================================================
+# HELPER FUNCTIONS FOR FIELDER CREATION
+# =============================================================================
+
+def create_elite_fielder(quality: str = "average") -> FielderAttributes:
+    """
+    Create an elite defensive player (center fielders, shortstops).
+
+    Emphasizes: speed, range, quick reactions
+    """
+    quality_ranges = {
+        "poor": (25000, 45000),
+        "average": (45000, 65000),
+        "good": (60000, 80000),
+        "elite": (75000, 95000)
+    }
+
+    min_r, max_r = quality_ranges.get(quality, (45000, 65000))
+
+    # Elite fielders: HIGH speed, reaction, route efficiency
+    return FielderAttributes(
+        REACTION_TIME=np.random.randint(max_r, 90000),      # Elite reactions
+        ACCELERATION=np.random.randint(max_r, 85000),       # Fast acceleration
+        TOP_SPRINT_SPEED=np.random.randint(max_r, 90000),   # Elite speed
+        ROUTE_EFFICIENCY=np.random.randint(max_r, 88000),   # Good routes
+        AGILITY=np.random.randint(max_r, 85000),            # Good agility
+        FIELDING_SECURE=np.random.randint(max_r, 85000),    # Sure hands
+        TRANSFER_TIME=np.random.randint(max_r, 85000),      # Quick transfer
+        ARM_STRENGTH=np.random.randint(min_r, max_r + 10000),  # Arm varies
+        ARM_ACCURACY=np.random.randint(min_r + 5000, max_r + 5000)
+    )
+
+
+def create_average_fielder(quality: str = "average") -> FielderAttributes:
+    """
+    Create an average defensive player (corner outfielders, 2B/3B).
+
+    Balanced attributes - boosted for competitive gameplay
+    """
+    quality_ranges = {
+        "poor": (25000, 45000),
+        "average": (48000, 62000),  # Boosted from 45k-65k
+        "good": (60000, 80000),
+        "elite": (75000, 95000)
+    }
+
+    min_r, max_r = quality_ranges.get(quality, (48000, 62000))
+
+    # Average fielders: boost speed/reaction/hands for competitive defense
+    return FielderAttributes(
+        REACTION_TIME=np.random.randint(min_r + 2000, max_r + 8000),  # Faster reactions
+        ACCELERATION=np.random.randint(min_r + 2000, max_r + 8000),   # Better acceleration
+        TOP_SPRINT_SPEED=np.random.randint(min_r + 2000, max_r + 8000),  # Faster speed
+        ROUTE_EFFICIENCY=np.random.randint(min_r + 2000, max_r + 5000),  # Better routes
+        AGILITY=np.random.randint(min_r, max_r + 3000),
+        FIELDING_SECURE=np.random.randint(min_r + 8000, max_r + 12000),  # CRITICAL: better hands
+        TRANSFER_TIME=np.random.randint(min_r + 2000, max_r + 5000),  # Faster transfer
+        ARM_STRENGTH=np.random.randint(min_r, max_r + 5000),
+        ARM_ACCURACY=np.random.randint(min_r, max_r + 3000)
+    )
+
+
+def create_slow_fielder(quality: str = "average") -> FielderAttributes:
+    """
+    Create a slower defensive player (1B, DH types).
+
+    Lower speed/range, but decent hands
+    """
+    quality_ranges = {
+        "poor": (25000, 45000),
+        "average": (45000, 65000),
+        "good": (60000, 80000),
+        "elite": (75000, 95000)
+    }
+
+    min_r, max_r = quality_ranges.get(quality, (45000, 65000))
+
+    # Slow fielders: LOW speed/acceleration, decent hands
+    return FielderAttributes(
+        REACTION_TIME=np.random.randint(min_r - 10000, min_r + 5000),  # Slower reactions
+        ACCELERATION=np.random.randint(min_r - 10000, min_r + 5000),   # Poor acceleration
+        TOP_SPRINT_SPEED=np.random.randint(min_r - 15000, min_r),      # Low speed
+        ROUTE_EFFICIENCY=np.random.randint(min_r - 5000, min_r + 5000),
+        AGILITY=np.random.randint(min_r - 10000, min_r),               # Poor agility
+        FIELDING_SECURE=np.random.randint(min_r, max_r),               # Decent hands
+        TRANSFER_TIME=np.random.randint(min_r, max_r),
+        ARM_STRENGTH=np.random.randint(min_r - 5000, min_r + 5000),    # Weaker arm
+        ARM_ACCURACY=np.random.randint(min_r, max_r)
+    )
+
+
+def create_power_arm_fielder(quality: str = "average") -> FielderAttributes:
+    """
+    Create a defensive player with elite throwing (right fielders, catchers).
+
+    Emphasizes: arm strength and accuracy
+    """
+    quality_ranges = {
+        "poor": (25000, 45000),
+        "average": (45000, 65000),
+        "good": (60000, 80000),
+        "elite": (75000, 95000)
+    }
+
+    min_r, max_r = quality_ranges.get(quality, (45000, 65000))
+
+    # Power arm: HIGH arm strength + accuracy
+    return FielderAttributes(
+        REACTION_TIME=np.random.randint(min_r, max_r + 5000),
+        ACCELERATION=np.random.randint(min_r, max_r + 5000),
+        TOP_SPRINT_SPEED=np.random.randint(min_r, max_r + 5000),
+        ROUTE_EFFICIENCY=np.random.randint(min_r, max_r),
+        AGILITY=np.random.randint(min_r, max_r),
+        FIELDING_SECURE=np.random.randint(min_r + 5000, max_r + 5000),
+        TRANSFER_TIME=np.random.randint(max_r, 85000),          # Quick transfer
+        ARM_STRENGTH=np.random.randint(max_r + 5000, 92000),    # ELITE arm
+        ARM_ACCURACY=np.random.randint(max_r, 85000)            # Good accuracy
+    )
 
 
 # =============================================================================
