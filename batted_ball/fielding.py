@@ -847,24 +847,24 @@ class Fielder:
 
         return effective_time <= ball_arrival_time
     
-    def calculate_catch_probability(self, ball_position: FieldPosition, 
+    def calculate_catch_probability(self, ball_position: FieldPosition,
                                   ball_arrival_time: float) -> float:
         """
-        Calculate catch probability using research-based probabilistic model.
-        
+        Calculate catch probability using physics-based probabilistic model.
+
         Based on Statcast research incorporating:
         - Distance to ball
-        - Available time
+        - Opportunity time (time available)
         - Movement direction (backward penalty)
-        - Fielder attributes
-        
+        - Fielder secure probability (hands)
+
         Parameters
         ----------
         ball_position : FieldPosition
             Position where ball will arrive
         ball_arrival_time : float
             Time when ball arrives
-            
+
         Returns
         -------
         float
@@ -877,7 +877,7 @@ class Fielder:
             CATCH_PROB_BACKWARD_PENALTY,
             CATCH_PROB_MIN
         )
-        
+
         if self.current_position is None:
             return 0.0
 
@@ -893,44 +893,54 @@ class Fielder:
 
         # Calculate fielder time to reach ground position under ball
         fielder_time = self.calculate_effective_time_to_position(ground_position)
-        
-        # Base probability for routine plays
-        probability = CATCH_PROB_BASE
-        
+
+        # Use physics-based secure probability if available
+        if self.attributes_v2 is not None:
+            base_secure_prob = self.attributes_v2.get_fielding_secure_prob()
+        else:
+            # Legacy: use CATCH_PROB_BASE
+            base_secure_prob = CATCH_PROB_BASE
+
+        # Start with fielder's base catch ability
+        probability = base_secure_prob
+
         # Distance penalty: harder plays farther away
-        distance_penalty = (distance / 10.0) * CATCH_PROB_DISTANCE_PENALTY
+        # Calibrated: 0 ft = no penalty, 30 ft = ~20% penalty, 60 ft = ~40% penalty
+        distance_penalty = (distance / 10.0) * 0.07  # Gentler penalty than before
         probability -= distance_penalty
-        
-        # Time bonus/penalty: more time = higher probability
+
+        # Time bonus/penalty: CRITICAL for fielding calibration
+        # This is the main tuning parameter to control hit rates
         time_margin = ball_arrival_time - fielder_time
-        if time_margin > 0:
-            # Extra time available - bonus for routine plays
-            time_bonus = min(time_margin, 2.0) * CATCH_PROB_TIME_BONUS
+
+        if time_margin > 0.5:
+            # Plenty of time - routine play
+            # Cap bonus to avoid > 100% probability
+            time_bonus = min(time_margin - 0.5, 1.5) * 0.10  # Small bonus for routine plays
             probability += time_bonus
-        elif time_margin >= -0.75:
-            # Close play - fielder slightly late but can still make diving/reaching catch
-            # Linear penalty from 0s (no penalty) to -0.75s (30% penalty)
-            time_penalty = abs(time_margin) * 0.40  # 40% penalty per second late
+        elif time_margin > 0:
+            # 0-0.5s margin - close but makeable
+            # No penalty, no bonus - use base probability
+            pass
+        elif time_margin >= -0.5:
+            # Fielder slightly late (-0.5s to 0s)
+            # Can still make play with diving/stretching
+            time_penalty = abs(time_margin) * 0.50  # 50% penalty per second late
             probability -= time_penalty
         else:
-            # Very late - unlikely to make play even with diving
-            probability *= 0.1  # Severe penalty for plays beyond reasonable diving range
-        
+            # Very late (< -0.5s)
+            # Extremely unlikely even with diving
+            probability *= 0.05  # 95% reduction
+
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
         if direction_penalty == BACKWARD_MOVEMENT_PENALTY:
-            probability -= CATCH_PROB_BACKWARD_PENALTY
-        
-        # Fielder skill adjustments
-        # Range affects difficult plays more than easy ones
-        if distance > 15.0:  # Difficult play
-            range_factor = (self.fielding_range - 50) / 50.0  # -1 to +1
-            probability += range_factor * 0.3
-        
-        # Clamp to valid range
-        probability = max(CATCH_PROB_MIN, min(1.0, probability))
-        
+            probability -= 0.15  # 15% penalty for moving backward
+
+        # Clamp to valid range [0.0, 1.0]
+        probability = max(0.0, min(1.0, probability))
+
         return probability
 
     def attempt_fielding(self, ball_position: FieldPosition, 
