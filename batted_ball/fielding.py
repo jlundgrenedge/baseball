@@ -773,34 +773,31 @@ class Fielder:
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
         directional_max_speed = max_speed * direction_penalty
 
-        # Calculate effective speed based on distance (fielders don't reach full sprint on short plays)
-        # This is a smooth curve that increases with distance
-        # Tuned for ~4.5 hits/inning through empirical testing
+        # Calculate effective speed based on distance
+        # MLB fielders can sprint at near-max speed for defensive plays
         if distance < 30.0:
-            # Short burst: 78-86% of max speed depending on distance
-            speed_percentage = 0.78 + (distance / 30.0) * 0.08  # 78% at 0ft, 86% at 30ft
+            # Short burst: 88-94% of max speed
+            speed_percentage = 0.88 + (distance / 30.0) * 0.06  # 88% at 0ft, 94% at 30ft
             effective_speed = directional_max_speed * speed_percentage
             route_penalty = 1.0  # No route inefficiency on short plays
         elif distance < 60.0:
-            # Medium range: 86-92% of max speed
+            # Medium range: 94-98% of max speed
             normalized_dist = (distance - 30.0) / 30.0  # 0 to 1
-            speed_percentage = 0.86 + normalized_dist * 0.06  # 86% to 92%
+            speed_percentage = 0.94 + normalized_dist * 0.04  # 94% to 98%
             effective_speed = directional_max_speed * speed_percentage
-            # Minor route inefficiency starts to appear
+            # Minor route inefficiency
             route_efficiency_raw = self.get_route_efficiency()
-            # attributes_v2 returns fraction (0.88), legacy returns percentage (88.0)
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
-            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.5  # Partial route penalty
+            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.3  # Reduced penalty
         else:
-            # Long range: 92-95% of max speed
+            # Long range: 98-100% of max speed
             normalized_dist = min((distance - 60.0) / 60.0, 1.0)  # 0 to 1, capped
-            speed_percentage = 0.92 + normalized_dist * 0.03  # 92% to 95%
+            speed_percentage = 0.98 + normalized_dist * 0.02  # 98% to 100%
             effective_speed = directional_max_speed * speed_percentage
-            # Full route efficiency penalty
+            # Reduced route efficiency penalty
             route_efficiency_raw = self.get_route_efficiency()
-            # attributes_v2 returns fraction (0.88), legacy returns percentage (88.0)
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
-            route_penalty = 1.0 / route_efficiency  # Full penalty
+            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.15  # Much reduced penalty
 
         # Calculate movement time
         effective_distance = distance * route_penalty
