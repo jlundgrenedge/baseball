@@ -323,12 +323,20 @@ class FieldLayout:
         # Determine infield vs outfield based on distance
         # Balls beyond 180 feet go to outfielders
         if distance_from_home > 180.0:
-            # Outfield responsibility based on angle
-            if ball_x < -50:  # Left side
+            # Outfield responsibility based on spray angle from center field
+            # Calculate angle: 0° = straight center, +angle = right, -angle = left
+            import numpy as np
+            spray_angle = np.arctan2(ball_x, ball_y) * 180.0 / np.pi
+
+            # Divide outfield into zones:
+            # Left field: -90° to -30°
+            # Center field: -30° to +30°
+            # Right field: +30° to +90°
+            if spray_angle < -30:  # Left field zone
                 return 'left_field'
-            elif ball_x > 50:  # Right side  
+            elif spray_angle > 30:  # Right field zone
                 return 'right_field'
-            else:  # Center
+            else:  # Center field zone (-30° to +30°)
                 return 'center_field'
         else:
             # Infield responsibility

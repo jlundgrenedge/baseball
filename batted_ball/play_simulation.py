@@ -682,14 +682,69 @@ class PlaySimulator:
             return True
     
     def _determine_hit_type(self, ball_position: FieldPosition, distance_ft: float, result: PlayResult):
-        """Determine hit type when no fielder can intercept."""
-        if distance_ft > 350:
-            result.outcome = PlayOutcome.TRIPLE
-        elif distance_ft > 250:
-            result.outcome = PlayOutcome.DOUBLE  
-        else:
-            result.outcome = PlayOutcome.SINGLE
-        
+        """Determine hit type when no fielder can intercept, with contact quality gates."""
+        import numpy as np
+
+        # Get contact quality and exit velocity for gates
+        batted_ball = result.batted_ball_result
+        peak_height = batted_ball.peak_height if batted_ball else 0
+
+        # Extract contact quality and exit velocity from initial conditions
+        contact_quality = batted_ball.initial_conditions.get('contact_quality', 'fair') if batted_ball else 'fair'
+        exit_velocity = batted_ball.initial_conditions.get('exit_velocity', 85.0) if batted_ball else 85.0
+
+        # Calculate spray angle for fence determination
+        spray_angle = np.arctan2(ball_position.x, ball_position.y) * 180.0 / np.pi
+        abs_angle = abs(spray_angle)
+
+        # Determine fence distance based on spray angle
+        if abs_angle < 10:  # Dead center
+            fence_distance = 400.0
+        elif abs_angle < 25:  # Gaps
+            fence_distance = 380.0
+        elif abs_angle < 40:  # Alleys
+            fence_distance = 360.0
+        else:  # Down the lines
+            fence_distance = 330.0
+
+        # CONTACT QUALITY GATES - Limit outcomes based on contact quality
+        # Weak contact (< 80 mph EV) cannot produce extra-base hits beyond singles
+        if contact_quality == 'weak' or exit_velocity < 80:
+            # Weak contact maxes out at singles
+            if distance_ft < 180:
+                result.outcome = PlayOutcome.SINGLE
+            else:
+                # Weak contact far away still just a single (bloop hit)
+                result.outcome = PlayOutcome.SINGLE
+
+        # Fair contact (80-95 mph EV) can produce singles and doubles, rare triples
+        elif contact_quality == 'fair' or exit_velocity < 95:
+            if distance_ft >= fence_distance and peak_height >= 15:
+                result.outcome = PlayOutcome.HOME_RUN
+                result.runs_scored = 1
+            elif distance_ft > 340 and 10 < abs_angle < 50 and exit_velocity >= 90:
+                # Fair contact can produce triples only with good EV in gaps
+                result.outcome = PlayOutcome.TRIPLE
+            elif distance_ft > 260:
+                result.outcome = PlayOutcome.DOUBLE
+            else:
+                result.outcome = PlayOutcome.SINGLE
+
+        # Solid contact (95+ mph EV) - full range of outcomes
+        else:  # solid contact
+            if distance_ft >= fence_distance and peak_height >= 15:
+                result.outcome = PlayOutcome.HOME_RUN
+                result.runs_scored = 1
+            # Triples are RARE - only for balls in the gap that roll far
+            # Require 340+ ft AND in the gap (10-50° angle)
+            elif distance_ft > 340 and 10 < abs_angle < 50:
+                result.outcome = PlayOutcome.TRIPLE
+            # Doubles for well-hit balls to the gaps or down the lines
+            elif distance_ft > 260:
+                result.outcome = PlayOutcome.DOUBLE
+            else:
+                result.outcome = PlayOutcome.SINGLE
+
         self._handle_hit_baserunning(result)
     
     def _handle_hit_baserunning(self, result: PlayResult):
@@ -790,19 +845,45 @@ class PlaySimulator:
         batted_ball = result.batted_ball_result
         peak_height = batted_ball.peak_height if batted_ball else 0
 
-        # Home run: Needs both distance and height to clear 10 ft fence
+        # Calculate spray angle to determine fence distance
+        # Angle from center field (0° = dead center, + = right, - = left)
+        spray_angle = np.arctan2(ball_position.x, ball_position.y) * 180.0 / np.pi
+
+        # Determine fence distance based on spray angle
+        # MLB standard: 325-330 down lines, 375-385 in gaps, 400-410 in center
+        abs_angle = abs(spray_angle)
+        if abs_angle < 10:  # Dead center (within 10° of straight away)
+            fence_distance = 400.0
+            fence_height = 10.0
+        elif abs_angle < 25:  # Center-left/right gaps
+            fence_distance = 380.0
+            fence_height = 10.0
+        elif abs_angle < 40:  # Deeper alleys
+            fence_distance = 360.0
+            fence_height = 8.0
+        else:  # Down the lines
+            fence_distance = 330.0
+            fence_height = 8.0
+
+        # Check if ball clears fence (distance + has sufficient height)
+        # Need to have peak height above fence height at fence distance
+        # Simplified: if distance exceeds fence and peak > fence height, it's a HR
         is_home_run = False
-        if distance_ft >= 380 and peak_height >= 40:
-            is_home_run = True
-        elif distance_ft >= 400:  # Deep enough that it clears regardless
-            is_home_run = True
+        if distance_ft >= fence_distance:
+            # Ball reached fence distance - check if it cleared fence height
+            # Simple approximation: if peak height > fence height, ball likely cleared
+            # More accurate would check height at fence distance from trajectory
+            if peak_height >= fence_height * 1.5:  # 1.5x margin for trajectory arc
+                is_home_run = True
+            elif distance_ft >= fence_distance + 20:  # 20 ft past fence = definite HR
+                is_home_run = True
 
         if is_home_run:
             result.outcome = PlayOutcome.HOME_RUN
             result.runs_scored = 1
             result.add_event(PlayEvent(
                 ball_time, "home_run",
-                f"HOME RUN! Ball travels {distance_ft:.0f} feet"
+                f"HOME RUN! Ball travels {distance_ft:.0f} feet over the fence"
             ))
             return
 
@@ -988,12 +1069,16 @@ class PlaySimulator:
             target_position=(fielder_pos.x, fielder_pos.y)
         )
 
-        landing_velocity = batted_ball.velocity[-1] if batted_ball is not None else np.array([0.0, 0.0, 0.0])
+        # For ground balls, use EXIT velocity (from initial conditions), not landing velocity
+        # Landing velocity is after air resistance has slowed the ball significantly
+        exit_velocity_mph = batted_ball.initial_conditions.get('exit_velocity', 85.0) if batted_ball else 85.0
+        exit_velocity_fps = exit_velocity_mph * MPH_TO_MS * METERS_TO_FEET
+
         physics_time_to_target = ground_ball_result.time_to_target if ground_ball_result.time_to_target is not None else None
         distance_to_fielder = ball_position.distance_to(fielder_pos)
         roll_time = self._estimate_ground_ball_roll_time(
             distance_to_fielder,
-            landing_velocity,
+            exit_velocity_fps,
             physics_time_to_target,
         )
 
@@ -1108,14 +1193,26 @@ class PlaySimulator:
             self.baserunning_simulator.remove_runner("home")
 
     def _estimate_ground_ball_roll_time(self, distance_to_fielder: float,
-                                        landing_velocity: np.ndarray,
+                                        exit_velocity_fps: float,
                                         physics_time: Optional[float]) -> float:
-        """Estimate how long a ground ball takes to reach the fielder."""
-        horizontal_speed = float(np.linalg.norm(landing_velocity[:2]) * METERS_TO_FEET)
-        horizontal_speed = max(horizontal_speed, 8.0)  # ensure minimal rolling speed
+        """
+        Estimate how long a ground ball takes to reach the fielder.
 
-        friction = getattr(self.ground_ball_simulator, "friction", 0.08)
-        decel = max(GRAVITY * METERS_TO_FEET * friction + GROUND_BALL_AIR_RESISTANCE, 0.5)
+        Research reference (Baseball Simulation Fielding Improvements.md):
+        - 95 mph ground ball travels ~120 ft to 3B in 0.85-1.00 seconds
+        - This implies relatively low deceleration on ground balls
+
+        Args:
+            distance_to_fielder: Distance in feet
+            exit_velocity_fps: Initial exit velocity in ft/s (not landing velocity)
+            physics_time: Optional physics-based time estimate
+        """
+        horizontal_speed = max(exit_velocity_fps, 8.0)  # ensure minimal rolling speed
+
+        # Use realistic ground ball deceleration
+        # Research shows ~12-15 ft/s² deceleration for hard-hit ground balls
+        # This is much lower than the previous calculation
+        decel = 12.0  # ft/s² - realistic ground ball deceleration
 
         max_reachable_distance = (horizontal_speed ** 2) / (2.0 * decel)
         if distance_to_fielder >= max_reachable_distance:
@@ -1135,18 +1232,35 @@ class PlaySimulator:
     
     def _describe_field_location(self, position: FieldPosition) -> str:
         """Generate human-readable description of field location."""
+        import numpy as np
+
         x, y = position.x, position.y
-        
-        if y < 50:
-            return "infield"
-        elif y < 150:
-            return "shallow outfield"
-        elif y < 250:
-            return "outfield"
+
+        # Calculate total distance from home plate (not just y-coordinate)
+        distance = np.sqrt(x**2 + y**2)
+
+        # Calculate spray angle to determine left/center/right
+        spray_angle = np.arctan2(x, y) * 180.0 / np.pi  # degrees from center
+
+        # Determine left/center/right
+        if spray_angle < -20:
+            field_side = "left "
+        elif spray_angle > 20:
+            field_side = "right "
         else:
-            return "deep outfield"
-        
-        # Could be enhanced with more specific locations (left field, etc.)
+            field_side = ""  # center field (no prefix)
+
+        # Determine depth based on total distance
+        if distance < 95:
+            return "infield"
+        elif distance < 180:
+            return f"shallow {field_side}outfield"
+        elif distance < 280:
+            return f"{field_side}outfield"
+        elif distance < 360:
+            return f"deep {field_side}outfield"
+        else:
+            return f"warning track / {field_side}wall"
     
     def reset_simulation(self):
         """Reset simulator for new play."""

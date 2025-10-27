@@ -828,22 +828,29 @@ def create_power_arm_fielder(quality: str = "average") -> FielderAttributes:
 def create_starter_pitcher(quality: str = "average") -> PitcherAttributes:
     """
     Create a starting pitcher with balanced attributes and good stamina.
+
+    Velocity targets (per get_raw_velocity_mph mapping: 50k=91mph, 85k=98mph):
+    - poor: 85-90 mph (40k-48k range)
+    - average: 91-94 mph (50k-60k range)
+    - good: 93-96 mph (58k-68k range)
+    - elite: 95-99 mph (70k-88k range)
     """
     quality_ranges = {
-        "poor": (25000, 45000),
-        "average": (45000, 65000),
-        "good": (60000, 80000),
-        "elite": (75000, 95000)
+        "poor": (40000, 48000),      # 85-90 mph starters
+        "average": (50000, 60000),   # 91-94 mph starters (MLB average)
+        "good": (58000, 68000),      # 93-96 mph starters (above average)
+        "elite": (70000, 88000)      # 95-99 mph starters (ace level)
     }
 
-    min_r, max_r = quality_ranges.get(quality, (45000, 65000))
+    min_r, max_r = quality_ranges.get(quality, (50000, 60000))
 
     # Starters: balanced with GOOD stamina
+    # Add +3000 variance to velocity for some randomness
     return PitcherAttributes(
-        RAW_VELOCITY_CAP=np.random.randint(min_r, max_r + 5000),
-        SPIN_RATE_CAP=np.random.randint(min_r, max_r + 5000),
+        RAW_VELOCITY_CAP=np.random.randint(min_r, max_r + 3000),
+        SPIN_RATE_CAP=np.random.randint(min_r, max_r + 3000),
         SPIN_EFFICIENCY=np.random.randint(min_r, max_r),
-        COMMAND=np.random.randint(min_r, max_r + 5000),  # Starters have better command
+        COMMAND=np.random.randint(min_r, max_r + 3000),  # Starters have better command
         STAMINA=np.random.randint(max_r, 85000),  # HIGH stamina for starters
     )
 
@@ -851,20 +858,27 @@ def create_starter_pitcher(quality: str = "average") -> PitcherAttributes:
 def create_reliever_pitcher(quality: str = "average") -> PitcherAttributes:
     """
     Create a relief pitcher with high velocity/spin but lower stamina.
+
+    Relievers typically throw 1-3 mph harder than starters.
+    Velocity targets:
+    - poor: 87-92 mph (43k-55k range)
+    - average: 93-97 mph (57k-75k range)
+    - good: 95-98 mph (70k-82k range)
+    - elite: 97-102 mph (78k-92k range)
     """
     quality_ranges = {
-        "poor": (25000, 45000),
-        "average": (45000, 65000),
-        "good": (60000, 80000),
-        "elite": (75000, 95000)
+        "poor": (43000, 55000),      # 87-92 mph relievers
+        "average": (57000, 75000),   # 93-97 mph relievers
+        "good": (70000, 82000),      # 95-98 mph relievers
+        "elite": (78000, 92000)      # 97-102 mph closers
     }
 
-    min_r, max_r = quality_ranges.get(quality, (45000, 65000))
+    min_r, max_r = quality_ranges.get(quality, (57000, 75000))
 
     # Relievers: HIGH velocity/spin, LOW stamina
     return PitcherAttributes(
-        RAW_VELOCITY_CAP=np.random.randint(max_r, 90000),  # Higher velo
-        SPIN_RATE_CAP=np.random.randint(max_r, 85000),     # Higher spin
+        RAW_VELOCITY_CAP=np.random.randint(max_r - 3000, max_r + 5000),  # Higher velo than starters
+        SPIN_RATE_CAP=np.random.randint(max_r - 5000, max_r + 3000),     # Higher spin
         COMMAND=np.random.randint(min_r, max_r),
         STAMINA=np.random.randint(20000, 45000),  # LOW stamina (short relief)
     )
