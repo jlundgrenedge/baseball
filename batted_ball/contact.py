@@ -19,6 +19,28 @@ from .constants import (
     # Phase 2: Collision physics constants
     BAT_MASS,
     BALL_MASS,
+    COR_SWEET_SPOT,
+    COR_MINIMUM,
+    COR_ALUMINUM_BONUS,
+    COR_DEGRADATION_PER_INCH,
+    BAT_EFFECTIVE_MASS_RATIO,
+    VIBRATION_LOSS_FACTOR,
+    MAX_VIBRATION_LOSS,
+    SPIN_FROM_FRICTION_FACTOR,
+    BASE_BACKSPIN_FROM_COMPRESSION,
+    # Advanced research-based constants
+    COLLISION_EFFICIENCY_WOOD,
+    COLLISION_EFFICIENCY_ALUMINUM,
+    COLLISION_EFFICIENCY_COMPOSITE,
+    WOOD_ENERGY_STORAGE_RATIO,
+    METAL_ENERGY_STORAGE_RATIO,
+    COMPOSITE_ENERGY_STORAGE_RATIO,
+    OFFSET_EFFICIENCY_DEGRADATION,
+    HORIZONTAL_OFFSET_SPIN_FACTOR,
+    VERTICAL_OFFSET_SPIN_FACTOR,
+    VIBRATION_ENERGY_LOSS_MAX,
+    VIBRATION_ENERGY_LOSS_RATE,
+    TRAMPOLINE_ENERGY_RECOVERY,
     BAT_EFFECTIVE_MASS_RATIO,
     COR_SWEET_SPOT,
     COR_MINIMUM,
@@ -228,43 +250,74 @@ class ContactModel:
 
     def __init__(self, bat_type='wood'):
         """
-        Initialize contact model.
+        Initialize contact model with research-based collision physics.
 
         Parameters
         ----------
         bat_type : str
-            Type of bat: 'wood' or 'aluminum' (affects COR)
+            Type of bat: 'wood', 'aluminum', or 'composite'
         """
         self.bat_type = bat_type
-        self.cor_bonus = COR_ALUMINUM_BONUS if bat_type == 'aluminum' else 0.0
+        
+        # Set collision efficiency based on bat material (research-based)
+        if bat_type == 'wood':
+            self.base_collision_efficiency = COLLISION_EFFICIENCY_WOOD  # 0.20
+            self.energy_storage_ratio = WOOD_ENERGY_STORAGE_RATIO      # 0.02
+        elif bat_type == 'aluminum':
+            self.base_collision_efficiency = COLLISION_EFFICIENCY_ALUMINUM  # 0.24 (BBCOR regulated)
+            self.energy_storage_ratio = METAL_ENERGY_STORAGE_RATIO         # 0.12
+        elif bat_type == 'composite':
+            self.base_collision_efficiency = COLLISION_EFFICIENCY_COMPOSITE  # 0.25 (BBCOR regulated)
+            self.energy_storage_ratio = COMPOSITE_ENERGY_STORAGE_RATIO      # 0.15
+        else:
+            self.base_collision_efficiency = COLLISION_EFFICIENCY_WOOD
+            self.energy_storage_ratio = WOOD_ENERGY_STORAGE_RATIO
 
-    def calculate_cor(self, distance_from_sweet_spot_inches):
+    def calculate_collision_efficiency(self, distance_from_sweet_spot_inches, contact_offset_total):
         """
-        Calculate coefficient of restitution based on contact location.
-
-        COR is maximum at the sweet spot and decreases with distance.
-        Sweet spot is located at a node of vibration where energy loss
-        from bat vibrations is minimized.
-
+        Calculate collision efficiency (q) based on research.
+        
+        The master formula: BBS = q * v_pitch + (1 + q) * v_bat
+        where q represents all collision physics complexity.
+        
         Parameters
         ----------
         distance_from_sweet_spot_inches : float
-            Distance from sweet spot (inches). Positive = toward barrel end.
-
+            Distance from optimal sweet spot location
+        contact_offset_total : float
+            Total contact offset from bat center
+            
         Returns
         -------
         float
-            Coefficient of restitution (0.35 to 0.55 for wood, higher for aluminum)
+            Collision efficiency (q)
         """
-        # COR degrades linearly with distance from sweet spot
-        distance_abs = abs(distance_from_sweet_spot_inches)
-        cor_reduction = COR_DEGRADATION_PER_INCH * distance_abs
-
-        # Calculate COR with floor at minimum
-        cor = COR_SWEET_SPOT + self.cor_bonus - cor_reduction
-        cor = max(cor, COR_MINIMUM)
-
-        return cor
+        # Start with base efficiency for bat material
+        q = self.base_collision_efficiency
+        
+        # Reduce efficiency based on distance from sweet spot
+        # Sweet spot is zone of maximum performance
+        sweet_spot_penalty = min(distance_from_sweet_spot_inches * 0.01, 0.08)  # Max 8% penalty
+        q -= sweet_spot_penalty
+        
+        # Reduce efficiency based on contact offset (mis-hit)
+        offset_penalty = contact_offset_total * OFFSET_EFFICIENCY_DEGRADATION
+        q -= offset_penalty
+        
+        # Account for vibrational energy loss
+        # Energy lost to bat vibrations reduces collision efficiency
+        vibration_loss = min(distance_from_sweet_spot_inches * VIBRATION_ENERGY_LOSS_RATE, 
+                             VIBRATION_ENERGY_LOSS_MAX)
+        q -= vibration_loss
+        
+        # Trampoline effect for non-wood bats
+        if self.bat_type != 'wood':
+            # Barrel deformation stores and returns energy more efficiently than ball deformation
+            trampoline_benefit = self.energy_storage_ratio * TRAMPOLINE_ENERGY_RECOVERY * 0.1
+            q += trampoline_benefit
+        
+        # Ensure reasonable bounds
+        return max(q, 0.05)  # Minimum efficiency for any contact
 
     def calculate_vibration_energy_loss(self, distance_from_sweet_spot_inches):
         """
@@ -294,13 +347,43 @@ class ContactModel:
 
         return energy_loss
 
-    def calculate_exit_velocity(
+    def calculate_exit_velocity_master_formula(
         self,
         bat_speed_mph,
         pitch_speed_mph,
-        collision_angle_deg=0.0,
-        distance_from_sweet_spot_inches=0.0
+        collision_efficiency_q
     ):
+        """
+        Calculate exit velocity using the research-based master formula.
+        
+        BBS = q * v_pitch + (1 + q) * v_bat
+        
+        This is the fundamental equation from collision physics research.
+        The collision efficiency q encapsulates all the complex physics:
+        - Ball's coefficient of restitution
+        - Bat's material properties  
+        - Energy lost to bat vibrations
+        - Trampoline effect (for non-wood bats)
+        
+        Parameters
+        ----------
+        bat_speed_mph : float
+            Bat speed at contact (mph)
+        pitch_speed_mph : float
+            Incoming pitch speed (mph)
+        collision_efficiency_q : float
+            Collision efficiency parameter
+            
+        Returns
+        -------
+        float
+            Exit velocity in mph
+        """
+        # The master formula from collision physics research
+        exit_velocity = (collision_efficiency_q * pitch_speed_mph + 
+                        (1.0 + collision_efficiency_q) * bat_speed_mph)
+        
+        return max(exit_velocity, 10.0)  # Minimum exit velocity
         """
         Calculate exit velocity using physics-based collision model.
 
@@ -534,13 +617,31 @@ class ContactModel:
             cor (coefficient of restitution used),
             vibration_loss (fraction of energy lost to vibrations)
         """
-        # Calculate exit velocity
-        exit_velocity = self.calculate_exit_velocity(
+        # Calculate total contact offset for efficiency calculation
+        contact_offset_total = np.sqrt(vertical_contact_offset_inches**2 + horizontal_contact_offset_inches**2)
+        
+        # Calculate collision efficiency using research-based method
+        collision_efficiency_q = self.calculate_collision_efficiency(
+            distance_from_sweet_spot_inches, contact_offset_total
+        )
+        
+        # Calculate exit velocity using master formula
+        exit_velocity = self.calculate_exit_velocity_master_formula(
             bat_speed_mph=bat_speed_mph,
             pitch_speed_mph=pitch_speed_mph,
-            collision_angle_deg=0.0,  # Assume head-on for now
-            distance_from_sweet_spot_inches=distance_from_sweet_spot_inches
+            collision_efficiency_q=collision_efficiency_q
         )
+        
+        # Apply additional exit velocity reduction for extreme off-center contact
+        # Softened penalty - MLB players can still hit hard with 1-2" offsets
+        if contact_offset_total > 1.0:  # Beyond reasonable contact area
+            # Gentler exponential degradation (divisor 8 instead of 3)
+            # 1.5": 17% penalty, 2.0": 22% penalty, 2.5": 27% penalty
+            contact_efficiency = np.exp(-(contact_offset_total - 1.0) / 8.0)
+            exit_velocity *= contact_efficiency
+            
+        # Ensure minimum exit velocity for any contact
+        exit_velocity = max(exit_velocity, 15.0)  # Minimum 15 mph for any contact
 
         # Calculate launch angle
         launch_angle = self.calculate_launch_angle(
@@ -549,32 +650,35 @@ class ContactModel:
             vertical_contact_offset_inches=vertical_contact_offset_inches
         )
 
-        # Calculate backspin
-        backspin = self.calculate_backspin(
-            exit_velocity_mph=exit_velocity,
-            launch_angle_deg=launch_angle,
-            bat_speed_mph=bat_speed_mph,
-            vertical_contact_offset_inches=vertical_contact_offset_inches
-        )
-
-        # Calculate sidespin (from horizontal offset)
-        sidespin = 0.0
-        if abs(horizontal_contact_offset_inches) > 0.1:
-            # Horizontal offset creates sidespin
-            # Similar to backspin physics but in horizontal plane
-            sidespin = horizontal_contact_offset_inches * 300.0  # rpm per inch
-            # Magnitude scales with bat speed
-            sidespin *= (bat_speed_mph / 70.0)
-
-        # Get COR and vibration loss for diagnostics
-        cor = self.calculate_cor(distance_from_sweet_spot_inches)
-        vibration_loss = self.calculate_vibration_energy_loss(distance_from_sweet_spot_inches)
+        # Calculate spin based on research: bat "erases" pitch spin and creates new spin
+        # Research shows final spin is nearly independent of initial pitch spin
+        
+        # Backspin from vertical offset (contact below/above ball center)
+        if abs(vertical_contact_offset_inches) > 0.1:
+            # Positive offset (below center) = backspin, negative (above) = topspin
+            vertical_spin = -vertical_contact_offset_inches * VERTICAL_OFFSET_SPIN_FACTOR
+        else:
+            # Minimal vertical offset gets base backspin from compression
+            vertical_spin = BASE_BACKSPIN_FROM_COMPRESSION
+            
+        # Sidespin from horizontal offset
+        horizontal_spin = horizontal_contact_offset_inches * HORIZONTAL_OFFSET_SPIN_FACTOR
+        
+        # Total backspin and sidespin
+        backspin = vertical_spin
+        sidespin = horizontal_spin
+        
+        # Apply exit velocity factor to spin (higher exit velocity = more spin potential)
+        spin_velocity_factor = min(exit_velocity / 100.0, 1.2)  # Cap at 120 mph equivalent
+        backspin *= spin_velocity_factor
+        sidespin *= spin_velocity_factor
 
         return {
             'exit_velocity': exit_velocity,
             'launch_angle': launch_angle,
             'backspin_rpm': backspin,
             'sidespin_rpm': sidespin,
-            'cor': cor,
-            'vibration_loss': vibration_loss,
+            'collision_efficiency_q': collision_efficiency_q,
+            'contact_offset_total': contact_offset_total,
+            'sweet_spot_distance': distance_from_sweet_spot_inches,
         }

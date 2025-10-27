@@ -7,6 +7,7 @@ realistic baseball gameplay with individual player characteristics.
 
 import numpy as np
 from typing import Dict, List, Optional, Tuple
+from .attributes import HitterAttributes, FielderAttributes, PitcherAttributes
 from .constants import (
     # Pitcher attribute scales
     VELOCITY_RATING_MIN,
@@ -80,6 +81,8 @@ class Pitcher:
         fatigue_resistance: int = 50,
         # Pitch arsenal
         pitch_arsenal: Optional[Dict[str, Dict[str, int]]] = None,
+        # NEW: Physics-first attributes (0-100,000 scale)
+        attributes_v2: Optional[PitcherAttributes] = None,
     ):
         """
         Initialize pitcher with attribute ratings.
@@ -118,7 +121,10 @@ class Pitcher:
         """
         self.name = name
 
-        # Core physics attributes (0-100 scale)
+        # Store new attribute system if provided
+        self.attributes_v2 = attributes_v2
+
+        # Core physics attributes (legacy 0-100 scale, or defaults if using attributes_v2)
         self.velocity = np.clip(velocity, 0, 100)
         self.spin_rate = np.clip(spin_rate, 0, 100)
         self.spin_efficiency = np.clip(spin_efficiency, 0, 100)
@@ -126,12 +132,12 @@ class Pitcher:
         self.release_extension = np.clip(release_extension, 0, 100)
         self.arm_slot = arm_slot
 
-        # Skill attributes (0-100 scale)
+        # Skill attributes (legacy 0-100 scale, or defaults if using attributes_v2)
         self.command = np.clip(command, 0, 100)
         self.control = np.clip(control, 0, 100)
         self.pitch_tunneling = np.clip(pitch_tunneling, 0, 100)
         self.deception = np.clip(deception, 0, 100)
-        self.stamina = np.clip(stamina, 0, 100)
+        self.stamina = np.clip(stamina, 0, 100) if attributes_v2 is None else 50
         self.fatigue_resistance = np.clip(fatigue_resistance, 0, 100)
 
         # Pitch arsenal
@@ -164,6 +170,27 @@ class Pitcher:
         float
             Velocity in MPH
         """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            # Get base velocity from physics-first attributes
+            velocity_mph = self.attributes_v2.get_raw_velocity_mph()
+
+            # Apply pitch-type modifiers (fastball = 100%, changeup = ~85%, etc.)
+            if pitch_type == 'changeup':
+                velocity_mph *= 0.85
+            elif pitch_type == 'curveball':
+                velocity_mph *= 0.88
+            elif pitch_type == 'slider':
+                velocity_mph *= 0.92
+
+            # Apply stamina degradation based on pitches thrown
+            stamina_cap = self.attributes_v2.get_stamina_pitches()
+            stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
+            stamina_loss = (1.0 - stamina_factor) * 4.0  # Up to 4 mph loss when exhausted
+
+            return max(velocity_mph - stamina_loss, 70.0)
+
+        # Legacy calculation
         # Get pitch-specific velocity rating or use general rating
         if pitch_type in self.pitch_arsenal:
             velocity_rating = self.pitch_arsenal[pitch_type].get('velocity', self.velocity)
@@ -196,6 +223,29 @@ class Pitcher:
         float
             Spin rate in RPM
         """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            # Get base spin rate from physics-first attributes (for 4-seam fastball)
+            base_spin_rpm = self.attributes_v2.get_spin_rate_rpm()
+
+            # Apply pitch-type modifiers
+            if pitch_type == 'changeup':
+                spin_rpm = base_spin_rpm * 0.70  # Lower spin
+            elif pitch_type == 'curveball':
+                spin_rpm = base_spin_rpm * 1.10  # Higher spin
+            elif pitch_type == 'slider':
+                spin_rpm = base_spin_rpm * 0.95  # Slightly lower
+            else:  # fastball
+                spin_rpm = base_spin_rpm
+
+            # Apply stamina degradation
+            stamina_cap = self.attributes_v2.get_stamina_pitches()
+            stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
+            stamina_loss = (1.0 - stamina_factor) * 0.12  # Up to 12% spin loss when exhausted
+
+            return spin_rpm * (1.0 - stamina_loss)
+
+        # Legacy calculation
         # Get pitch-specific movement rating (which affects spin)
         if pitch_type in self.pitch_arsenal:
             movement_rating = self.pitch_arsenal[pitch_type].get('movement', self.spin_rate)
@@ -321,6 +371,8 @@ class Hitter:
         zone_discipline: int = 50,
         swing_decision_aggressiveness: int = 50,
         adjustment_ability: int = 50,
+        # NEW: Physics-first attributes (0-100,000 scale)
+        attributes_v2: Optional[HitterAttributes] = None,
     ):
         """
         Initialize hitter with attribute ratings.
@@ -358,18 +410,21 @@ class Hitter:
         """
         self.name = name
 
-        # Core physical attributes
+        # Store new attribute system if provided
+        self.attributes_v2 = attributes_v2
+
+        # Core physical attributes (legacy 0-100 scale, or defaults if using attributes_v2)
         self.bat_speed = np.clip(bat_speed, 0, 100)
-        self.swing_path_angle = swing_path_angle
+        self.swing_path_angle = swing_path_angle if attributes_v2 is None else 15.0
         self.barrel_accuracy = np.clip(barrel_accuracy, 0, 100)
         self.swing_timing_precision = np.clip(swing_timing_precision, 0, 100)
         self.bat_control = np.clip(bat_control, 0, 100)
 
         # Outcome-influencing attributes
         self.exit_velocity_ceiling = np.clip(exit_velocity_ceiling, 0, 100)
-        self.launch_angle_tendency = launch_angle_tendency
+        self.launch_angle_tendency = launch_angle_tendency if attributes_v2 is None else 15.0
         self.spin_control = np.clip(spin_control, 0, 100)
-        self.spray_tendency = spray_tendency
+        self.spray_tendency = spray_tendency if attributes_v2 is None else 0.0  # Neutral spray for new system
 
         # Perception & decision attributes
         self.pitch_recognition_speed = np.clip(pitch_recognition_speed, 0, 100)
@@ -386,9 +441,36 @@ class Hitter:
         float
             Bat speed in MPH
         """
-        # 20 = 60 mph, 50 = 70 mph, 80 = 77 mph, 100 = 82 mph
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            return self.attributes_v2.get_bat_speed_mph()
+
+        # Legacy: 20 = 60 mph, 50 = 70 mph, 80 = 77 mph, 100 = 82 mph
         bat_speed_mph = 60.0 + (self.bat_speed - 20) * 0.275
         return bat_speed_mph
+
+    def get_swing_path_angle_deg(self) -> float:
+        """
+        Get swing path angle (attack angle) in degrees.
+
+        For new attribute system: samples from mean with variance
+        For legacy: returns fixed swing_path_angle
+
+        Returns
+        -------
+        float
+            Swing path angle in degrees
+        """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            mean_angle = self.attributes_v2.get_attack_angle_mean_deg()
+            variance = self.attributes_v2.get_attack_angle_variance_deg()
+
+            # Sample from normal distribution
+            return np.random.normal(mean_angle, variance)
+
+        # Legacy: fixed angle
+        return self.swing_path_angle
 
     def get_contact_point_offset(self, pitch_location: Tuple[float, float]) -> Tuple[float, float]:
         """
@@ -404,14 +486,27 @@ class Hitter:
         tuple
             (horizontal_offset_inches, vertical_offset_inches) from sweet spot
         """
-        # Higher barrel accuracy = smaller offsets
-        # 20 = 3" max offset, 50 = 1.5" max offset, 80 = 0.5" max offset, 100 = 0.2" max offset
-        max_offset = 3.0 - (self.barrel_accuracy - 20) * 0.035
-        max_offset = max(max_offset, 0.2)
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            # Get barrel accuracy in mm, convert to inches
+            error_mm = self.attributes_v2.get_barrel_accuracy_mm()
+            error_inches = error_mm / 25.4  # mm to inches
+
+            # Sample from normal distribution
+            horizontal_offset = np.random.normal(0, error_inches)
+            vertical_offset = np.random.normal(0, error_inches)
+
+            return horizontal_offset, vertical_offset
+
+        # Legacy calculation
+        # Higher barrel accuracy = smaller offsets (adjusted for realism)
+        # 20 = 1.5" max offset, 50 = 0.8" max offset, 75 = 0.4" max offset, 100 = 0.15" max offset
+        max_offset = 1.5 - (self.barrel_accuracy - 20) * 0.017
+        max_offset = max(max_offset, 0.15)
 
         # Add random error based on bat control - more variance for worse control
         control_factor = self.bat_control / 100.0
-        error_std = max_offset * (1.0 - control_factor * 0.5)  # Less control reduction
+        error_std = max_offset * (1.0 - control_factor * 0.3)  # Reduced control impact
 
         horizontal_offset = np.random.normal(0, error_std)
         vertical_offset = np.random.normal(0, error_std)
@@ -451,8 +546,14 @@ class Hitter:
 
         # Base swing probability based on strike zone
         if is_strike:
-            # MLB average: ~75% swing rate on pitches in zone
-            base_swing_prob = 0.75
+            # MLB average: ~75% swing rate on pitches in zone, varies by location
+            # Center of zone: higher swing rate, edges: lower swing rate
+            h_distance_from_center = abs(pitch_location[0]) / 8.5  # Normalized
+            v_distance_from_center = abs(pitch_location[1] - 30.0) / 12.0  # Normalized
+            zone_difficulty = (h_distance_from_center + v_distance_from_center) / 2.0
+            
+            # Swing rate varies from 85% (center) to 65% (edges)
+            base_swing_prob = 0.85 - zone_difficulty * 0.20
         else:
             # Distance from zone affects chase probability
             # Strike zone boundaries: ±8.5" horizontal, 18"-42" vertical
@@ -462,8 +563,11 @@ class Hitter:
             distance_from_zone = np.sqrt(h_dist**2 + (v_dist_top + v_dist_bottom)**2)
 
             # Further from zone = less likely to swing
-            # MLB average chase rate: ~30% on pitches just outside
-            base_swing_prob = 0.30 * np.exp(-distance_from_zone / 6.0)
+            # MLB chase rates: ~35% just outside, ~10% way outside
+            if distance_from_zone < 3.0:
+                base_swing_prob = 0.35 * np.exp(-distance_from_zone / 4.0)
+            else:
+                base_swing_prob = 0.10 * np.exp(-distance_from_zone / 8.0)
 
         # Adjust for zone discipline (higher = more selective)
         discipline_factor = self.zone_discipline / 100.0
@@ -526,13 +630,26 @@ class Hitter:
         float
             Timing error in milliseconds (positive = early, negative = late)
         """
+        # Use new attribute system if available
+        if self.attributes_v2 is not None:
+            # Get base timing precision (RMS error in ms)
+            error_ms = self.attributes_v2.get_timing_precision_ms()
+
+            # Faster pitches harder to time (velocity difficulty adjustment)
+            velocity_difficulty = (pitch_velocity - 80) / 20.0
+            adjusted_error = error_ms * (1.0 + velocity_difficulty * 0.3)
+
+            # Sample from normal distribution
+            return np.random.normal(0, adjusted_error)
+
+        # Legacy calculation
         # Faster pitches are harder to time
         velocity_difficulty = (pitch_velocity - 80) / 20.0  # Normalized difficulty
 
-        # Higher precision = less error
-        # 20 = 15 ms error, 50 = 8 ms error, 80 = 3 ms error, 100 = 1 ms error
-        max_error_ms = 15.0 - (self.swing_timing_precision - 20) * 0.175
-        max_error_ms = max(max_error_ms, 1.0)
+        # Higher precision = less error (more realistic timing windows)
+        # 20 = 8 ms error, 50 = 5 ms error, 80 = 2 ms error, 100 = 0.5 ms error
+        max_error_ms = 8.0 - (self.swing_timing_precision - 20) * 0.09
+        max_error_ms = max(max_error_ms, 0.5)
 
         # Adjust for velocity difficulty
         adjusted_error = max_error_ms * (1.0 + velocity_difficulty * 0.3)

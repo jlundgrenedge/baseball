@@ -1,7 +1,7 @@
 # Baseball Physics Simulator - AI Developer Guide
 
 ## Project Overview
-This is a comprehensive physics-based baseball simulation engine that models batted ball trajectories, pitch dynamics, and player interactions. The codebase evolved through 4 phases: spin-dependent aerodynamics → bat-ball collision → pitch simulation → player attributes and at-bat engine.
+This is a comprehensive physics-based baseball simulation engine that models complete baseball games from pitch to play outcome. The codebase evolved through 5 phases: spin-dependent aerodynamics → bat-ball collision → pitch simulation → player attributes and at-bat engine → fielding/baserunning and complete game simulation.
 
 ## Architecture & Core Components
 
@@ -16,6 +16,10 @@ This is a comprehensive physics-based baseball simulation engine that models bat
 2. **Pitch** (`pitch.py`): 8 pitch types with realistic spin characteristics  
 3. **Contact** (`contact.py`): Sweet spot physics and collision modeling
 4. **At-Bat** (`at_bat.py`): Full plate appearance simulation with player attributes
+5. **Fielding** (`fielding.py`): Individual fielder physics with MLB Statcast-calibrated attributes
+6. **Baserunning** (`baserunning.py`): Base-to-base timing physics with route optimization
+7. **Play Simulation** (`play_simulation.py`): Complete play resolution from contact to outcome
+8. **Game Simulation** (`game_simulation.py`): Full 9-inning games with teams and statistics
 
 ### Key Design Patterns
 
@@ -44,12 +48,24 @@ python test_performance.py  # Benchmark performance changes
 ```
 
 ### Batch File Runners
-- `run_simulation.bat`: Interactive batted ball simulator
-- `pitch_scenarios.bat`: Pitch type demonstrations
-- `complete_atbat.bat`: Full at-bat simulations
+- `game_simulation.bat`: Interactive complete game simulation with detailed physics output
 - Use these for manual testing and demonstrations
 
 ## Critical Implementation Details
+
+### Coordinate System Consistency (Phase 5 Requirement)
+All modules use the same coordinate system:
+- Origin: Home plate (0,0,0)
+- X: toward right field (+) / left field (-)
+- Y: toward center field (+) / toward home plate (-)
+- Z: upward (+) / downward (-)
+- Critical: Fielding and trajectory modules MUST maintain coordinate alignment
+
+### Performance Optimization System
+- **UltraFastMode**: 10x speedup for bulk simulations with <2% accuracy loss
+- **Object Pooling**: `ResultObjectPool` for memory efficiency in bulk operations
+- **Trajectory Buffers**: Pre-allocated arrays to avoid GC pressure
+- Enable via `fast_mode=True` in simulators or import from `performance.py`
 
 ### Spin-Dependent Drag (Phase 1 Achievement)
 The model correctly implements empirical observation that spinning balls experience increased drag:
@@ -67,6 +83,8 @@ Player ratings (0-100 scale) directly map to physics parameters:
 - Pitcher velocity rating → actual mph ranges per pitch type
 - Hitter bat speed → exit velocity potential  
 - Command rating → location accuracy (standard deviation)
+- **Fielding**: Speed/reaction/arm/accuracy ratings → physical capabilities
+- **Baserunning**: Speed/acceleration/baserunning ratings → movement physics
 
 ## Testing & Validation
 
@@ -102,9 +120,9 @@ Minimal external dependencies by design:
 All internal calculations use SI units (m, m/s, kg), but user interface uses baseball units (ft, mph). Conversion constants in `constants.py` handle this automatically.
 
 ### Coordinate System
-- X: toward center field (positive)
-- Y: toward pull side (positive for RHB)  
-- Z: upward (positive)
+- X: toward right field (positive) / left field (negative)
+- Y: toward center field (positive) / toward home plate (negative)  
+- Z: upward (positive) / downward (negative)
 - Home plate at origin (0,0,0)
 
 ### Spin Axis Convention

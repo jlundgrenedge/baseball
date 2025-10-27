@@ -80,6 +80,31 @@ class BattedBallResult:
             np.arctan2(landing_pos[1], landing_pos[0])
         )
 
+    @property
+    def exit_velocity(self):
+        """Exit velocity in mph."""
+        return self.initial_conditions['exit_velocity']
+    
+    @property
+    def launch_angle(self):
+        """Launch angle in degrees."""
+        return self.initial_conditions['launch_angle']
+    
+    @property
+    def backspin_rpm(self):
+        """Backspin in rpm."""
+        return self.initial_conditions['backspin_rpm']
+    
+    @property
+    def sidespin_rpm(self):
+        """Sidespin in rpm."""
+        return self.initial_conditions.get('sidespin_rpm', 0)
+    
+    @property
+    def distance_feet(self):
+        """Distance in feet (alias for distance)."""
+        return self.distance
+
     def __repr__(self):
         return (
             f"BattedBallResult(\n"

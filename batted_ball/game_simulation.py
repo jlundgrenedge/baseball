@@ -16,6 +16,13 @@ from .fielding import Fielder
 from .baserunning import BaseRunner, create_average_runner, create_speed_runner, create_slow_runner
 from .play_simulation import PlaySimulator, PlayResult, PlayOutcome, create_standard_defense
 from .at_bat import AtBatSimulator
+from .attributes import (
+    create_power_hitter,
+    create_balanced_hitter,
+    create_groundball_hitter,
+    create_starter_pitcher,
+    create_reliever_pitcher
+)
 
 
 class BaseState(Enum):
@@ -237,6 +244,9 @@ class GameSimulator:
         num_pitches = len(at_bat_result.pitches)
         self.game_state.total_pitches += num_pitches
 
+        if self.verbose and at_bat_result.pitches:
+            self.print_pitch_sequence(at_bat_result.pitches)
+
         if at_bat_result.outcome in ["strikeout", "walk"]:
             # Handle strikeout or walk
             self.handle_strikeout_or_walk(at_bat_result.outcome, batter)
@@ -378,13 +388,13 @@ class GameSimulator:
             batted_ball_dict = at_bat_result.batted_ball_result
             physics_data = {
                 "exit_velocity_mph": round(batted_ball_dict['exit_velocity'], 1),
-                "launch_angle_deg": round(batted_ball_dict['launch_angle'], 1), 
+                "launch_angle_deg": round(batted_ball_dict['launch_angle'], 1),
                 "distance_ft": round(batted_ball_dict['distance'], 1),
                 "hang_time_sec": round(batted_ball_dict['hang_time'], 2),
                 "contact_quality": batted_ball_dict.get('contact_quality', 'unknown'),
                 "peak_height_ft": round(batted_ball_dict['peak_height'], 1),
             }
-            
+
             # Get the last pitch (the one that was hit)
             last_pitch = at_bat_result.pitches[-1] if at_bat_result.pitches else {}
         else:
@@ -404,19 +414,28 @@ class GameSimulator:
 
         if self.verbose:
             print(f"  {description}")
-            
+
             # Enhanced physics display
             physics_line = (f"    Physics: EV={physics_data['exit_velocity_mph']} mph, "
                           f"LA={physics_data['launch_angle_deg']}°, "
                           f"Dist={physics_data['distance_ft']} ft")
-            
+
+            # Add optional physics details if available
+            hang_time = physics_data.get('hang_time_sec')
+            if isinstance(hang_time, (int, float)):
+                physics_line += f", Hang={hang_time:.2f}s"
+
+            peak_height = physics_data.get('peak_height_ft')
+            if isinstance(peak_height, (int, float)):
+                physics_line += f", Peak={peak_height:.1f} ft"
+
             # Add contact quality if available
             if 'contact_quality' in physics_data:
                 physics_line += f", Contact: {physics_data['contact_quality']}"
-                
+
             print(physics_line)
-            
-            # Add pitch information if available  
+
+            # Add pitch information if available
             if last_pitch:
                 pitch_type = last_pitch.get('pitch_type', 'fastball')
                 pitch_velocity = last_pitch.get('velocity_plate', 0)
@@ -424,9 +443,11 @@ class GameSimulator:
                 pitch_line = f"    Pitch: {pitch_type} {pitch_velocity:.1f} mph"
                 if pitch_location and len(pitch_location) >= 2:
                     zone_x = pitch_location[0] / 12.0  # Convert inches to feet for display
-                    zone_z = pitch_location[1] / 12.0  
+                    zone_z = pitch_location[1] / 12.0
                     pitch_line += f" at zone ({zone_x:.1f}', {zone_z:.1f}')"
                 print(pitch_line)
+
+            self.print_play_breakdown(play_result)
 
         # Update game state based on outcome
         self.update_game_state_from_play(play_result, batter)
@@ -482,9 +503,12 @@ class GameSimulator:
         # Clear bases first
         self.game_state.clear_bases()
 
-        # DEBUG: Print what's in final_runner_positions
-        if self.verbose and len(play_result.final_runner_positions) > 0:
-            print(f"    DEBUG: Final runner positions: {list(play_result.final_runner_positions.keys())}")
+        if self.verbose and play_result.final_runner_positions:
+            runner_descriptions = []
+            for base, runner in play_result.final_runner_positions.items():
+                runner_name = getattr(runner, 'name', 'Runner')
+                runner_descriptions.append(f"{runner_name} on {base}")
+            print(f"    Runners after play: {', '.join(runner_descriptions)}")
 
         # Update base runners from final positions
         for base, runner in play_result.final_runner_positions.items():
@@ -519,6 +543,84 @@ class GameSimulator:
         )
         self.play_by_play.append(event)
 
+    def print_pitch_sequence(self, pitches: List[Dict]):
+        """Print detailed pitch-by-pitch information for an at-bat."""
+        if not pitches:
+            return
+
+        print("  Pitch sequence:")
+        for index, pitch in enumerate(pitches, 1):
+            index = pitch.get('sequence_index', index)
+            pitch_type = pitch.get('pitch_type', 'pitch')
+            velocity = pitch.get('velocity_plate', 0.0)
+            location = pitch.get('final_location')
+            count_before = pitch.get('count_before', (0, 0))
+            count_after = pitch.get('count_after', count_before)
+            outcome = pitch.get('pitch_outcome', 'unknown')
+
+            if location and len(location) >= 2:
+                zone_x = location[0] / 12.0
+                zone_z = location[1] / 12.0
+                location_str = f"({zone_x:.2f}', {zone_z:.2f}')"
+            else:
+                location_str = "(unknown)"
+
+            outcome_map = {
+                'ball': 'taken for ball',
+                'called_strike': 'taken for strike',
+                'swinging_strike': 'swing and miss',
+                'foul': 'fouled off',
+                'ball_in_play': 'put in play',
+            }
+            outcome_desc = outcome_map.get(outcome, outcome)
+
+            if pitch.get('swing') and outcome in ['ball', 'called_strike']:
+                # Edge case safety - should not happen but provide context
+                outcome_desc = f"swing -> {outcome_desc}"
+
+            contact_summary = pitch.get('contact_summary')
+            contact_details = ""
+            if contact_summary and outcome in ['foul', 'ball_in_play']:
+                contact_details = (
+                    f" (contact: {contact_summary['contact_quality']}, "
+                    f"EV {contact_summary['exit_velocity']:.1f} mph, "
+                    f"LA {contact_summary['launch_angle']:.1f}°)"
+                )
+
+            print(
+                f"    #{index}: {pitch_type} {velocity:.1f} mph to {location_str} "
+                f"[{count_before[0]}-{count_before[1]} → {count_after[0]}-{count_after[1]}] "
+                f"{outcome_desc}{contact_details}"
+            )
+
+    def print_play_breakdown(self, play_result: PlayResult):
+        """Print detailed physics/fielding/baserunning breakdown for a play."""
+        events = play_result.get_events_chronological()
+        if events:
+            print("    Play timeline:")
+            for event in events:
+                print(f"      [{event.time:5.2f}s] {event.description} ({event.event_type})")
+
+        if play_result.fielding_results:
+            print("    Fielding breakdown:")
+            for fielding in play_result.fielding_results:
+                margin = fielding.ball_arrival_time - fielding.fielder_arrival_time
+                status = "made play" if fielding.success else "missed"
+                fielder_name = getattr(fielding, 'fielder_name', 'Fielder')
+                print(
+                    f"      {fielder_name}: ball {fielding.ball_arrival_time:.2f}s, "
+                    f"arrival {fielding.fielder_arrival_time:.2f}s (margin {margin:+.2f}s) -> {status}"
+                )
+
+        if play_result.baserunning_results:
+            print("    Baserunning results:")
+            for baserun in play_result.baserunning_results:
+                print(
+                    f"      {baserun.runner_name}: {baserun.from_base} → {baserun.to_base} "
+                    f"in {baserun.arrival_time:.2f}s ({baserun.outcome})"
+                )
+
+
     def print_final_summary(self):
         """Print final game summary"""
         print(f"\n{'='*80}")
@@ -535,7 +637,13 @@ class GameSimulator:
 
 def create_test_team(name: str, team_quality: str = "average") -> Team:
     """
-    Create a test team with randomized but realistic players
+    Create a test team with randomized but realistic players.
+
+    Creates a mix of different batter types:
+    - Ground ball hitters (low launch angle ~8-15°)
+    - Line drive hitters (medium launch angle ~15-22°)
+    - Fly ball hitters (high launch angle ~22-32°)
+    - Power hitters (high launch angle + high exit velo ~25-35°)
 
     Args:
         name: Team name
@@ -554,42 +662,82 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
 
     min_attr, max_attr = quality_ranges.get(team_quality, (45, 65))
 
-    # Create pitchers (starting pitcher + some relievers)
+    # Create pitchers using PHYSICS-FIRST approach
+    # Starters have balanced attributes + high stamina
+    # Relievers have high velocity/spin + low stamina
     pitchers = []
     for i in range(3):
         role = "Starter" if i == 0 else "Reliever"
+
+        # Use physics-first attribute creators
+        if i == 0:
+            attributes_v2 = create_starter_pitcher(team_quality)
+        else:
+            attributes_v2 = create_reliever_pitcher(team_quality)
+
+        # Create pitcher with new attribute system
         pitcher = Pitcher(
             name=f"{name} Pitcher {i+1} ({role})",
-            velocity=random.randint(min_attr, max_attr),
-            spin_rate=random.randint(min_attr, max_attr),
-            spin_efficiency=random.randint(min_attr, max_attr),
-            command=random.randint(min_attr, max_attr),
-            control=random.randint(min_attr, max_attr),
-            pitch_tunneling=random.randint(min_attr, max_attr),
-            deception=random.randint(min_attr, max_attr),
-            stamina=random.randint(min_attr + 10, max_attr + 10) if i == 0 else random.randint(min_attr, max_attr),
-            fatigue_resistance=random.randint(min_attr, max_attr)
+            attributes_v2=attributes_v2
         )
         pitchers.append(pitcher)
 
-    # Create hitters (9-player lineup)
+        # Debug output for first team created
+        if not hasattr(create_test_team, 'pitchers_debug_shown'):
+            velo = attributes_v2.get_raw_velocity_mph()
+            spin = attributes_v2.get_spin_rate_rpm()
+            stamina = attributes_v2.get_stamina_pitches()
+            print(f"    {role}: {velo:.1f} mph, {spin:.0f} rpm, {stamina:.0f} pitch stamina")
+
+    if not hasattr(create_test_team, 'pitchers_debug_shown'):
+        create_test_team.pitchers_debug_shown = True
+
+    # Define batter type profiles
+    # Each profile has (swing_path_angle_range, launch_angle_tendency_range, description)
+    # Increased swing path angles for fly ball/power hitters to enable home runs (need 25-30° launch)
+    batter_types = [
+        ((6, 12), (8, 15), "ground ball"),      # Ground ball hitter
+        ((10, 16), (12, 20), "line drive"),     # Line drive hitter
+        ((14, 20), (18, 26), "balanced"),       # Balanced
+        ((20, 28), (22, 30), "fly ball"),       # Fly ball hitter (increased from 16-22)
+        ((24, 32), (25, 35), "power"),          # Power hitter (increased from 18-24)
+    ]
+
+    # Create hitters (9-player lineup) with varied types using PHYSICS-FIRST approach
+    # No profiles needed - power emerges from HIGH bat speed + HIGH attack angle
     hitters = []
     position_names = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
+    hitter_type_weights = [0.15, 0.25, 0.30, 0.20, 0.10]  # GB, LD, Balanced, FB, Power
+    hitter_type_names = ["groundball", "line drive", "balanced", "fly ball", "power"]
+
     for i, pos in enumerate(position_names):
+        # Randomly select hitter type (for display only - physics determines outcomes)
+        hitter_type_idx = random.choices(range(5), weights=hitter_type_weights)[0]
+        hitter_type = hitter_type_names[hitter_type_idx]
+
+        # Use physics-first attribute creators
+        if hitter_type == "power":
+            attributes_v2 = create_power_hitter(team_quality)
+        elif hitter_type == "groundball":
+            attributes_v2 = create_groundball_hitter(team_quality)
+        else:  # balanced, fly ball, line drive
+            attributes_v2 = create_balanced_hitter(team_quality)
+
+        # Create hitter with new attribute system
         hitter = Hitter(
             name=f"{name} {pos}",
-            bat_speed=random.randint(min_attr, max_attr),
-            barrel_accuracy=random.randint(min_attr, max_attr),
-            swing_path_angle=float(random.randint(10, 20)),
-            swing_timing_precision=random.randint(min_attr, max_attr),
-            bat_control=random.randint(min_attr, max_attr),
-            exit_velocity_ceiling=random.randint(min_attr, max_attr),
-            launch_angle_tendency=float(random.randint(10, 25)),
-            pitch_recognition_speed=random.randint(min_attr, max_attr),
-            zone_discipline=random.randint(min_attr, max_attr),
-            swing_decision_aggressiveness=random.randint(min_attr, max_attr)
+            attributes_v2=attributes_v2
         )
         hitters.append(hitter)
+
+        # Debug output for first team created
+        if not hasattr(create_test_team, 'debug_shown'):
+            bat_speed = attributes_v2.get_bat_speed_mph()
+            attack_angle = attributes_v2.get_attack_angle_mean_deg()
+            print(f"    {pos}: {hitter_type} hitter (bat: {bat_speed:.1f} mph, angle: {attack_angle:.1f}°)")
+
+    if not hasattr(create_test_team, 'debug_shown'):
+        create_test_team.debug_shown = True
 
     # Create fielders using standard defense
     fielders = create_standard_defense()

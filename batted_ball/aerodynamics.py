@@ -179,7 +179,8 @@ class AerodynamicForces:
             Drag force vector [Fx, Fy, Fz] in Newtons
         """
         if cd is None:
-            cd = CD_BASE
+            # Use speed-dependent drag coefficient based on research
+            cd = adjust_drag_coefficient(np.linalg.norm(velocity_vector))
 
         # Velocity magnitude
         v_mag = np.linalg.norm(velocity_vector)
@@ -510,24 +511,40 @@ def calculate_reynolds_number(velocity_ms, diameter=0.074, air_density=1.225):
 
 def adjust_drag_coefficient(velocity_ms, base_cd=CD_BASE):
     """
-    Adjust drag coefficient based on Reynolds number.
-
-    At very high or low Reynolds numbers, C_d may vary.
-    For typical baseball velocities (20-50 m/s), C_d is relatively constant.
+    Adjust drag coefficient based on speed-dependent research findings.
+    
+    Research shows dramatic drag reduction at high speeds due to 
+    boundary layer transition from laminar to turbulent flow.
+    This creates a critical Reynolds number transition zone.
 
     Parameters
     ----------
     velocity_ms : float
         Velocity in m/s
     base_cd : float
-        Base drag coefficient
+        Base drag coefficient (used for reference, overridden by research data)
 
     Returns
     -------
     float
-        Adjusted drag coefficient
+        Speed-dependent drag coefficient
     """
-    # For baseball velocities, C_d is fairly constant around 0.35
-    # This function can be enhanced if more detailed Reynolds number
-    # dependence is needed
-    return base_cd
+    from .constants import (
+        DRAG_COEFFICIENT_LOW_SPEED,
+        DRAG_COEFFICIENT_HIGH_SPEED, 
+        DRAG_TRANSITION_SPEED_LOW,
+        DRAG_TRANSITION_SPEED_HIGH
+    )
+    
+    # Speed-dependent drag coefficient based on research
+    if velocity_ms <= DRAG_TRANSITION_SPEED_LOW:
+        # Low speed: laminar boundary layer, higher drag
+        return DRAG_COEFFICIENT_LOW_SPEED
+    elif velocity_ms >= DRAG_TRANSITION_SPEED_HIGH:
+        # High speed: turbulent boundary layer, much lower drag
+        return DRAG_COEFFICIENT_HIGH_SPEED
+    else:
+        # Transition zone: smooth interpolation between regimes
+        # Linear interpolation for simplicity
+        t = (velocity_ms - DRAG_TRANSITION_SPEED_LOW) / (DRAG_TRANSITION_SPEED_HIGH - DRAG_TRANSITION_SPEED_LOW)
+        return DRAG_COEFFICIENT_LOW_SPEED + t * (DRAG_COEFFICIENT_HIGH_SPEED - DRAG_COEFFICIENT_LOW_SPEED)
