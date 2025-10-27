@@ -769,6 +769,13 @@ class Fielder:
         max_speed = self.get_sprint_speed_fps_statcast()
         first_step_time = self.get_first_step_time()
 
+        # Debug first few calls
+        if not hasattr(self, '_time_debug_count'):
+            self._time_debug_count = 0
+        if self._time_debug_count < 5:
+            print(f"TIME_DEBUG: max_speed={max_speed:.1f}fps, first_step={first_step_time:.3f}s, distance={distance:.1f}ft")
+            self._time_debug_count += 1
+
         # Apply directional speed penalty
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
         directional_max_speed = max_speed * direction_penalty
@@ -808,6 +815,11 @@ class Fielder:
 
         # Total time = first step + movement
         total_time = first_step_time + movement_time
+
+        # Debug
+        if hasattr(self, '_time_debug_count') and self._time_debug_count <= 5:
+            print(f"  -> eff_speed={effective_speed:.1f}fps, route_penalty={route_penalty:.3f}, eff_dist={effective_distance:.1f}ft, move_time={movement_time:.2f}s, TOTAL={total_time:.2f}s")
+
         return total_time
 
     def calculate_effective_time_to_position(self, target: FieldPosition) -> float:
@@ -905,35 +917,42 @@ class Fielder:
             # Legacy: use CATCH_PROB_BASE
             base_secure_prob = CATCH_PROB_BASE
 
-        # Simplified catch probability model - much more forgiving
+        # Simplified catch probability model - VERY forgiving for testing
         # Time margin is the key factor
         time_margin = ball_arrival_time - fielder_time
 
-        if time_margin > 0.5:
+        # Debug: Print fielder timing info for first 10 balls
+        if not hasattr(self, '_debug_count'):
+            self._debug_count = 0
+        if self._debug_count < 10:
+            print(f"DEBUG: {self.name} - dist={distance:.1f}ft, ball_time={ball_arrival_time:.2f}s, fielder_time={fielder_time:.2f}s, margin={time_margin:.2f}s")
+            self._debug_count += 1
+
+        if time_margin > 0.3:
             # Fielder arrives early - routine play
-            probability = 0.95
-        elif time_margin > 0:
-            # Fielder arrives just in time - close but makeable
-            probability = 0.85
-        elif time_margin > -0.5:
-            # Fielder slightly late - diving/stretching range
-            probability = 0.60
+            probability = 0.98
+        elif time_margin > -0.3:
+            # Close play - either direction
+            probability = 0.90
+        elif time_margin > -1.0:
+            # Fielder late but diving range
+            probability = 0.75
         else:
-            # Fielder very late - unlikely
-            probability = 0.15
+            # Very late
+            probability = 0.30
 
         # Apply fielder's hands rating as a multiplier
         probability *= base_secure_prob
 
         # Small distance penalty for very far plays
-        if distance > 80:
-            probability *= 0.90  # 10% penalty for distant plays
+        if distance > 100:
+            probability *= 0.85  # 15% penalty for very distant plays
 
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
         if direction_penalty == BACKWARD_MOVEMENT_PENALTY:
-            probability *= 0.85  # 15% penalty
+            probability *= 0.90  # 10% penalty
 
         # Clamp to valid range [0.0, 1.0]
         probability = max(0.0, min(1.0, probability))
