@@ -646,8 +646,8 @@ ROUTE_EFFICIENCY_MIN = 88.0       # % - Very poor
 # Directional Movement Penalties (Research-Based)
 # Fielders are effectively 1 ft/s slower running backward
 FORWARD_MOVEMENT_PENALTY = 1.00    # 100% speed (0° ± 45°)
-LATERAL_MOVEMENT_PENALTY = 0.90     # 90% speed (90° ± 45°)
-BACKWARD_MOVEMENT_PENALTY = 0.75    # 75% speed (180° ± 45°)
+LATERAL_MOVEMENT_PENALTY = 0.97     # 97% speed (90° ± 45°) - elite lateral movement
+BACKWARD_MOVEMENT_PENALTY = 0.93    # 93% speed (180° ± 45°) - elite backpedaling
 
 # Catch Probability Model Constants (Statcast-Based)
 CATCH_PROB_BASE = 0.95              # Base catch probability for easy plays
