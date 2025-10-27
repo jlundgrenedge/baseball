@@ -1155,46 +1155,50 @@ class FieldingSimulator:
 
 
 # Convenience functions for creating fielders
-def create_elite_fielder(name: str, position: str) -> Fielder:
-    """Create an elite fielder with high ratings."""
+def create_elite_fielder(name: str, position: str, quality: str = "good") -> Fielder:
+    """Create an elite fielder using physics-first attribute system."""
+    from .attributes import create_elite_fielder as create_elite_attrs
+
+    # Determine position type for specialized attributes
+    is_middle_infield = position.lower() in ['shortstop', 'second base']
+    is_center_field = 'center' in position.lower()
+
+    if is_middle_infield or is_center_field:
+        # Elite range/speed positions
+        attributes_v2 = create_elite_attrs(quality)
+    else:
+        # Use average fielder attributes for other positions
+        from .attributes import create_average_fielder as create_avg_attrs
+        attributes_v2 = create_avg_attrs(quality)
+
     return Fielder(
         name=name,
         position=position,
-        sprint_speed=85,
-        acceleration=85,
-        reaction_time=85,
-        arm_strength=85,
-        throwing_accuracy=85,
-        transfer_quickness=85,
-        fielding_range=85
+        attributes_v2=attributes_v2
     )
 
 
-def create_average_fielder(name: str, position: str) -> Fielder:
-    """Create an average fielder with typical ratings."""
+def create_average_fielder(name: str, position: str, quality: str = "average") -> Fielder:
+    """Create an average fielder using physics-first attribute system."""
+    from .attributes import create_average_fielder as create_avg_attrs
+
+    attributes_v2 = create_avg_attrs(quality)
+
     return Fielder(
         name=name,
         position=position,
-        sprint_speed=50,
-        acceleration=50,
-        reaction_time=50,
-        arm_strength=50,
-        throwing_accuracy=50,
-        transfer_quickness=50,
-        fielding_range=50
+        attributes_v2=attributes_v2
     )
 
 
-def create_poor_fielder(name: str, position: str) -> Fielder:
-    """Create a below-average fielder."""
+def create_poor_fielder(name: str, position: str, quality: str = "poor") -> Fielder:
+    """Create a below-average fielder using physics-first attribute system."""
+    from .attributes import create_slow_fielder as create_slow_attrs
+
+    attributes_v2 = create_slow_attrs(quality)
+
     return Fielder(
         name=name,
         position=position,
-        sprint_speed=30,
-        acceleration=30,
-        reaction_time=30,
-        arm_strength=30,
-        throwing_accuracy=30,
-        transfer_quickness=30,
-        fielding_range=30
+        attributes_v2=attributes_v2
     )
