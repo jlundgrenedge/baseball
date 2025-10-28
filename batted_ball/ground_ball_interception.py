@@ -66,65 +66,68 @@ class GroundBallInterceptor:
     def find_best_interception(self, batted_ball_result, fielders: Dict[str, Fielder]) -> GroundBallInterceptionResult:
         """
         Find which fielder can best intercept the ground ball.
-        
+
         Parameters
         ----------
         batted_ball_result : BattedBallResult
             Trajectory result with landing position and velocity
         fielders : dict
             Available fielders by position name
-            
+
         Returns
         -------
         GroundBallInterceptionResult
             Best interception scenario (or none if ball gets through)
         """
         result = GroundBallInterceptionResult()
-        
+
         # Get ground ball initial conditions
         landing_pos = np.array([batted_ball_result.landing_x, batted_ball_result.landing_y])
-        
+
         # Extract landing velocity (still in trajectory coordinates - m/s)
         landing_velocity_traj = batted_ball_result.velocity[-1]  # m/s in trajectory coords
-        
+
         # Convert velocity from trajectory coordinates to field coordinates
         # This is CRITICAL: trajectory uses (x=outfield, y=lateral), field uses (x=lateral, y=forward)
         vx_field_ms, vy_field_ms, vz_field_ms = convert_velocity_trajectory_to_field(
             landing_velocity_traj[0], landing_velocity_traj[1], landing_velocity_traj[2]
         )
-        
+
         # Now use field-coordinate velocity for direction
         landing_velocity_field = np.array([vx_field_ms, vy_field_ms, vz_field_ms])
-        
+
         # Convert to feet and mph for ground ball physics
         ball_speed_mph = np.linalg.norm(landing_velocity_field[:2]) * MS_TO_MPH  # Horizontal speed only
         ball_direction = landing_velocity_field[:2] / max(np.linalg.norm(landing_velocity_field[:2]), 1e-6)
-        
+
+        # Get exit velocity for fielding strategy
+        exit_velocity_mph = batted_ball_result.exit_velocity * MS_TO_MPH  # Convert from m/s to mph
+
         # Calculate ground ball trajectory parameters
         ball_speed_fps = ball_speed_mph * MPH_TO_MS * METERS_TO_FEET
         decel_fps2 = GRAVITY * METERS_TO_FEET * self.rolling_friction + GROUND_BALL_AIR_RESISTANCE
-        
+
         best_margin = float('-inf')
         best_fielder = None
         best_position = None
         best_interception_time = 0.0
         best_ball_position = None
         best_fielder_time = 0.0
-        
+
         # Test each fielder for interception capability
         for position_name, fielder in fielders.items():
             if fielder.current_position is None:
                 continue
-                
+
             # Calculate optimal interception for this fielder
             interception_data = self._calculate_fielder_interception(
                 landing_pos, ball_direction, ball_speed_fps, decel_fps2,
-                fielder, batted_ball_result.flight_time, position_name
+                fielder, batted_ball_result.flight_time, position_name, exit_velocity_mph
             )
-            
+
             if interception_data is None:
                 continue  # Fielder cannot intercept
-                
+
             ball_time, fielder_time, ball_pos, distance = interception_data
             time_margin = fielder_time - ball_time
             
@@ -171,19 +174,29 @@ class GroundBallInterceptor:
         
         return result
     
-    def _calculate_fielder_interception(self, landing_pos: np.ndarray, ball_direction: np.ndarray, 
-                                      ball_speed_fps: float, decel_fps2: float, 
-                                      fielder: Fielder, flight_time: float, position_name: str) -> Optional[Tuple[float, float, np.ndarray, float]]:
+    def _calculate_fielder_interception(self, landing_pos: np.ndarray, ball_direction: np.ndarray,
+                                      ball_speed_fps: float, decel_fps2: float,
+                                      fielder: Fielder, flight_time: float, position_name: str,
+                                      exit_velocity_mph: float) -> Optional[Tuple[float, float, np.ndarray, float]]:
         """
         Calculate optimal interception point for a specific fielder.
-        
+
+        On hard-hit balls, fielders let the ball come to them.
+        On weak hits, fielders can charge forward aggressively.
+
         Returns
         -------
         tuple or None
             (ball_time, fielder_time, ball_position, distance) or None if impossible
         """
         fielder_pos = np.array([fielder.current_position.x, fielder.current_position.y])
-        
+
+        # Pitcher special handling - only field balls within 20-25 feet of mound
+        if position_name == 'pitcher':
+            ball_distance_from_mound = np.linalg.norm(landing_pos - np.array([0.0, 60.5]))
+            if ball_distance_from_mound > 25.0:  # Pitcher only fields balls within 25 feet of mound
+                return None
+
         # Special handling for catcher - they can only field very short balls
         # since they're positioned behind home plate facing forward
         if position_name == 'catcher':
@@ -191,7 +204,7 @@ class GroundBallInterceptor:
             ball_distance_from_home = np.linalg.norm(landing_pos)
             if ball_distance_from_home > 15.0:  # 15 feet cutoff
                 return None  # Catcher can't field balls this far out
-            
+
             # For very short balls, catcher needs to run forward to field them
             # Check if ball is moving away from catcher (positive Y direction)
             if ball_direction[1] > 0 and np.dot(ball_direction, landing_pos) > 0:
@@ -199,50 +212,70 @@ class GroundBallInterceptor:
                 # Only allow if it's very close and slow
                 if ball_distance_from_home > 10.0 or ball_speed_fps > 30.0:
                     return None
-        
+
         # Get fielder capabilities
         fielder_speed_fps = self._get_fielder_speed_fps(fielder)
         reaction_time = fielder.get_reaction_time_seconds()
-        
+
+        # Determine fielding strategy based on exit velocity
+        # Hard-hit balls (> 85 mph): Let the ball come to you
+        # Medium (70-85 mph): Moderate approach
+        # Weak hits (< 70 mph): Can charge aggressively
+        is_hard_hit = exit_velocity_mph > 85.0
+        is_weak_hit = exit_velocity_mph < 70.0
+
         # Test interception points along ball trajectory at different times
-        # For corrected ground ball physics (landing 20-60ft), prioritize early interception
         min_test_time = 0.1   # Start testing immediately after landing
-        max_test_time = 1.5   # Realistic maximum for infield plays (reduced from 3.0s)
+        max_test_time = 1.5   # Realistic maximum for infield plays
         time_step = 0.05      # Finer resolution for better accuracy
-        
+
         best_option = None
         best_margin = float('-inf')
-        
+        best_score = float('-inf')
+
         test_time = min_test_time
         while test_time <= max_test_time:
             # Calculate ball position at this time
-            ball_pos = self._get_ball_position_at_time(landing_pos, ball_direction, 
+            ball_pos = self._get_ball_position_at_time(landing_pos, ball_direction,
                                                      ball_speed_fps, decel_fps2, test_time)
-            
+
             # Calculate ball speed at this time (for collision timing)
-            ball_speed_at_time = max(ball_speed_fps - decel_fps2 * test_time, 1.0)  # Lower minimum speed
-            
+            ball_speed_at_time = max(ball_speed_fps - decel_fps2 * test_time, 1.0)
+
             # Calculate fielder time to reach this position
             distance_to_ball = np.linalg.norm(ball_pos - fielder_pos)
             fielder_movement_time = distance_to_ball / fielder_speed_fps
             total_fielder_time = reaction_time + fielder_movement_time
-            
+
             # Total time from contact: flight_time + test_time
             total_ball_time = flight_time + test_time
             total_fielder_arrival = flight_time + total_fielder_time
-            
+
             # Calculate margin (positive = fielder arrives first)
             margin = total_fielder_arrival - total_ball_time
-            
-            # Track best viable option - prefer earlier interceptions
+
+            # Track best viable option with scoring based on ball velocity
             if margin >= -0.1:  # Tighter tolerance for realistic plays
-                # Prefer earlier interceptions (shorter total time)
-                if best_option is None or total_ball_time < best_option[0]:
+                # Calculate score based on fielding strategy
+                if is_hard_hit:
+                    # For hard-hit balls: Prefer interceptions CLOSER to fielder's position
+                    # This makes fielders "let the ball come to them"
+                    score = -distance_to_ball  # Lower distance = higher score
+                elif is_weak_hit:
+                    # For weak hits: Prefer earlier interceptions (charge forward)
+                    score = -total_ball_time
+                else:
+                    # Medium velocity: Balance between distance and time
+                    score = -distance_to_ball * 0.5 - total_ball_time * 0.5
+
+                # Update best option if this is better
+                if best_option is None or score > best_score:
                     best_option = (total_ball_time, total_fielder_arrival, ball_pos, distance_to_ball)
                     best_margin = margin
-            
+                    best_score = score
+
             test_time += time_step
-        
+
         return best_option
     
     def _get_ball_position_at_time(self, landing_pos: np.ndarray, direction: np.ndarray,

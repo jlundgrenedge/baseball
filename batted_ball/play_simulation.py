@@ -252,18 +252,26 @@ class PlaySimulator:
 
         # Classification decision tree:
         # Very low launch angles (< 10°) are always ground balls
+        # BUT: If the ball lands more than 120 ft away, it's likely a line drive
         if very_low_launch:
-            is_air_ball = False
+            # Balls landing far into outfield (>120 ft) are line drives even with low launch angle
+            is_air_ball = distance > 120.0
         # Weak hits near home plate with low peak
         elif weak_hit and max_height < 8.0:
             is_air_ball = False
         # Low launch angle (10-15°) with reasonable peak height
         elif low_launch_angle and max_height < 15.0:
-            is_air_ball = False
+            # If the ball is landing deep (>100 ft), treat as air ball for outfielders to catch
+            # Infielders shouldn't be chasing balls 100+ feet away
+            is_air_ball = distance > 100.0
         # Low trajectory ratio (< 8%) indicates ground ball/line drive
         elif is_low_trajectory and max_height < 12.0:
             # 6-12 ft range with low ratio = hard ground ball or line drive
-            is_air_ball = max_height > 8.0  # 8-12 ft = low line drive (catchable)
+            # But only if it's in infield range (< 100 ft)
+            if distance > 100.0:
+                is_air_ball = True  # Outfield line drive
+            else:
+                is_air_ball = max_height > 8.0  # 8-12 ft = low line drive (catchable)
         else:
             # Everything else is an air ball (fly balls, pop ups, high line drives)
             is_air_ball = max_height > 8.0 or hang_time > 1.5
