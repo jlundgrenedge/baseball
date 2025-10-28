@@ -706,21 +706,29 @@ class Fielder:
         # Time-based catch probability bands (adjusted for MLB BABIP of ~.300)
         # MLB fielders convert ~70% of balls in play into outs
         # These base probabilities get multiplied by secure_prob (~0.92) and other penalties
+        #
+        # IMPORTANT: Negative time margin means fielder arrives AFTER the ball lands.
+        # For fly balls, this should result in a drop (ball already on ground).
+        # Only allow diving/stretching catches for very small negative margins (< -0.15s).
         if time_margin >= 0.0:
             # Fielder arrives on time or early - routine play
             probability = 0.98  # After penalties: 0.98 * 0.92 = 0.90
-        elif time_margin > -0.3:
-            # Fielder slightly late (-0.3-0.0s) - diving/stretching range
-            probability = 0.85  # After penalties: 0.85 * 0.92 = 0.78
-        elif time_margin > -0.6:
-            # Fielder late (-0.6--0.3s) - difficult diving plays
-            probability = 0.60  # After penalties: 0.60 * 0.92 = 0.55
-        elif time_margin > -1.0:
-            # Very late (-1.0--0.6s) - extremely difficult
-            probability = 0.25  # After penalties: 0.25 * 0.92 = 0.23
+        elif time_margin > -0.15:
+            # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
+            # This represents the fielder's reach/dive ability (2-4 feet)
+            probability = 0.70  # After penalties: 0.70 * 0.92 = 0.64
+        elif time_margin > -0.35:
+            # Fielder late (-0.35--0.15s) - extremely difficult diving plays
+            # Requires spectacular diving effort
+            probability = 0.30  # After penalties: 0.30 * 0.92 = 0.28
+        elif time_margin > -0.60:
+            # Very late (-0.60--0.35s) - nearly impossible
+            # Would require fielder to be on the ground already
+            probability = 0.08  # After penalties: 0.08 * 0.92 = 0.07
         else:
-            # Impossibly late (< -1.0s)
-            probability = 0.05
+            # Impossibly late (< -0.60s)
+            # Ball has already landed and rolled away
+            probability = 0.01
 
         # Apply fielder's hands rating as a multiplier (typically 0.90-0.93 for average)
         probability *= base_secure_prob
