@@ -710,22 +710,25 @@ class Fielder:
         # IMPORTANT: Negative time margin means fielder arrives AFTER the ball lands.
         # For fly balls, this should result in a drop (ball already on ground).
         # Only allow diving/stretching catches for very small negative margins (< -0.15s).
-        if time_margin >= 0.0:
-            # Fielder arrives on time or early - routine play
-            # Reduced from 0.98 to 0.95 to prevent too many routine catches on deep balls
-            probability = 0.95  # After penalties: 0.95 * 0.92 = 0.87
+        if time_margin >= 0.5:
+            # Fielder arrives well ahead (0.5+s early) - very routine play
+            probability = 0.92  # After penalties: 0.92 * 0.92 = 0.85
+        elif time_margin >= 0.0:
+            # Fielder arrives on time (0-0.5s early) - routine play but requires hustle
+            # REDUCED from 0.95 to 0.78 to allow more balls to drop
+            probability = 0.78  # After penalties: 0.78 * 0.92 = 0.72
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
-            probability = 0.70  # After penalties: 0.70 * 0.92 = 0.64
+            probability = 0.55  # After penalties: 0.55 * 0.92 = 0.51
         elif time_margin > -0.35:
             # Fielder late (-0.35--0.15s) - extremely difficult diving plays
             # Requires spectacular diving effort
-            probability = 0.30  # After penalties: 0.30 * 0.92 = 0.28
+            probability = 0.25  # After penalties: 0.25 * 0.92 = 0.23
         elif time_margin > -0.60:
             # Very late (-0.60--0.35s) - nearly impossible
             # Would require fielder to be on the ground already
-            probability = 0.08  # After penalties: 0.08 * 0.92 = 0.07
+            probability = 0.06  # After penalties: 0.06 * 0.92 = 0.06
         else:
             # Impossibly late (< -0.60s)
             # Ball has already landed and rolled away

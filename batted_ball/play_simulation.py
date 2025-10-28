@@ -474,10 +474,10 @@ class PlaySimulator:
                     'effective_time': effective_time
                 })
 
-                # Give fielders generous leeway (can be up to 0.75s late and still make the play)
-                # This accounts for diving catches, last-second adjustments, reaching, and jumping
-                # MLB fielders regularly make spectacular plays when "late" by traditional metrics
-                if time_margin >= -0.75:
+                # Fielders need to arrive with time to spare to attempt catch
+                # Require positive time margin (fielder arrives before ball)
+                # This prevents unrealistic diving catches on deep balls
+                if time_margin >= 0.0:
                     candidates.append({
                         'position': position_name,
                         'fielder': fielder,
@@ -517,13 +517,16 @@ class PlaySimulator:
                         print(f"    {position_name} catch attempt: prob={catch_prob:.2%}, roll={catch_roll:.2f}, {'SUCCESS' if catch_success else 'MISS'}")
 
                     if catch_success:
-                        # Catch made!
+                        # Catch made! Log at the actual time when fielder reaches the ball
+                        fielder_arrival_time = best_candidate['effective_time']
+                        actual_catch_time = max(t, fielder_arrival_time)  # Can't catch before ball arrives
+                        
                         result.outcome = PlayOutcome.FLY_OUT
                         result.outs_made = 1
                         result.primary_fielder = fielder
                         result.add_event(PlayEvent(
-                            t, "catch",
-                            f"Caught by {position_name} ({catch_prob:.0%} prob)"
+                            actual_catch_time, "air_catch",
+                            f"Caught by {position_name} at {actual_catch_time:.2f}s ({catch_prob:.0%} prob)"
                         ))
                         self.baserunning_simulator.remove_runner("home")
                         return True
@@ -957,7 +960,9 @@ class PlaySimulator:
 
         # Fair contact (80-95 mph EV) can produce singles and doubles, rare triples
         elif contact_quality == 'fair' or exit_velocity < 95:
-            if distance_ft >= fence_distance and peak_height >= 15:
+            # FIX: Remove peak height restriction - already checked in main HR logic
+            # Allow fair contact (85-95 mph) to be HRs if distance is sufficient
+            if distance_ft >= fence_distance - 5:  # 5 ft cushion for measurement variance
                 result.outcome = PlayOutcome.HOME_RUN
                 result.runs_scored = 1
             elif distance_ft > 340 and 10 < abs_angle < 50 and exit_velocity >= 90:
@@ -970,7 +975,8 @@ class PlaySimulator:
 
         # Solid contact (95+ mph EV) - full range of outcomes
         else:  # solid contact
-            if distance_ft >= fence_distance and peak_height >= 15:
+            # FIX: Remove peak height restriction - already checked in main HR logic
+            if distance_ft >= fence_distance - 5:  # 5 ft cushion
                 result.outcome = PlayOutcome.HOME_RUN
                 result.runs_scored = 1
             # Triples are RARE - only for balls in the gap that roll far
@@ -1272,11 +1278,12 @@ class PlaySimulator:
         is_home_run = False
         if distance_ft >= fence_distance:
             # Ball reached fence distance - check if it cleared fence height
-            # Simple approximation: if peak height > fence height, ball likely cleared
-            # More accurate would check height at fence distance from trajectory
-            if peak_height >= fence_height * 1.5:  # 1.5x margin for trajectory arc
+            # FIX: Use more realistic height threshold
+            # Line drives with 30+ ft peaks can clear 8-10 ft fences
+            # Previous 1.5x multiplier (15 ft) was too restrictive
+            if peak_height >= 30.0:  # Reasonable minimum for clearing fence
                 is_home_run = True
-            elif distance_ft >= fence_distance + 20:  # 20 ft past fence = definite HR
+            elif distance_ft >= fence_distance + 15:  # 15 ft past fence = definite HR
                 is_home_run = True
 
         if is_home_run:
@@ -1289,16 +1296,26 @@ class PlaySimulator:
             return
 
         # Try trajectory interception instead of landing spot racing
+        # Allow trajectory interception for all balls - let the individual checks handle fence distance
         if self._attempt_trajectory_interception(batted_ball, result):
             return  # Ball was caught/fielded
-            
-        # No fielder could intercept - it's a hit
-        self._determine_hit_type(ball_position, distance_ft, result)
 
         # Try outfield ball interception instead of final position racing
-        interception_result = self.outfield_interceptor.find_best_interception(
-            batted_ball, self.fielding_simulator.fielders
-        )
+        # BUT: Skip for very deep fly balls (375+ ft) - those are likely HRs or warning track catches
+        skip_outfield = distance_ft >= 375.0
+        if not skip_outfield:
+            interception_result = self.outfield_interceptor.find_best_interception(
+                batted_ball, self.fielding_simulator.fielders
+            )
+        else:
+            # For deep fly balls, create a "cannot be fielded" result
+            from .outfield_interception import OutfieldInterceptionResult, FieldPosition
+            interception_result = OutfieldInterceptionResult()
+            interception_result.can_be_fielded = False
+            result.add_event(PlayEvent(
+                ball_time, "deep_fly_ball",
+                f"Ball too deep ({distance_ft:.1f} ft) - skipping outfield interception"
+            ))
         
         # ENHANCED LOGGING: Add detailed outfield interception analysis
         self._log_outfield_interception_details(interception_result, ball_position, ball_time, result)
@@ -1316,6 +1333,9 @@ class PlaySimulator:
                 f"Ball intercepted by {responsible_position} in {location_desc} at {ball_retrieved_time:.2f}s ({interception_result.interception_type})"
             ))
         else:
+            # No fielder could intercept - determine hit type
+            self._determine_hit_type(ball_position, distance_ft, result)
+            
             # Fallback to old method if interception fails
             responsible_position = self.fielding_simulator.determine_responsible_fielder(
                 ball_position, ball_time
@@ -1365,7 +1385,7 @@ class PlaySimulator:
         # Log throw analysis
         result.add_event(PlayEvent(
             ball_retrieved_time + 0.02, "throw_analysis",
-            f"Throw times from {responsible_position} - 1st: {throw_to_first_result.total_time:.2f}s, 2nd: {throw_to_second_result.total_time:.2f}s, 3rd: {throw_to_third_result.total_time:.2f}s, home: {throw_to_home_result.total_time:.2f}s"
+            f"Throw times from {responsible_position} - 1st: {throw_to_first_result.arrival_time:.2f}s, 2nd: {throw_to_second_result.arrival_time:.2f}s, 3rd: {throw_to_third_result.arrival_time:.2f}s, home: {throw_to_home_result.arrival_time:.2f}s"
         ))
 
         # Ball arrival times at each base (retrieval + transfer + flight)
@@ -1380,9 +1400,10 @@ class PlaySimulator:
             f"Ball arrival times - 1st: {ball_at_first:.2f}s, 2nd: {ball_at_second:.2f}s, 3rd: {ball_at_third:.2f}s, home: {ball_at_home:.2f}s"
         ))
 
-        # Determine how far runner can go (with conservative margin)
-        # Runners are cautious - they need significant advantage to take extra base
-        SAFE_MARGIN = 1.5  # Runner needs big advantage to attempt next base (increased from 0.3)
+        # Determine how far runner can go (with realistic margin)
+        # FIX: MLB runners are more aggressive than previous 1.5s margin
+        # Typical MLB: runners go on 0.5-1.0s advantages, especially with <2 outs
+        SAFE_MARGIN = 0.6  # Runner needs reasonable advantage to attempt next base
         
         # Calculate margins for each base
         margin_first = ball_at_first - time_to_first

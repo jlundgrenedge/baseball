@@ -766,9 +766,13 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
         # Use physics-first attribute creators (100,000-point scale)
         if hitter_type == "power":
             attributes = create_power_hitter(team_quality)
+        elif hitter_type == "fly ball":
+            # FIX: Fly ball hitters should also use power hitter attributes
+            # They hit for less power than pure power hitters but still elevate the ball
+            attributes = create_power_hitter(team_quality)
         elif hitter_type == "groundball":
             attributes = create_groundball_hitter(team_quality)
-        else:  # balanced, fly ball, line drive
+        else:  # balanced, line drive
             attributes = create_balanced_hitter(team_quality)
 
         # Create hitter with unified attribute system

@@ -496,11 +496,14 @@ class FielderAttributes:
 
 def create_power_hitter(quality: str = "average") -> HitterAttributes:
     """
-    Create a power hitter with high BAT_SPEED and MODERATE attack angle.
+    Create a power hitter with high BAT_SPEED and ELEVATED attack angle.
 
-    With the new 15° variance system + pitch adjustments, power hitters need slightly higher base.
-    Power hitters should have MEAN ~10-14° to get realistic fly ball rates.
-    Their power comes from BOTH bat speed AND slightly elevated launch angle tendency.
+    FIX: Increased attack angle to 65k-80k range (20-28° mean) for realistic HR production.
+    Power hitters need BOTH elite bat speed AND high launch angles to generate 95+ mph 
+    exit velocity at 25-30° optimal HR angles. Previous 48k-62k range (10-14°) was too low.
+    
+    MLB HR averages: ~103 mph exit velo, ~26-28° launch angle
+    Target: 2-3% HR rate on contact (22-27 per 1000 contacts)
     """
     quality_ranges = {
         "poor": (25000, 45000),
@@ -511,17 +514,26 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
 
     min_r, max_r = quality_ranges.get(quality, (45000, 65000))
 
-    # Power hitters: HIGH bat speed + MODERATE attack angle
-    # Attack angle: ~48k-62k → mean of ~10-14° (slightly higher than balanced)
-    # Combined with elite bat speed + 15° variance, creates power
-    bat_speed_min = min(max_r, 85000)
-    bat_speed_max = min(95000, bat_speed_min + 12000)
-    attack_angle_min = min_r  # ~45k-50k
-    attack_angle_max = min(62000, min_r + 12000)  # Up to ~62k
+    # Power hitters: ELITE bat speed + ELEVATED attack angle
+    # Bat speed: 85k-97k → 73-78 mph bat speed → 100+ mph exit velocity
+    # Attack angle: 65k-80k → mean of 20-28° (optimal HR launch angle)
+    # This produces realistic power: 95-105 mph EV at 25-30° LA = home runs
+    bat_speed_min = max(85000, min_r + 30000)  # Minimum 85k for power
+    bat_speed_max = min(97000, bat_speed_min + 12000)
+    
+    # BOOSTED: Attack angle now 65k-80k for 20-28° mean (was 48k-62k = 10-14°)
+    attack_angle_min = max(65000, min_r + 20000)  # Minimum 65k
+    attack_angle_max = min(80000, attack_angle_min + 15000)  # Up to 80k
+    
+    # Ensure valid ranges (min < max)
+    if bat_speed_min >= bat_speed_max:
+        bat_speed_max = bat_speed_min + 5000
+    if attack_angle_min >= attack_angle_max:
+        attack_angle_max = attack_angle_min + 5000
     
     return HitterAttributes(
         BAT_SPEED=np.random.randint(bat_speed_min, bat_speed_max),  # Elite bat speed
-        ATTACK_ANGLE_CONTROL=np.random.randint(attack_angle_min, attack_angle_max),  # Moderate-high launch angle
+        ATTACK_ANGLE_CONTROL=np.random.randint(attack_angle_min, attack_angle_max),  # BOOSTED for HRs
         ATTACK_ANGLE_VARIANCE=np.random.randint(min_r, max_r),
         BARREL_ACCURACY=np.random.randint(min_r + 5000, max_r + 10000),
         TIMING_PRECISION=np.random.randint(min_r, max_r),
@@ -553,9 +565,17 @@ def create_balanced_hitter(quality: str = "average") -> HitterAttributes:
     attack_angle_min = max(25000, min_r - 15000)  # ~35k for average
     attack_angle_max = min(50000, min_r)           # Up to ~50k
     
+    # Ensure valid range
+    if attack_angle_min >= attack_angle_max:
+        attack_angle_max = attack_angle_min + 10000
+    
     # For barrel accuracy: ensure valid range
     barrel_min = min(max_r, 75000)
     barrel_max = min(85000, barrel_min + 12000)
+    
+    # Ensure barrel range is valid
+    if barrel_min >= barrel_max:
+        barrel_max = barrel_min + 5000
     
     return HitterAttributes(
         BAT_SPEED=np.random.randint(min_r, max_r + 5000),
