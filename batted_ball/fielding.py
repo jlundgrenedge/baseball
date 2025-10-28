@@ -355,13 +355,19 @@ class Fielder:
         else:
             return BACKWARD_MOVEMENT_PENALTY  # Backward movement
     
-    def calculate_optimal_intercept_point(self, ball_trajectory_data: dict, 
+    def calculate_optimal_intercept_point(self, ball_trajectory_data: dict,
                                         current_time: float) -> np.ndarray:
         """
         Calculate optimal intercept point using advanced trajectory prediction.
-        
+
         Uses iterative approach to find the point where fielder and ball
         arrive simultaneously, accounting for fielder's movement capabilities.
+
+        COORDINATE SYSTEM: ball_trajectory_data is expected to be in FIELD COORDINATES
+        (from play_simulation._create_trajectory_data_for_pursuit), not trajectory coords.
+        - X-axis: Lateral (positive = RIGHT field)
+        - Y-axis: Forward (positive = toward CENTER field)
+        - Z-axis: Vertical (positive = up)
         """
         from .constants import (
             TRAJECTORY_PREDICTION_SAMPLES,
@@ -427,13 +433,19 @@ class Fielder:
             
         return best_intercept
     
-    def calculate_oac_pursuit_target_advanced(self, ball_trajectory_data: dict, 
+    def calculate_oac_pursuit_target_advanced(self, ball_trajectory_data: dict,
                                             current_time: float) -> np.ndarray:
         """
         Advanced Optical Acceleration Cancellation pursuit target calculation.
-        
+
         Implements research-based OAC algorithm that maintains constant
         bearing angle to the ball through dynamic positioning.
+
+        COORDINATE SYSTEM: ball_trajectory_data is expected to be in FIELD COORDINATES
+        (from play_simulation._create_trajectory_data_for_pursuit), not trajectory coords.
+        - X-axis: Lateral (positive = RIGHT field)
+        - Y-axis: Forward (positive = toward CENTER field)
+        - Z-axis: Vertical (positive = up)
         """
         from .constants import (
             OAC_CONTROL_GAIN,
@@ -500,11 +512,14 @@ class Fielder:
         
         return target_pos
     
-    def calculate_optimal_route(self, target_position: FieldPosition, 
+    def calculate_optimal_route(self, target_position: FieldPosition,
                                ball_trajectory_data: dict = None) -> tuple:
         """
         Calculate optimal route to target considering obstacles and efficiency.
-        
+
+        COORDINATE SYSTEM: ball_trajectory_data (if provided) is expected to be in FIELD COORDINATES
+        (from play_simulation._create_trajectory_data_for_pursuit), not trajectory coords.
+
         Returns (route_positions, total_time, route_efficiency)
         """
         from .constants import (

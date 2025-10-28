@@ -490,20 +490,20 @@ class BattedBallSimulator:
 def convert_velocity_trajectory_to_field(vx_traj_ms, vy_traj_ms, vz_traj_ms):
     """
     Convert velocity vector from trajectory/integrator coordinates to field coordinates.
-    
+
     This is critical for ground ball and fielding calculations to maintain consistent
     coordinate systems across the simulation.
-    
+
     **Trajectory Coordinate System** (used in physics calculations):
     - X-axis: Direction toward outfield (positive = center field direction)
     - Y-axis: Lateral/spray direction (positive = left field)
     - Z-axis: Vertical (positive = up)
-    
+
     **Field Coordinate System** (used for positions and fielding):
     - X-axis: Lateral (positive = RIGHT field, negative = LEFT field)
     - Y-axis: Forward direction (positive = toward CENTER field)
     - Z-axis: Vertical (positive = up)
-    
+
     Parameters
     ----------
     vx_traj_ms : float
@@ -512,7 +512,7 @@ def convert_velocity_trajectory_to_field(vx_traj_ms, vy_traj_ms, vz_traj_ms):
         Y-component of velocity in trajectory coords (m/s, lateral, left field positive)
     vz_traj_ms : float
         Z-component of velocity in trajectory coords (m/s, vertical)
-    
+
     Returns
     -------
     tuple of float
@@ -520,13 +520,13 @@ def convert_velocity_trajectory_to_field(vx_traj_ms, vy_traj_ms, vz_traj_ms):
         - vx_field: lateral velocity (positive = toward right field)
         - vy_field: forward velocity (positive = toward center field)
         - vz_field: vertical velocity (unchanged)
-    
+
     Examples
     --------
     A ball hit up the middle in the integrator (vx=10 m/s, vy=0) becomes:
     >>> convert_velocity_trajectory_to_field(10, 0, 0)
     (0, 10, 0)  # Pure center field direction
-    
+
     A ball hit to left field (vx=5, vy=10) becomes:
     >>> convert_velocity_trajectory_to_field(5, 10, 0)
     (-10, 5, 0)  # Negative X (left field), positive Y (forward)
@@ -538,6 +538,61 @@ def convert_velocity_trajectory_to_field(vx_traj_ms, vy_traj_ms, vz_traj_ms):
     vx_field_ms = -vy_traj_ms  # Negate Y for handedness conversion
     vy_field_ms = vx_traj_ms   # Outfield direction becomes forward
     vz_field_ms = vz_traj_ms   # Vertical unchanged
-    
+
     return vx_field_ms, vy_field_ms, vz_field_ms
+
+
+def convert_position_trajectory_to_field(x_traj_m, y_traj_m, z_traj_m):
+    """
+    Convert position vector from trajectory/integrator coordinates to field coordinates.
+
+    Same coordinate transformation as velocity, but applied to positions.
+    Used for converting trajectory data positions to field layout coordinates.
+
+    **Trajectory Coordinate System** (used in physics calculations):
+    - X-axis: Direction toward outfield (positive = center field direction)
+    - Y-axis: Lateral/spray direction (positive = left field)
+    - Z-axis: Vertical (positive = up)
+
+    **Field Coordinate System** (used for positions and fielding):
+    - X-axis: Lateral (positive = RIGHT field, negative = LEFT field)
+    - Y-axis: Forward direction (positive = toward CENTER field)
+    - Z-axis: Vertical (positive = up)
+
+    Parameters
+    ----------
+    x_traj_m : float
+        X-component of position in trajectory coords (meters, toward outfield)
+    y_traj_m : float
+        Y-component of position in trajectory coords (meters, lateral, left field positive)
+    z_traj_m : float
+        Z-component of position in trajectory coords (meters, vertical)
+
+    Returns
+    -------
+    tuple of float
+        (x_field_m, y_field_m, z_field_m) - position in field coordinates (meters)
+        - x_field: lateral position (positive = toward right field)
+        - y_field: forward position (positive = toward center field)
+        - z_field: vertical position (unchanged)
+
+    Examples
+    --------
+    A ball at center field 100m out (x=100, y=0):
+    >>> convert_position_trajectory_to_field(100, 0, 10)
+    (0, 100, 10)  # At center field, 100m forward
+
+    A ball in left field (x=50, y=50):
+    >>> convert_position_trajectory_to_field(50, 50, 5)
+    (-50, 50, 5)  # Negative X (left field), 50m forward
+    """
+    # Same transformation as velocity:
+    # trajectory_x (toward outfield) -> field_y (toward center field)
+    # trajectory_y (left field +) -> -field_x (right field +)
+    # trajectory_z stays the same
+    x_field_m = -y_traj_m  # Negate Y for handedness conversion
+    y_field_m = x_traj_m   # Outfield direction becomes forward
+    z_field_m = z_traj_m   # Vertical unchanged
+
+    return x_field_m, y_field_m, z_field_m
 

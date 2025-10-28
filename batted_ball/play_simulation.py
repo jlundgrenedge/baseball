@@ -588,26 +588,53 @@ class PlaySimulator:
         )
     
     def _create_trajectory_data_for_pursuit(self, batted_ball_result: BattedBallResult, current_time: float) -> dict:
-        """Create trajectory data format expected by advanced AI pursuit methods."""
+        """
+        Create trajectory data format expected by advanced AI pursuit methods.
+
+        CRITICAL: Converts trajectory coordinates to field coordinates for consistency
+        with fielder positions.
+        """
         import numpy as np
-        
-        # Get trajectory arrays from batted ball result
+        from .trajectory import convert_position_trajectory_to_field, convert_velocity_trajectory_to_field
+
+        # Get trajectory arrays from batted ball result (in trajectory coordinates)
         time_array = batted_ball_result.time
-        position_array = batted_ball_result.position  # In meters
-        velocity_array = batted_ball_result.velocity  # In m/s
-        
+        position_array = batted_ball_result.position  # In meters, trajectory coords
+        velocity_array = batted_ball_result.velocity  # In m/s, trajectory coords
+
         # Find current time index
         current_idx = np.searchsorted(time_array, current_time)
-        
+
         # Create future trajectory from current time onwards
         future_time = time_array[current_idx:]
-        future_positions = position_array[current_idx:]
-        future_velocities = velocity_array[current_idx:]
-        
+        future_positions_traj = position_array[current_idx:]  # Trajectory coords
+        future_velocities_traj = velocity_array[current_idx:]  # Trajectory coords
+
+        # Convert positions and velocities to field coordinates
+        future_positions_field = np.zeros_like(future_positions_traj)
+        future_velocities_field = np.zeros_like(future_velocities_traj)
+
+        for i in range(len(future_positions_traj)):
+            # Convert position
+            x_field, y_field, z_field = convert_position_trajectory_to_field(
+                future_positions_traj[i, 0],  # x_traj (toward outfield)
+                future_positions_traj[i, 1],  # y_traj (lateral, left +)
+                future_positions_traj[i, 2]   # z_traj (vertical)
+            )
+            future_positions_field[i] = [x_field, y_field, z_field]
+
+            # Convert velocity
+            vx_field, vy_field, vz_field = convert_velocity_trajectory_to_field(
+                future_velocities_traj[i, 0],  # vx_traj (toward outfield)
+                future_velocities_traj[i, 1],  # vy_traj (lateral, left +)
+                future_velocities_traj[i, 2]   # vz_traj (vertical)
+            )
+            future_velocities_field[i] = [vx_field, vy_field, vz_field]
+
         return {
-            'position': future_positions,  # Nx3 array in meters
-            'velocity': future_velocities, # Nx3 array in m/s  
-            'time': future_time           # 1D array in seconds
+            'position': future_positions_field,  # Nx3 array in meters, FIELD COORDS
+            'velocity': future_velocities_field, # Nx3 array in m/s, FIELD COORDS
+            'time': future_time                 # 1D array in seconds
         }
     
     def _attempt_ground_ball_out(self, fielder, ball_position: FieldPosition,
