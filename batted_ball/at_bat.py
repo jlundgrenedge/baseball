@@ -315,7 +315,10 @@ class AtBatSimulator:
             probabilities = [0.40, 0.25, 0.20, 0.15]
         
         # Adjust for pitcher's control rating
-        control_factor = self.pitcher.control / 100.0
+        # TODO: Add control rating to PitcherAttributes
+        # For now, use average control (50/100 = 0.5) for all pitchers
+        # This maintains game balance while we extend the attribute system
+        control_factor = 0.5  # Average MLB control
         
         # Poor control pitchers throw more unintentional balls
         if control_factor < 0.5:
@@ -502,9 +505,10 @@ class AtBatSimulator:
 
         # Generate spray angle for this at-bat
         # MLB hitters spray the ball across the field, not straight down the line
-        # Use a normal distribution centered at the hitter's spray tendency
+        # Use a normal distribution centered at 0 (straight center field)
         # Standard deviation of ~20-25 degrees creates realistic spray patterns
-        base_spray = self.hitter.spray_tendency  # Usually 0.0 for new attribute system
+        # TODO: Add spray_tendency to HitterAttributes for pull/opposite field hitters
+        base_spray = 0.0  # Neutral spray (center field tendency)
         spray_std_dev = 22.0  # degrees - realistic MLB spray variation
         spray_angle = np.random.normal(base_spray, spray_std_dev)
         # Clamp to reasonable bounds (-45° to +45°, pull to opposite field)
@@ -616,7 +620,11 @@ class AtBatSimulator:
             weak_threshold *= 0.7   # More likely to be weak
             
         # Hitter ability affects thresholds
-        contact_ability = self.hitter.barrel_accuracy / 100.0
+        # Derive contact ability from barrel accuracy in mm
+        # Elite: ~5mm error, Average: ~15mm error, Poor: ~30mm error
+        # Map to 0-1 scale: 5mm = 1.0, 15mm = 0.5, 30mm = 0.2
+        barrel_error_mm = self.hitter.attributes.get_barrel_accuracy_mm()
+        contact_ability = max(0.2, min(1.0, 1.0 - (barrel_error_mm - 5) / 25.0))
         solid_threshold *= (1.5 - contact_ability * 0.5)  # Elite hitters have lower threshold
         weak_threshold *= (1.3 - contact_ability * 0.3)
         

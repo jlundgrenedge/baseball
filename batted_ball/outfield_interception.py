@@ -310,8 +310,5 @@ class OutfieldInterceptor:
     
     def _get_fielder_speed_fps(self, fielder: Fielder) -> float:
         """Get fielder's running speed in feet per second."""
-        # Convert from fielder speed rating to fps
-        # Typical outfielder: 20-28 fps (14-19 mph)
-        base_speed = 20.0  # fps
-        speed_bonus = (fielder.sprint_speed - 50) * 0.16  # 8 fps range for 50-point rating spread
-        return max(15.0, base_speed + speed_bonus)
+        # Use fielder's attribute-based method
+        return fielder.get_sprint_speed_fps()

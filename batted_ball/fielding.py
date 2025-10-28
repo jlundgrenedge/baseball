@@ -169,9 +169,17 @@ class Fielder:
         """Get top sprint speed in fps using Statcast-calibrated values."""
         return self.attributes.get_top_sprint_speed_fps()
 
+    def get_sprint_speed_fps(self) -> float:
+        """Get sprint speed in fps (alias for get_sprint_speed_fps_statcast for compatibility)."""
+        return self.get_sprint_speed_fps_statcast()
+
     def get_first_step_time(self) -> float:
         """Get first step/reaction time in seconds."""
         return self.attributes.get_reaction_time_s()
+
+    def get_reaction_time_seconds(self) -> float:
+        """Get reaction time in seconds (alias for get_first_step_time for compatibility)."""
+        return self.get_first_step_time()
 
     def get_route_efficiency(self) -> float:
         """Get route efficiency percentage (0.0-1.0)."""
@@ -835,9 +843,12 @@ class Fielder:
         self.is_moving = True
     
     def __repr__(self):
+        speed = self.attributes.get_top_sprint_speed_fps()
+        arm = self.attributes.get_arm_strength_mph()
+        route_eff = self.attributes.get_route_efficiency_pct()
         return (f"Fielder(name='{self.name}', position='{self.position}', "
-                f"speed={self.sprint_speed}, arm={self.arm_strength}, "
-                f"range={self.fielding_range})")
+                f"speed={speed:.1f} fps, arm={arm:.1f} mph, "
+                f"route_eff={route_eff:.2f})")
 
 
 # =============================================================================
@@ -1104,7 +1115,12 @@ class FieldingSimulator:
                     # Small chance for diving play
                     time_deficit = effective_time - ball_arrival_time
                     if time_deficit <= 0.3:
-                        prob = 0.20 * (fielder.fielding_range / 100.0)
+                        # Derive range from route efficiency (higher = better range)
+                        # Elite: 0.95+ -> 80/100, Average: 0.88 -> 50/100, Poor: 0.85 -> 20/100
+                        route_eff = fielder.attributes.get_route_efficiency_pct()
+                        range_score = (route_eff - 0.85) / 0.10 * 60 + 20  # Map 0.85-0.95 to 20-80
+                        range_score = max(20, min(100, range_score))
+                        prob = 0.20 * (range_score / 100.0)
                     else:
                         prob = 0.0
                 
