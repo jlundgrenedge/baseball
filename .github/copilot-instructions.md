@@ -1,139 +1,222 @@
 # Baseball Physics Simulator - AI Developer Guide
 
 ## Project Overview
-This is a comprehensive physics-based baseball simulation engine that models complete baseball games from pitch to play outcome. The codebase evolved through 5 phases: spin-dependent aerodynamics → bat-ball collision → pitch simulation → player attributes and at-bat engine → fielding/baserunning and complete game simulation.
+Complete physics-based baseball game simulator evolved through 5 phases: aerodynamics → collision → pitching → attributes → fielding/baserunning. Simulates full 9-inning games from pitch to outcome using empirically-calibrated physics.
 
-## Architecture & Core Components
+## Architecture: Layered Simulation Stack
 
-### Physics Engine (`batted_ball/`)
-- **Constants**: All empirical coefficients calibrated against MLB Statcast data in `constants.py` 
-- **Aerodynamics**: Magnus force + spin-dependent drag calculations in `aerodynamics.py`
-- **Integration**: RK4 numerical solver in `integrator.py` with configurable time steps
-- **Environment**: Air density, temperature, altitude effects in `environment.py`
+### Layer 1: Physics Engine (Core)
+- **constants.py**: All coefficients from MLB Statcast data (not theoretical values)
+- **aerodynamics.py**: Magnus force + spin-dependent drag (key: asymmetric drag for sidespin)
+- **integrator.py**: RK4 solver, DT=0.001s (accurate) or 0.002s (fast mode)
+- **environment.py**: Air density effects from altitude/temperature
 
-### Simulation Layers
-1. **Trajectory** (`trajectory.py`): Core batted ball flight simulation
-2. **Pitch** (`pitch.py`): 8 pitch types with realistic spin characteristics  
-3. **Contact** (`contact.py`): Sweet spot physics and collision modeling
-4. **At-Bat** (`at_bat.py`): Full plate appearance simulation with player attributes
-5. **Fielding** (`fielding.py`): Individual fielder physics with MLB Statcast-calibrated attributes
-6. **Baserunning** (`baserunning.py`): Base-to-base timing physics with route optimization
-7. **Play Simulation** (`play_simulation.py`): Complete play resolution from contact to outcome
-8. **Game Simulation** (`game_simulation.py`): Full 9-inning games with teams and statistics
+### Layer 2: Ball Flight
+- **trajectory.py**: `BattedBallSimulator` returns `BattedBallResult` with position arrays
+- **pitch.py**: 8 pitch types (`create_fastball_4seam()`, `create_curveball()`, etc.)
+- **contact.py**: Sweet spot collision model (off-center = velocity loss + bad spin)
 
-### Key Design Patterns
+### Layer 3: Game Actions
+- **at_bat.py**: `AtBatSimulator` runs pitch-by-pitch PA, returns `AtBatResult`
+- **fielding.py**: `Fielder` physics (sprint speed 23-32 ft/s, reaction time 0-0.5s)
+- **baserunning.py**: `BaseRunner` timing (home-to-first 3.7-5.2s validated)
 
-**Physics Calibration**: All coefficients in `constants.py` are empirically derived from MLB data, not theoretical values. When modifying physics, always validate against the 7 benchmark tests in `validation.py`.
+### Layer 4: Complete Plays
+- **play_simulation.py**: `PlaySimulator` coordinates trajectory → fielding → baserunning
+- **game_simulation.py**: `GameSimulator` runs full 9-inning games with teams
 
-**Result Objects**: Every simulator returns structured result objects (`BattedBallResult`, `PitchResult`, `AtBatResult`) with calculated metrics, not raw trajectory data.
-
-**Environment Context**: Environmental factors (altitude, temperature, wind) are passed to simulations, not global state.
+### Attribute System (attributes.py)
+**Critical**: Uses 0-100,000 scale with piecewise logistic mapping:
+- `piecewise_logistic_map()`: Ratings → physical units (velocity, speed, etc.)
+- Below 85k: Normal human range (smooth sigmoid spread)
+- Above 85k: Superhuman headroom (gentler scaling)
+- Example: `HitterAttributes.get_bat_speed_mph()` → 50-120 mph range
 
 ## Development Workflows
 
-### Validation-First Development
-Always run validation after physics changes:
+### Physics Changes (Validation Required)
 ```python
+# After ANY physics modification:
 from batted_ball.validation import ValidationSuite
 suite = ValidationSuite()
-results = suite.run_all_tests()
-# Must achieve 7/7 passing tests
+results = suite.run_all_tests()  # MUST pass 7/7 tests
+# Tests: exit velocity effect, launch angle, altitude, backspin, temperature
 ```
 
-### Performance Testing
-For bulk simulations (1000+ at-bats), use fast mode:
+### Performance Modes
 ```python
-sim = AtBatSimulator(pitcher, hitter, fast_mode=True)  # 2x faster
-python test_performance.py  # Benchmark performance changes
+# Standard: DT_DEFAULT=0.001s (accurate)
+sim = AtBatSimulator(pitcher, hitter)
+
+# Fast: DT_FAST=0.002s (2x speedup, <1% accuracy loss)
+sim = AtBatSimulator(pitcher, hitter, fast_mode=True)
+
+# UltraFast: 10x speedup, <2% accuracy loss
+from batted_ball.performance import UltraFastMode
+with UltraFastMode():
+    # Bulk simulation code
 ```
 
-### Batch File Runners
-- `game_simulation.bat`: Interactive complete game simulation with detailed physics output
-- Use these for manual testing and demonstrations
+### Testing Commands
+```bash
+python -m batted_ball.validation          # Run 7 benchmark tests
+python test_performance.py                # Benchmark simulation speed
+python examples/game_simulation_demo.py   # Full game demo
+python examples/validate_model.py         # Integration tests
+```
 
 ## Critical Implementation Details
 
-### Coordinate System Consistency (Phase 5 Requirement)
-All modules use the same coordinate system:
-- Origin: Home plate (0,0,0)
-- X: toward right field (+) / left field (-)
-- Y: toward center field (+) / toward home plate (-)
-- Z: upward (+) / downward (-)
-- Critical: Fielding and trajectory modules MUST maintain coordinate alignment
+### Coordinate System (NEVER VIOLATE)
+**Origin**: Home plate (0,0,0)
+- **X**: Right field (+), Left field (-)
+- **Y**: Center field (+), Home plate (-)
+- **Z**: Upward (+), Downward (-)
+- **ALL modules** (trajectory, fielding, baserunning) must maintain this alignment
 
-### Performance Optimization System
-- **UltraFastMode**: 10x speedup for bulk simulations with <2% accuracy loss
-- **Object Pooling**: `ResultObjectPool` for memory efficiency in bulk operations
-- **Trajectory Buffers**: Pre-allocated arrays to avoid GC pressure
-- Enable via `fast_mode=True` in simulators or import from `performance.py`
+### Unit Conversion (Automatic)
+- **Internal**: SI units (m, m/s, kg) for physics
+- **External**: Baseball units (ft, mph, degrees) for users
+- **Conversions**: `MPH_TO_MS`, `FEET_TO_METERS` in constants.py (handled automatically)
+- **Never mix**: Functions take baseball units, convert internally, return baseball units
 
-### Spin-Dependent Drag (Phase 1 Achievement)
-The model correctly implements empirical observation that spinning balls experience increased drag:
-- Pure backspin: minimal drag penalty
-- Sidespin + backspin: asymmetric drag reduces distance ~13ft
-- Implementation in `aerodynamics.py._calculate_spin_adjusted_drag_coefficient()`
+### Spin Convention (Right-Hand Rule)
+- Spin vectors point along rotation axis
+- **Backspin**: Positive Y-axis (+topspin on screen)
+- **Sidespin**: Positive X-axis = tail away from RHH
+- **Gyro spin**: Positive Z-axis (bullet spin)
 
-### Time Step Strategy
-- Default: `DT_DEFAULT = 0.001s` (1ms) for accuracy
-- Fast mode: `DT_FAST = 0.002s` (2ms) for 2x speedup with <1% accuracy loss
-- Choose based on use case: single simulations vs bulk analysis
+### Attribute Mapping Pattern
+```python
+# Legacy (0-100 scale, still supported):
+pitcher = Pitcher(name="Ace", velocity=85, command=75)
 
-### Player Attribute System
-Player ratings (0-100 scale) directly map to physics parameters:
-- Pitcher velocity rating → actual mph ranges per pitch type
-- Hitter bat speed → exit velocity potential  
-- Command rating → location accuracy (standard deviation)
-- **Fielding**: Speed/reaction/arm/accuracy ratings → physical capabilities
-- **Baserunning**: Speed/acceleration/baserunning ratings → movement physics
+# New (0-100,000 physics-first scale, preferred):
+from batted_ball.attributes import create_starter_pitcher
+attributes = create_starter_pitcher(quality="good")
+pitcher = Pitcher(name="Ace", attributes_v2=attributes)
 
-## Testing & Validation
+# Access physical values:
+mph = pitcher.attributes_v2.get_raw_velocity_mph()  # Direct physical value
+```
 
-### Empirical Benchmarks
-The model reproduces these MLB relationships (all tests must pass):
-- ~5 ft per 1 mph exit velocity increase
-- Optimal launch angle: 25-30° for distance
-- Backspin 0→1500 rpm adds ~50-60 feet
-- Coors Field (5,200 ft) adds ~30 feet vs sea level
+### Result Object Pattern
+Every simulator returns structured objects with calculated metrics:
+- `BattedBallResult`: distance, flight_time, peak_height, landing_x/y, position array
+- `PitchResult`: final_location, velocity_plate, movement, trajectory
+- `AtBatResult`: outcome (strikeout/walk/in_play), pitches list, batted_ball_result
+- `PlayResult`: outcome (single/double/out), runs_scored, outs_made, events timeline
+- **Never return raw arrays** - always wrap in result objects
 
-### Unit Tests
-- `tests/test_physics.py`: Core physics validation
-- `examples/validate_*.py`: Integration testing
-- Run after any physics modifications
+### Environmental Context (Not Global State)
+```python
+# Create environment first:
+env = create_standard_environment()  # Sea level, 70°F
+# OR
+env = create_coors_field_environment()  # 5,200 ft altitude
 
-## Integration Points
+# Pass to simulator:
+sim = BattedBallSimulator(env)  # Not global config
+```
 
-### External Dependencies
-Minimal external dependencies by design:
-- `numpy`: Core mathematical operations
-- `numba` (optional): JIT compilation for performance
-- No game engine or UI dependencies
+## Common Patterns & Conventions
 
-### Data Flow
-1. **Input**: Player attributes + environmental conditions
-2. **Physics**: Convert attributes to physical parameters
-3. **Simulation**: Numerical integration of motion equations  
-4. **Output**: Structured results with calculated metrics
+### Factory Functions (Preferred Creation)
+```python
+# Pitches: create_fastball_4seam(), create_curveball(), create_slider()
+# Players: create_test_team(), create_power_hitter(), create_starter_pitcher()
+# Fielders: create_elite_fielder(), create_average_fielder()
+# Runners: create_speed_runner(), create_smart_runner()
+# Defense: create_standard_defense(), create_elite_defense()
+# Environment: create_standard_environment(), create_coors_field_environment()
+```
 
-## Common Gotchas
+### Validation-First Development
+1. Identify which benchmark test your change affects
+2. Make physics change
+3. Run `ValidationSuite().run_all_tests()`
+4. If test fails, adjust coefficients in constants.py
+5. Iterate until 7/7 pass (don't compromise accuracy)
 
-### Unit Conversions
-All internal calculations use SI units (m, m/s, kg), but user interface uses baseball units (ft, mph). Conversion constants in `constants.py` handle this automatically.
+### Performance Profiling
+```python
+# For bulk operations (1000+ at-bats):
+from batted_ball.bulk_simulation import BulkAtBatSimulator
+sim = BulkAtBatSimulator(pitcher, hitter)
+results = sim.simulate_bulk(num_at_bats=10000, fast_mode=True)
+```
 
-### Coordinate System
-- X: toward right field (positive) / left field (negative)
-- Y: toward center field (positive) / toward home plate (negative)  
-- Z: upward (positive) / downward (negative)
-- Home plate at origin (0,0,0)
+## Integration Gotchas
 
-### Spin Axis Convention
-Spin vectors point along axis of rotation (right-hand rule). Backspin = positive Y-axis for typical contact.
+### Trajectory Arrays vs Landing Position
+```python
+# trajectory.position is Nx3 numpy array (entire flight path in meters)
+# trajectory.landing_x/landing_y is final position (feet)
+# For fielding: use landing_x/landing_y, NOT position[-1]
+```
 
-## File Organization Logic
+### Time Steps and Accuracy
+- **Never change DT_DEFAULT** without revalidating all 7 tests
+- Fast mode acceptable for bulk sims, not single high-stakes plays
+- Ground balls: physics timesteps are different (use ground_ball_physics.py)
 
-- **Core physics**: `batted_ball/*.py` (importable package)
-- **Examples**: `examples/*.py` (usage demonstrations)
-- **Validation**: Test files that verify empirical accuracy
-- **Research**: Documentation and development notes
-- **Batch scripts**: Windows command-line interfaces
+### Fielder/Runner Movement Physics
+```python
+# Fielders: calculate_effective_time_to_position() includes:
+#   - First step time (reaction)
+#   - Acceleration phase
+#   - Sprint phase
+#   - Route efficiency penalty
+# Runners: calculate_time_to_base() includes:
+#   - Reaction time
+#   - Leadoff advantage
+#   - Turn speed loss (if rounding bases)
+```
 
-When adding new features, follow the phase pattern: implement physics → validate empirically → integrate with existing systems → optimize performance.
+### Force Plays & Double Plays
+```python
+# Use baserunning module functions:
+from batted_ball.baserunning import detect_force_situation, get_force_base
+forces = detect_force_situation(runners, batter_running=True)
+# Returns: {"first": True, "second": True} for runners forced to advance
+```
+
+## File Organization
+
+```
+batted_ball/          # Core package (importable)
+  ├── constants.py    # All empirical coefficients
+  ├── aerodynamics.py # Magnus + drag physics
+  ├── trajectory.py   # Ball flight
+  ├── at_bat.py       # Plate appearances
+  ├── fielding.py     # Defensive mechanics
+  ├── game_simulation.py  # Full games
+  └── validation.py   # 7 benchmark tests
+examples/             # Usage demonstrations
+  ├── game_simulation_demo.py
+  ├── validate_model.py
+  └── basic_simulation.py
+docs/                 # Phase summaries
+research/             # Physics references
+tests/                # Unit tests
+```
+
+## When Adding Features
+
+**Phase Pattern**: Implement physics → validate empirically → integrate → optimize
+
+1. **Physics layer**: Add to appropriate module (trajectory/fielding/etc.)
+2. **Constants**: Add empirical coefficients to constants.py with MLB data source
+3. **Validation**: Create benchmark test or extend existing
+4. **Integration**: Add to higher-level simulators (at_bat/play/game)
+5. **Factory functions**: Add convenience creation functions
+6. **Documentation**: Update relevant phase summary in docs/
+7. **Performance**: Profile and optimize if needed (performance.py)
+
+## Examples to Learn From
+
+- **Complete workflow**: `examples/game_simulation_demo.py`
+- **Physics validation**: `batted_ball/validation.py`
+- **Attribute mapping**: `batted_ball/attributes.py` (piecewise_logistic_map)
+- **Play resolution**: `batted_ball/play_simulation.py` (PlaySimulator class)
+- **Performance optimization**: `batted_ball/performance.py` (UltraFastMode)
