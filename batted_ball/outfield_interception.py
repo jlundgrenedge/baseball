@@ -41,7 +41,7 @@ class OutfieldInterceptor:
     
     def __init__(self):
         # Outfield-specific parameters
-        self.air_reaction_bonus = 0.2  # Outfielders react faster to fly balls
+        self.air_reaction_bonus = 0.05  # Outfielders react faster to fly balls (reduced from 0.2 to prevent unrealistic range)
         self.ground_ball_decel = 15.0  # fps^2 for balls rolling in outfield grass
         
     def find_best_interception(self, batted_ball_result, fielders: Dict[str, Fielder]) -> OutfieldInterceptionResult:
