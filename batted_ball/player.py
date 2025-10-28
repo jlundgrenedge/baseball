@@ -40,125 +40,55 @@ from .constants import (
 
 class Pitcher:
     """
-    Represents a pitcher with attribute ratings that influence pitch physics.
+    Represents a pitcher with physics-first attributes (0-100,000 scale).
 
-    Core Attributes (Physics-Driven):
-    - velocity: Average pitch speed (0-100 rating)
-    - spin_rate: Raw RPM generation ability (0-100 rating)
-    - spin_efficiency: Percentage of spin creating movement (0-100 rating)
-    - spin_axis_control: Ability to repeat spin axis (0-100 rating)
-    - release_extension: Stride length (0-100 rating)
-    - arm_slot: Release angle in degrees (0=overhand, 45=3/4, 90=sidearm)
-
-    Skill-Based Attributes:
-    - command: Accuracy of pitch location (0-100 rating)
-    - control: Ability to throw strikes (0-100 rating)
-    - pitch_tunneling: Deception in pitch similarity (0-100 rating)
-    - deception: Overall deception ability (0-100 rating)
-    - stamina: Endurance over outing (0-100 rating)
-    - fatigue_resistance: Resistance to attribute degradation (0-100 rating)
-
-    Pitch Arsenal:
-    - pitch_arsenal: Dict of pitch types with individual ratings
+    All pitcher capabilities are defined through PitcherAttributes which maps
+    ratings to physical units:
+    - Velocity (mph)
+    - Spin rate (rpm)
+    - Stamina (max pitches)
+    - Command/control
     """
 
     def __init__(
         self,
-        name: str = "Pitcher",
-        # Core physics attributes
-        velocity: int = 50,
-        spin_rate: int = 50,
-        spin_efficiency: int = 50,
-        spin_axis_control: int = 50,
-        release_extension: int = 50,
+        name: str,
+        attributes: PitcherAttributes,
         arm_slot: float = ARM_ANGLE_3_4,
-        # Skill attributes
-        command: int = 50,
-        control: int = 50,
-        pitch_tunneling: int = 50,
-        deception: int = 50,
-        stamina: int = 50,
-        fatigue_resistance: int = 50,
-        # Pitch arsenal
-        pitch_arsenal: Optional[Dict[str, Dict[str, int]]] = None,
-        # NEW: Physics-first attributes (0-100,000 scale)
-        attributes_v2: Optional[PitcherAttributes] = None,
+        pitch_arsenal: Optional[Dict[str, Dict]] = None,
     ):
         """
-        Initialize pitcher with attribute ratings.
+        Initialize pitcher with physics-first attributes.
 
         Parameters
         ----------
         name : str
             Pitcher's name
-        velocity : int (0-100)
-            Fastball velocity rating (50=avg MLB, 80=elite, 100=Chapman/Hicks)
-        spin_rate : int (0-100)
-            Spin generation ability (50=avg MLB, 80=elite)
-        spin_efficiency : int (0-100)
-            Quality of spin axis (50=avg, 80=elite efficiency)
-        spin_axis_control : int (0-100)
-            Consistency of spin axis (50=avg, 80=very consistent)
-        release_extension : int (0-100)
-            Stride length (50=6.0 ft, 80=7.0+ ft)
+        attributes : PitcherAttributes
+            Physics-first attribute system (0-100,000 scale)
+            Provides velocity, spin, stamina, command mapped to physical units
         arm_slot : float
             Release angle in degrees (0=overhand, 45=3/4, 90=sidearm)
-        command : int (0-100)
-            Location precision (50=avg, 80=excellent, 100=Maddux-level)
-        control : int (0-100)
-            Strike-throwing ability (50=avg, 80=excellent)
-        pitch_tunneling : int (0-100)
-            Pitch similarity/deception (50=avg, 80=very deceptive)
-        deception : int (0-100)
-            Overall deceptiveness (50=avg, 80=very deceptive)
-        stamina : int (0-100)
-            Endurance (50=avg starter, 80=workhorse)
-        fatigue_resistance : int (0-100)
-            Resistance to degradation (50=avg, 80=maintains stuff late)
         pitch_arsenal : dict, optional
-            Dict of pitch types with individual ratings
-            Format: {'fastball': {'velocity': 60, 'movement': 70, 'command': 50}}
+            Dict of pitch types (keys are pitch names like 'fastball', 'slider')
+            Values can be empty dicts or contain modifiers
         """
         self.name = name
-
-        # Store new attribute system if provided
-        self.attributes_v2 = attributes_v2
-
-        # Core physics attributes (legacy 0-100 scale, or defaults if using attributes_v2)
-        self.velocity = np.clip(velocity, 0, 100)
-        self.spin_rate = np.clip(spin_rate, 0, 100)
-        self.spin_efficiency = np.clip(spin_efficiency, 0, 100)
-        self.spin_axis_control = np.clip(spin_axis_control, 0, 100)
-        self.release_extension = np.clip(release_extension, 0, 100)
+        self.attributes = attributes
         self.arm_slot = arm_slot
 
-        # Skill attributes (legacy 0-100 scale, or defaults if using attributes_v2)
-        self.command = np.clip(command, 0, 100)
-        self.control = np.clip(control, 0, 100)
-        self.pitch_tunneling = np.clip(pitch_tunneling, 0, 100)
-        self.deception = np.clip(deception, 0, 100)
-        self.stamina = np.clip(stamina, 0, 100) if attributes_v2 is None else 50
-        self.fatigue_resistance = np.clip(fatigue_resistance, 0, 100)
-
-        # Pitch arsenal
+        # Pitch arsenal (simplified - now just defines available pitches)
         if pitch_arsenal is None:
-            # Default: above-average 4-seam fastball
-            pitch_arsenal = {
-                'fastball': {
-                    'velocity': velocity,
-                    'movement': 50,
-                    'command': command,
-                }
-            }
+            # Default: 4-seam fastball
+            pitch_arsenal = {'fastball': {}}
         self.pitch_arsenal = pitch_arsenal
 
         # State variables
-        self.current_stamina = stamina  # Decreases during game
         self.pitches_thrown = 0
 
     def get_pitch_velocity_mph(self, pitch_type: str = 'fastball') -> float:
         """
-        Convert velocity rating to actual MPH for a pitch type.
+        Get pitch velocity in MPH with stamina degradation.
 
         Parameters
         ----------
@@ -170,115 +100,76 @@ class Pitcher:
         float
             Velocity in MPH
         """
-        # Use new attribute system if available
-        if self.attributes_v2 is not None:
-            # Get base velocity from physics-first attributes
-            velocity_mph = self.attributes_v2.get_raw_velocity_mph()
+        # Get base velocity from physics-first attributes
+        velocity_mph = self.attributes.get_raw_velocity_mph()
 
-            # Apply pitch-type modifiers (fastball = 100%, changeup = ~85%, etc.)
-            if pitch_type == 'changeup':
-                velocity_mph *= 0.85
-            elif pitch_type == 'curveball':
-                velocity_mph *= 0.88
-            elif pitch_type == 'slider':
-                velocity_mph *= 0.92
+        # Apply pitch-type modifiers (fastball = 100%, changeup = ~85%, etc.)
+        if pitch_type == 'changeup':
+            velocity_mph *= 0.85
+        elif pitch_type == 'curveball':
+            velocity_mph *= 0.88
+        elif pitch_type == 'slider':
+            velocity_mph *= 0.92
 
-            # Apply stamina degradation based on pitches thrown
-            stamina_cap = self.attributes_v2.get_stamina_pitches()
-            stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
-            stamina_loss = (1.0 - stamina_factor) * 4.0  # Up to 4 mph loss when exhausted
-
-            return max(velocity_mph - stamina_loss, 70.0)
-
-        # Legacy calculation
-        # Get pitch-specific velocity rating or use general rating
-        if pitch_type in self.pitch_arsenal:
-            velocity_rating = self.pitch_arsenal[pitch_type].get('velocity', self.velocity)
-        else:
-            velocity_rating = self.velocity
-
-        # Map rating to velocity
-        # 20 = 85 mph, 50 = 93 mph, 80 = 98 mph, 100 = 103 mph
-        velocity_mph = 85.0 + (velocity_rating - 20) * 0.225
-
-        # Apply stamina degradation
-        stamina_factor = self.current_stamina / 100.0
-        stamina_loss = (1.0 - stamina_factor) * 3.0  # Up to 3 mph loss when exhausted
+        # Apply stamina degradation based on pitches thrown
+        stamina_cap = self.attributes.get_stamina_pitches()
+        stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
+        stamina_loss = (1.0 - stamina_factor) * 4.0  # Up to 4 mph loss when exhausted
 
         return max(velocity_mph - stamina_loss, 70.0)
 
     def get_pitch_spin_rpm(self, pitch_type: str = 'fastball', base_spin: float = 2200) -> float:
         """
-        Convert spin rating to actual RPM for a pitch type.
+        Get spin rate in RPM with stamina degradation.
 
         Parameters
         ----------
         pitch_type : str
             Pitch type from arsenal
         base_spin : float
-            Base spin rate for pitch type (from pitch constants)
+            Base spin rate (not used, kept for compatibility)
 
         Returns
         -------
         float
             Spin rate in RPM
         """
-        # Use new attribute system if available
-        if self.attributes_v2 is not None:
-            # Get base spin rate from physics-first attributes (for 4-seam fastball)
-            base_spin_rpm = self.attributes_v2.get_spin_rate_rpm()
+        # Get base spin rate from physics-first attributes (for 4-seam fastball)
+        base_spin_rpm = self.attributes.get_spin_rate_rpm()
 
-            # Apply pitch-type modifiers
-            if pitch_type == 'changeup':
-                spin_rpm = base_spin_rpm * 0.70  # Lower spin
-            elif pitch_type == 'curveball':
-                spin_rpm = base_spin_rpm * 1.10  # Higher spin
-            elif pitch_type == 'slider':
-                spin_rpm = base_spin_rpm * 0.95  # Slightly lower
-            else:  # fastball
-                spin_rpm = base_spin_rpm
-
-            # Apply stamina degradation
-            stamina_cap = self.attributes_v2.get_stamina_pitches()
-            stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
-            stamina_loss = (1.0 - stamina_factor) * 0.12  # Up to 12% spin loss when exhausted
-
-            return spin_rpm * (1.0 - stamina_loss)
-
-        # Legacy calculation
-        # Get pitch-specific movement rating (which affects spin)
-        if pitch_type in self.pitch_arsenal:
-            movement_rating = self.pitch_arsenal[pitch_type].get('movement', self.spin_rate)
-        else:
-            movement_rating = self.spin_rate
-
-        # Map rating to spin multiplier
-        # 20 = 80% of base, 50 = 100% of base, 80 = 120% of base, 100 = 140% of base
-        spin_multiplier = 0.80 + (movement_rating - 20) * 0.0075
+        # Apply pitch-type modifiers
+        if pitch_type == 'changeup':
+            spin_rpm = base_spin_rpm * 0.70  # Lower spin
+        elif pitch_type == 'curveball':
+            spin_rpm = base_spin_rpm * 1.10  # Higher spin
+        elif pitch_type == 'slider':
+            spin_rpm = base_spin_rpm * 0.95  # Slightly lower
+        else:  # fastball
+            spin_rpm = base_spin_rpm
 
         # Apply stamina degradation
-        stamina_factor = self.current_stamina / 100.0
-        stamina_loss = (1.0 - stamina_factor) * 0.10  # Up to 10% spin loss when exhausted
+        stamina_cap = self.attributes.get_stamina_pitches()
+        stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
+        stamina_loss = (1.0 - stamina_factor) * 0.12  # Up to 12% spin loss when exhausted
 
-        return base_spin * spin_multiplier * (1.0 - stamina_loss)
+        return spin_rpm * (1.0 - stamina_loss)
 
     def get_release_extension_feet(self) -> float:
         """
-        Convert extension rating to actual feet.
+        Get release extension in feet.
 
         Returns
         -------
         float
-            Extension in feet
+            Extension in feet (typically 5.0-7.5 ft)
         """
-        # 20 = 5.0 ft, 50 = 6.0 ft, 80 = 7.0 ft, 100 = 7.5 ft
-        extension_ft = RELEASE_EXTENSION_MIN + (self.release_extension / 100.0) * \
-                      (RELEASE_EXTENSION_MAX - RELEASE_EXTENSION_MIN)
-        return extension_ft
+        # Use a default value for now since PitcherAttributes doesn't have extension
+        # This could be added to attributes later if needed
+        return 6.0  # Average MLB extension
 
     def get_command_error_inches(self, pitch_type: str = 'fastball') -> Tuple[float, float]:
         """
-        Calculate location error based on command rating.
+        Calculate location error based on command with stamina effects.
 
         Parameters
         ----------
@@ -290,19 +181,14 @@ class Pitcher:
         tuple
             (horizontal_error_inches, vertical_error_inches)
         """
-        # Get pitch-specific command or use general command
-        if pitch_type in self.pitch_arsenal:
-            command_rating = self.pitch_arsenal[pitch_type].get('command', self.command)
-        else:
-            command_rating = self.command
-
-        # Map rating to error (lower rating = more error)
-        # 20 = 6" error, 50 = 3" error, 80 = 1" error, 100 = 0.3" error
-        max_error = 6.0 - (command_rating - 20) * 0.07125
-        max_error = max(max_error, 0.3)
+        # Get base command error from attributes (in inches)
+        # Note: PitcherAttributes doesn't have a command error method yet
+        # For now, use a reasonable default that could be added to attributes
+        max_error = 3.0  # inches, average MLB command
 
         # Apply stamina degradation
-        stamina_factor = self.current_stamina / 100.0
+        stamina_cap = self.attributes.get_stamina_pitches()
+        stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
         fatigue_multiplier = 1.0 + (1.0 - stamina_factor) * 1.0  # Up to 2x error when exhausted
 
         # Random error with normal distribution
@@ -314,140 +200,74 @@ class Pitcher:
     def throw_pitch(self):
         """Update state after throwing a pitch."""
         self.pitches_thrown += 1
-
-        # Stamina degradation based on fatigue resistance
-        # High fatigue resistance = slower stamina loss
-        stamina_loss_per_pitch = 0.5 * (100 - self.fatigue_resistance) / 100.0
-        self.current_stamina = max(self.current_stamina - stamina_loss_per_pitch, 0)
+        # Stamina degradation is now implicit in get_pitch_velocity_mph() and get_pitch_spin_rpm()
+        # based on pitches_thrown relative to stamina_cap
 
     def __repr__(self):
+        velo = self.attributes.get_raw_velocity_mph()
+        spin = self.attributes.get_spin_rate_rpm()
+        stamina = self.attributes.get_stamina_pitches()
         return (
             f"Pitcher(name='{self.name}', "
-            f"velocity={self.velocity}, movement={self.spin_rate}, "
-            f"command={self.command}, deception={self.deception})"
+            f"velocity={velo:.1f} mph, spin={spin:.0f} rpm, "
+            f"stamina={stamina:.0f} pitches, thrown={self.pitches_thrown})"
         )
 
 
 class Hitter:
     """
-    Represents a hitter with attribute ratings that influence contact physics.
+    Represents a hitter with physics-first attributes (0-100,000 scale).
 
-    Core Physical Attributes:
-    - bat_speed: Swing speed rating (0-100)
-    - swing_path_angle: Launch angle tendency (degrees, typically 5-20)
-    - barrel_accuracy: Sweet spot contact ability (0-100)
-    - swing_timing_precision: Timing consistency (0-100)
-    - bat_control: Contact location control (0-100)
-
-    Outcome-Influencing Attributes:
-    - exit_velocity_ceiling: Max exit velo capability (0-100)
-    - launch_angle_tendency: Typical contact profile (degrees)
-    - spin_control: Backspin generation ability (0-100)
-    - spray_tendency: Pull vs oppo (degrees, -45 to +45)
-
-    Perception & Decision Attributes:
-    - pitch_recognition_speed: How quickly identify pitch (0-100)
-    - zone_discipline: Strike zone judgment (0-100)
-    - swing_decision_aggressiveness: Swing frequency (0-100)
-    - adjustment_ability: Adaptability to difficult pitches (0-100)
+    All hitting capabilities are defined through HitterAttributes which maps
+    ratings to physical units:
+    - Bat speed (mph)
+    - Attack angle mean/variance (degrees)
+    - Barrel accuracy (mm)
+    - Timing precision (ms)
     """
 
     def __init__(
         self,
-        name: str = "Hitter",
-        # Core physical attributes
-        bat_speed: int = 50,
-        swing_path_angle: float = 15.0,
-        barrel_accuracy: int = 50,
-        swing_timing_precision: int = 50,
-        bat_control: int = 50,
-        # Outcome-influencing attributes
-        exit_velocity_ceiling: int = 50,
-        launch_angle_tendency: float = 15.0,
-        spin_control: int = 50,
-        spray_tendency: float = 0.0,
-        # Perception & decision attributes
-        pitch_recognition_speed: int = 50,
+        name: str,
+        attributes: HitterAttributes,
+        # Simplified decision-making attributes (not yet in HitterAttributes)
         zone_discipline: int = 50,
         swing_decision_aggressiveness: int = 50,
-        adjustment_ability: int = 50,
-        # NEW: Physics-first attributes (0-100,000 scale)
-        attributes_v2: Optional[HitterAttributes] = None,
     ):
         """
-        Initialize hitter with attribute ratings.
+        Initialize hitter with physics-first attributes.
 
         Parameters
         ----------
         name : str
             Hitter's name
-        bat_speed : int (0-100)
-            Swing speed rating (50=avg MLB ~70 mph, 80=elite ~75 mph)
-        swing_path_angle : float
-            Natural swing path angle in degrees (5-20 typical)
-        barrel_accuracy : int (0-100)
-            Sweet spot contact ability (50=avg, 80=elite contact hitter)
-        swing_timing_precision : int (0-100)
-            Timing consistency (50=avg, 80=rarely mis-timed)
-        bat_control : int (0-100)
-            Contact location control (50=avg, 80=excellent)
-        exit_velocity_ceiling : int (0-100)
-            Max exit velo capability (50=avg ~95 mph, 80=elite ~105 mph)
-        launch_angle_tendency : float
-            Typical launch angle in degrees (15=line drives, 25=fly balls)
-        spin_control : int (0-100)
-            Backspin generation (50=avg, 80=elite carry)
-        spray_tendency : float
-            Pull vs oppo in degrees (-45=pull, 0=center, +45=oppo)
-        pitch_recognition_speed : int (0-100)
-            Pitch identification speed (50=avg, 80=excellent)
+        attributes : HitterAttributes
+            Physics-first attribute system (0-100,000 scale)
+            Provides bat speed, attack angle, barrel accuracy, timing mapped to physical units
         zone_discipline : int (0-100)
             Strike zone judgment (50=avg, 80=excellent patience)
+            TODO: Move to HitterAttributes in future
         swing_decision_aggressiveness : int (0-100)
             Swing frequency (50=avg, 80=very aggressive, 20=patient)
-        adjustment_ability : int (0-100)
-            Adaptability (50=avg, 80=adjusts well to any pitch)
+            TODO: Move to HitterAttributes in future
         """
         self.name = name
+        self.attributes = attributes
 
-        # Store new attribute system if provided
-        self.attributes_v2 = attributes_v2
-
-        # Core physical attributes (legacy 0-100 scale, or defaults if using attributes_v2)
-        self.bat_speed = np.clip(bat_speed, 0, 100)
-        self.swing_path_angle = swing_path_angle if attributes_v2 is None else 15.0
-        self.barrel_accuracy = np.clip(barrel_accuracy, 0, 100)
-        self.swing_timing_precision = np.clip(swing_timing_precision, 0, 100)
-        self.bat_control = np.clip(bat_control, 0, 100)
-
-        # Outcome-influencing attributes
-        self.exit_velocity_ceiling = np.clip(exit_velocity_ceiling, 0, 100)
-        self.launch_angle_tendency = launch_angle_tendency if attributes_v2 is None else 15.0
-        self.spin_control = np.clip(spin_control, 0, 100)
-        self.spray_tendency = spray_tendency if attributes_v2 is None else 0.0  # Neutral spray for new system
-
-        # Perception & decision attributes
-        self.pitch_recognition_speed = np.clip(pitch_recognition_speed, 0, 100)
+        # Decision attributes (kept as 0-100 for now, could move to attributes later)
         self.zone_discipline = np.clip(zone_discipline, 0, 100)
         self.swing_decision_aggressiveness = np.clip(swing_decision_aggressiveness, 0, 100)
-        self.adjustment_ability = np.clip(adjustment_ability, 0, 100)
 
     def get_bat_speed_mph(self) -> float:
         """
-        Convert bat speed rating to actual MPH.
+        Get bat speed in MPH.
 
         Returns
         -------
         float
-            Bat speed in MPH
+            Bat speed in MPH (typically 65-80 mph)
         """
-        # Use new attribute system if available
-        if self.attributes_v2 is not None:
-            return self.attributes_v2.get_bat_speed_mph()
-
-        # Legacy: 20 = 60 mph, 50 = 70 mph, 80 = 77 mph, 100 = 82 mph
-        bat_speed_mph = 60.0 + (self.bat_speed - 20) * 0.275
-        return bat_speed_mph
+        return self.attributes.get_bat_speed_mph()
 
     def get_swing_path_angle_deg(self, pitch_location: Optional[Tuple[float, float]] = None,
                                   pitch_type: Optional[str] = None) -> float:
@@ -479,14 +299,9 @@ class Hitter:
         float
             Swing path angle in degrees with realistic variance
         """
-        # Use new attribute system if available
-        if self.attributes_v2 is not None:
-            mean_angle = self.attributes_v2.get_attack_angle_mean_deg()
-            base_variance = self.attributes_v2.get_attack_angle_variance_deg()
-        else:
-            # Legacy: use launch_angle_tendency as mean
-            mean_angle = self.launch_angle_tendency
-            base_variance = 3.0  # Default variance
+        # Get attack angle parameters from physics-first attributes
+        mean_angle = self.attributes.get_attack_angle_mean_deg()
+        base_variance = self.attributes.get_attack_angle_variance_deg()
         
         # CRITICAL: Add much larger natural variance to create realistic outcome distribution
         # Even the best hitters have huge variance in launch angle (15-20° std dev)
@@ -542,30 +357,13 @@ class Hitter:
         tuple
             (horizontal_offset_inches, vertical_offset_inches) from sweet spot
         """
-        # Use new attribute system if available
-        if self.attributes_v2 is not None:
-            # Get barrel accuracy in mm, convert to inches
-            error_mm = self.attributes_v2.get_barrel_accuracy_mm()
-            error_inches = error_mm / 25.4  # mm to inches
+        # Get barrel accuracy in mm, convert to inches
+        error_mm = self.attributes.get_barrel_accuracy_mm()
+        error_inches = error_mm / 25.4  # mm to inches
 
-            # Sample from normal distribution
-            horizontal_offset = np.random.normal(0, error_inches)
-            vertical_offset = np.random.normal(0, error_inches)
-
-            return horizontal_offset, vertical_offset
-
-        # Legacy calculation
-        # Higher barrel accuracy = smaller offsets (adjusted for realism)
-        # 20 = 1.5" max offset, 50 = 0.8" max offset, 75 = 0.4" max offset, 100 = 0.15" max offset
-        max_offset = 1.5 - (self.barrel_accuracy - 20) * 0.017
-        max_offset = max(max_offset, 0.15)
-
-        # Add random error based on bat control - more variance for worse control
-        control_factor = self.bat_control / 100.0
-        error_std = max_offset * (1.0 - control_factor * 0.3)  # Reduced control impact
-
-        horizontal_offset = np.random.normal(0, error_std)
-        vertical_offset = np.random.normal(0, error_std)
+        # Sample from normal distribution
+        horizontal_offset = np.random.normal(0, error_inches)
+        vertical_offset = np.random.normal(0, error_inches)
 
         return horizontal_offset, vertical_offset
 
@@ -686,34 +484,15 @@ class Hitter:
         float
             Timing error in milliseconds (positive = early, negative = late)
         """
-        # Use new attribute system if available
-        if self.attributes_v2 is not None:
-            # Get base timing precision (RMS error in ms)
-            error_ms = self.attributes_v2.get_timing_precision_ms()
+        # Get base timing precision (RMS error in ms)
+        error_ms = self.attributes.get_timing_precision_ms()
 
-            # Faster pitches harder to time (velocity difficulty adjustment)
-            velocity_difficulty = (pitch_velocity - 80) / 20.0
-            adjusted_error = error_ms * (1.0 + velocity_difficulty * 0.3)
+        # Faster pitches harder to time (velocity difficulty adjustment)
+        velocity_difficulty = (pitch_velocity - 80) / 20.0
+        adjusted_error = error_ms * (1.0 + velocity_difficulty * 0.3)
 
-            # Sample from normal distribution
-            return np.random.normal(0, adjusted_error)
-
-        # Legacy calculation
-        # Faster pitches are harder to time
-        velocity_difficulty = (pitch_velocity - 80) / 20.0  # Normalized difficulty
-
-        # Higher precision = less error (more realistic timing windows)
-        # 20 = 8 ms error, 50 = 5 ms error, 80 = 2 ms error, 100 = 0.5 ms error
-        max_error_ms = 8.0 - (self.swing_timing_precision - 20) * 0.09
-        max_error_ms = max(max_error_ms, 0.5)
-
-        # Adjust for velocity difficulty
-        adjusted_error = max_error_ms * (1.0 + velocity_difficulty * 0.3)
-
-        # Random error with normal distribution
-        timing_error = np.random.normal(0, adjusted_error / 2.0)
-
-        return timing_error
+        # Sample from normal distribution
+        return np.random.normal(0, adjusted_error)
 
     def calculate_whiff_probability(
         self,

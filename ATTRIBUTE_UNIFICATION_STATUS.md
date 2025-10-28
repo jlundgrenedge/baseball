@@ -38,56 +38,50 @@ This document tracks the unification of the attribute system from the legacy 100
 
 Added helper function `convert_position_trajectory_to_field()` to complement velocity conversion.
 
-## In Progress 🚧
+## Completed ✅ (Part 2)
 
 ### Pitcher Class (`batted_ball/player.py`)
-**Status**: NEEDS UNIFICATION
+**Status**: FULLY UNIFIED
 
-**Current State**:
-- Has `attributes_v2: Optional[PitcherAttributes]` parameter
-- Has legacy 0-100 parameters: velocity, spin_rate, command, control, stamina, etc.
-- Methods have `if self.attributes_v2 is not None:` fallback logic
+**Changes Made**:
+1. **Constructor Simplified**:
+   - Removed all legacy 0-100 parameters (velocity, spin_rate, command, control, stamina, etc.)
+   - Made `attributes: PitcherAttributes` **required** (not Optional)
+   - Renamed `attributes_v2` to `attributes` throughout
+   - Only kept `arm_slot` and `pitch_arsenal` for mechanical/tactical variety
 
-**Methods That Need Updating**:
-- `get_pitch_velocity_mph()` - Lines 174-208 (has attributes_v2 check at line 174)
-- `get_pitch_spin_rpm()` - Lines 227-261 (has attributes_v2 check at line 227)
-- `get_command_error()` - needs checking
-- `update_pitch_count()` - uses stamina which needs to come from attributes
-
-**Required Changes**:
-1. Remove all legacy 0-100 parameters from `__init__`
-2. Make `attributes: PitcherAttributes` required
-3. Remove all `if self.attributes_v2:` fallback code
-4. Update factory functions (if any)
-5. **CRITICAL**: Update `game_simulation.py` - it creates Pitchers with attributes_v2
+2. **Methods Updated** (removed all fallback logic):
+   - `get_pitch_velocity_mph()` - now uses only `self.attributes.get_raw_velocity_mph()`
+   - `get_pitch_spin_rpm()` - now uses only `self.attributes.get_spin_rate_rpm()`
+   - `get_command_error_inches()` - simplified (uses default for now, TODO: add to attributes)
+   - `throw_pitch()` - simplified, stamina degradation implicit in velocity/spin methods
+   - `__repr__()` - updated to show actual physical values
 
 ### Hitter Class (`batted_ball/player.py`)
-**Status**: NEEDS UNIFICATION
+**Status**: FULLY UNIFIED
 
-**Current State**:
-- Has `attributes_v2: Optional[HitterAttributes]` parameter
-- Has legacy parameters: bat_speed, swing_path_angle, launch_angle_tendency, etc.
-- Methods have `if self.attributes_v2 is not None:` fallback logic
+**Changes Made**:
+1. **Constructor Simplified**:
+   - Removed all legacy parameters (bat_speed, swing_path_angle, barrel_accuracy, etc.)
+   - Made `attributes: HitterAttributes` **required** (not Optional)
+   - Renamed `attributes_v2` to `attributes` throughout
+   - Kept `zone_discipline` and `swing_decision_aggressiveness` as simple 0-100 (TODO: move to attributes later)
 
-**Methods That Need Updating**:
-- `get_bat_speed_mph()` - Line 445 (has attributes_v2 check)
-- `get_attack_angle()` - Line 483 (has attributes_v2 check)
-- `get_barrel_contact_quality()` - Line 546 (has attributes_v2 check)
-- `get_timing_precision()` - Line 690 (has attributes_v2 check)
+2. **Methods Updated** (removed all fallback logic):
+   - `get_bat_speed_mph()` - now just returns `self.attributes.get_bat_speed_mph()`
+   - `get_swing_path_angle_deg()` - uses `self.attributes.get_attack_angle_mean/variance_deg()`
+   - `get_contact_point_offset()` - uses `self.attributes.get_barrel_accuracy_mm()`
+   - `get_timing_error()` - uses `self.attributes.get_timing_precision_ms()`
 
-**Required Changes**:
-1. Remove all legacy parameters from `__init__`
-2. Make `attributes: HitterAttributes` required
-3. Remove all `if self.attributes_v2:` fallback code
-4. **CRITICAL**: Update `game_simulation.py` - it creates Hitters with attributes_v2
-
-## Dependent Files That Need Updates
+## Dependent Files Updated ✅
 
 ### `game_simulation.py`
-**Lines to Update**:
-- Line 722-729: Pitcher creation - change `attributes_v2=` to `attributes=`
-- Line 768-777: Hitter creation - change `attributes_v2=` to `attributes=`
-- Any other player/fielder creation
+**Status**: FULLY UPDATED
+
+**Changes Made**:
+- Line 722-730: Pitcher creation - changed `attributes_v2=` to `attributes=`
+- Line 768-778: Hitter creation - changed `attributes_v2=` to `attributes=`
+- Updated all attribute access to use new names
 
 ### Tests and Examples
 **Files to Check**:

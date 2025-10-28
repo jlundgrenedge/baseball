@@ -717,24 +717,24 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
     for i in range(3):
         role = "Starter" if i == 0 else "Reliever"
 
-        # Use physics-first attribute creators
+        # Use physics-first attribute creators (100,000-point scale)
         if i == 0:
-            attributes_v2 = create_starter_pitcher(team_quality)
+            attributes = create_starter_pitcher(team_quality)
         else:
-            attributes_v2 = create_reliever_pitcher(team_quality)
+            attributes = create_reliever_pitcher(team_quality)
 
-        # Create pitcher with new attribute system
+        # Create pitcher with unified attribute system
         pitcher = Pitcher(
             name=f"{name} Pitcher {i+1} ({role})",
-            attributes_v2=attributes_v2
+            attributes=attributes
         )
         pitchers.append(pitcher)
 
         # Debug output for first team created
         if not hasattr(create_test_team, 'pitchers_debug_shown'):
-            velo = attributes_v2.get_raw_velocity_mph()
-            spin = attributes_v2.get_spin_rate_rpm()
-            stamina = attributes_v2.get_stamina_pitches()
+            velo = attributes.get_raw_velocity_mph()
+            spin = attributes.get_spin_rate_rpm()
+            stamina = attributes.get_stamina_pitches()
             print(f"    {role}: {velo:.1f} mph, {spin:.0f} rpm, {stamina:.0f} pitch stamina")
 
     if not hasattr(create_test_team, 'pitchers_debug_shown'):
@@ -763,25 +763,25 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
         hitter_type_idx = random.choices(range(5), weights=hitter_type_weights)[0]
         hitter_type = hitter_type_names[hitter_type_idx]
 
-        # Use physics-first attribute creators
+        # Use physics-first attribute creators (100,000-point scale)
         if hitter_type == "power":
-            attributes_v2 = create_power_hitter(team_quality)
+            attributes = create_power_hitter(team_quality)
         elif hitter_type == "groundball":
-            attributes_v2 = create_groundball_hitter(team_quality)
+            attributes = create_groundball_hitter(team_quality)
         else:  # balanced, fly ball, line drive
-            attributes_v2 = create_balanced_hitter(team_quality)
+            attributes = create_balanced_hitter(team_quality)
 
-        # Create hitter with new attribute system
+        # Create hitter with unified attribute system
         hitter = Hitter(
             name=f"{name} {pos}",
-            attributes_v2=attributes_v2
+            attributes=attributes
         )
         hitters.append(hitter)
 
         # Debug output for first team created
         if not hasattr(create_test_team, 'debug_shown'):
-            bat_speed = attributes_v2.get_bat_speed_mph()
-            attack_angle = attributes_v2.get_attack_angle_mean_deg()
+            bat_speed = attributes.get_bat_speed_mph()
+            attack_angle = attributes.get_attack_angle_mean_deg()
             print(f"    {pos}: {hitter_type} hitter (bat: {bat_speed:.1f} mph, angle: {attack_angle:.1f}°)")
 
     if not hasattr(create_test_team, 'debug_shown'):
