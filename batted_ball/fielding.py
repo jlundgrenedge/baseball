@@ -712,7 +712,8 @@ class Fielder:
         # Only allow diving/stretching catches for very small negative margins (< -0.15s).
         if time_margin >= 0.0:
             # Fielder arrives on time or early - routine play
-            probability = 0.98  # After penalties: 0.98 * 0.92 = 0.90
+            # Reduced from 0.98 to 0.95 to prevent too many routine catches on deep balls
+            probability = 0.95  # After penalties: 0.95 * 0.92 = 0.87
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
@@ -733,9 +734,14 @@ class Fielder:
         # Apply fielder's hands rating as a multiplier (typically 0.90-0.93 for average)
         probability *= base_secure_prob
 
-        # Distance penalty only for extremely far plays
+        # Distance penalty for long running catches
+        # Graduated penalty based on distance to encourage more hits on deep balls
         if distance > 120:
-            probability *= 0.88  # 12% penalty for 120+ ft plays
+            probability *= 0.82  # 18% penalty for 120+ ft plays (increased from 12%)
+        elif distance > 100:
+            probability *= 0.88  # 12% penalty for 100-120 ft plays
+        elif distance > 80:
+            probability *= 0.93  # 7% penalty for 80-100 ft plays
 
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY
