@@ -168,22 +168,46 @@ class PlayByPlayEvent:
 class GameSimulator:
     """Simulates a complete baseball game"""
 
-    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True):
+    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True, log_file: str = None):
         self.away_team = away_team
         self.home_team = home_team
         self.verbose = verbose
+        self.log_file = log_file
         self.game_state = GameState()
         self.play_by_play: List[PlayByPlayEvent] = []
+
+        # Open log file if specified
+        self.log_handle = None
+        if self.log_file:
+            self.log_handle = open(self.log_file, 'w', encoding='utf-8')
 
         # Simulator (we'll create at-bat simulators per at-bat)
         self.play_simulator = PlaySimulator()
 
+    def log(self, message: str):
+        """Log a message to console and/or file"""
+        if self.verbose:
+            print(message)
+        if self.log_handle:
+            self.log_handle.write(message + '\n')
+            self.log_handle.flush()  # Ensure immediate write
+
+    def close_log(self):
+        """Close the log file if open"""
+        if self.log_handle:
+            self.log_handle.close()
+            self.log_handle = None
+
+    def __del__(self):
+        """Destructor to ensure log file is closed"""
+        self.close_log()
+
     def simulate_game(self, num_innings: int = 9) -> GameState:
         """Simulate a complete baseball game"""
         if self.verbose:
-            print(f"\n{'='*80}")
-            print(f"GAME START: {self.away_team.name} @ {self.home_team.name}")
-            print(f"{'='*80}\n")
+            self.log(f"\n{'='*80}")
+            self.log(f"GAME START: {self.away_team.name} @ {self.home_team.name}")
+            self.log(f"{'='*80}\n")
 
         while self.game_state.inning <= num_innings:
             self.simulate_half_inning()
@@ -575,7 +599,8 @@ class GameSimulator:
         for index, pitch in enumerate(pitches, 1):
             index = pitch.get('sequence_index', index)
             pitch_type = pitch.get('pitch_type', 'pitch')
-            velocity = pitch.get('velocity_plate', 0.0)
+            velocity_release = pitch.get('velocity_release', 0.0)
+            velocity_plate = pitch.get('velocity_plate', 0.0)
             location = pitch.get('final_location')
             count_before = pitch.get('count_before', (0, 0))
             count_after = pitch.get('count_after', count_before)
@@ -611,7 +636,7 @@ class GameSimulator:
                 )
 
             print(
-                f"    #{index}: {pitch_type} {velocity:.1f} mph to {location_str} "
+                f"    #{index}: {pitch_type} {velocity_release:.1f}->{velocity_plate:.1f} mph to {location_str} "
                 f"[{count_before[0]}-{count_before[1]} -> {count_after[0]}-{count_after[1]}] "
                 f"{outcome_desc}{contact_details}"
             )
@@ -620,25 +645,25 @@ class GameSimulator:
         """Print detailed physics/fielding/baserunning breakdown for a play."""
         events = play_result.get_events_chronological()
         if events:
-            print("    Play timeline:")
+            self.log("    Play timeline:")
             for event in events:
-                print(f"      [{event.time:5.2f}s] {event.description} ({event.event_type})")
+                self.log(f"      [{event.time:5.2f}s] {event.description} ({event.event_type})")
 
         if play_result.fielding_results:
-            print("    Fielding breakdown:")
+            self.log("    Fielding breakdown:")
             for fielding in play_result.fielding_results:
                 margin = fielding.ball_arrival_time - fielding.fielder_arrival_time
                 status = "made play" if fielding.success else "missed"
                 fielder_name = getattr(fielding, 'fielder_name', 'Fielder')
-                print(
+                self.log(
                     f"      {fielder_name}: ball {fielding.ball_arrival_time:.2f}s, "
                     f"arrival {fielding.fielder_arrival_time:.2f}s (margin {margin:+.2f}s) -> {status}"
                 )
 
         if play_result.baserunning_results:
-            print("    Baserunning results:")
+            self.log("    Baserunning results:")
             for baserun in play_result.baserunning_results:
-                print(
+                self.log(
                     f"      {baserun.runner_name}: {baserun.from_base} -> {baserun.to_base} "
                     f"in {baserun.arrival_time:.2f}s ({baserun.outcome})"
                 )

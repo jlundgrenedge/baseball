@@ -258,6 +258,18 @@ class BattedBallSimulator:
             spray_angle
         )
 
+        # GROUND BALL PHYSICS CORRECTION
+        # For very low launch angles, apply realistic ground ball physics
+        is_ground_ball = launch_angle <= 10.0
+        
+        if is_ground_ball:
+            # Apply ground ball trajectory corrections
+            initial_state, max_time, use_simplified_physics = self._apply_ground_ball_corrections(
+                initial_state, launch_angle, max_time, exit_velocity
+            )
+        else:
+            use_simplified_physics = False
+
         # Add wind to initial velocity (if any)
         if abs(wind_speed) > 0.1:
             wind_velocity_ms = wind_speed * MPH_TO_MS
@@ -271,6 +283,11 @@ class BattedBallSimulator:
         # Define force function for integration
         def force_function(position, velocity):
             """Calculate aerodynamic forces at given state."""
+            if use_simplified_physics:
+                # Ground ball: use minimal aerodynamics (mostly gravity + minimal drag)
+                return self._calculate_simplified_ground_ball_forces(velocity, env)
+            
+            # Regular aerodynamic physics
             # Account for wind (subtract wind from velocity to get relative velocity)
             if abs(wind_speed) > 0.1:
                 wind_velocity = np.array([wind_vx, wind_vy, 0.0])
@@ -382,3 +399,145 @@ class BattedBallSimulator:
             adjusted['sidespin_rpm'],
             **kwargs
         )
+    
+    def _apply_ground_ball_corrections(self, initial_state, launch_angle, max_time, exit_velocity):
+        """
+        Apply realistic physics corrections for ground balls.
+        
+        For very low launch angles (≤10°), the ball behaves more like a 
+        bouncing/rolling object than a true projectile. Research shows:
+        - 95 mph ground ball travels ~120ft total to 3B in ~0.85-1.0s
+        - This implies much shorter flight distance than current simulation
+        
+        Parameters
+        ----------
+        initial_state : array
+            Initial [position, velocity] state
+        launch_angle : float
+            Launch angle in degrees
+        max_time : float
+            Maximum simulation time
+        exit_velocity : float
+            Exit velocity in mph
+            
+        Returns
+        -------
+        tuple
+            (corrected_initial_state, corrected_max_time, use_simplified_physics)
+        """
+        # For ground balls, reduce effective velocity based on launch angle
+        # Very low angles lose energy quickly due to ground interaction
+        if launch_angle <= 5.0:
+            # Very low: 60-70% of velocity (simulates immediate ground interaction)
+            velocity_factor = 0.60 + (launch_angle / 5.0) * 0.10  # 0.60-0.70
+        elif launch_angle <= 8.0:
+            # Low: 70-80% of velocity
+            velocity_factor = 0.70 + ((launch_angle - 5.0) / 3.0) * 0.10  # 0.70-0.80
+        else:
+            # Medium-low: 80-90% of velocity
+            velocity_factor = 0.80 + ((launch_angle - 8.0) / 2.0) * 0.10  # 0.80-0.90
+        
+        # Apply velocity reduction
+        corrected_state = initial_state.copy()
+        corrected_state[3:6] *= velocity_factor  # Reduce velocity components
+        
+        # Reduce max simulation time for ground balls (they land much faster)
+        corrected_max_time = min(max_time, 1.5)  # Cap at 1.5 seconds
+        
+        use_simplified_physics = True
+        
+        return corrected_state, corrected_max_time, use_simplified_physics
+    
+    def _calculate_simplified_ground_ball_forces(self, velocity, env):
+        """
+        Calculate simplified forces for ground ball trajectories.
+        
+        Ground balls experience:
+        - Gravity (primary force)
+        - Minimal drag (much less than full aerodynamic model)
+        - No significant Magnus effect (due to ground interaction)
+        
+        Parameters
+        ----------
+        velocity : array
+            Current velocity vector [vx, vy, vz] in m/s
+        env : Environment
+            Environment object for air density
+            
+        Returns
+        -------
+        array
+            Force vector [Fx, Fy, Fz] in Newtons
+        """
+        from .constants import BALL_MASS, BALL_CROSS_SECTIONAL_AREA, GRAVITY
+        
+        # Start with gravity
+        force = np.array([0.0, 0.0, -BALL_MASS * GRAVITY])
+        
+        # Add minimal drag (much reduced compared to full aerodynamics)
+        speed = np.linalg.norm(velocity)
+        if speed > 0.1:  # Avoid division by zero
+            # Use much lower drag coefficient for ground balls
+            cd_ground = 0.08  # Much lower than standard ~0.32
+            drag_magnitude = 0.5 * env.air_density * cd_ground * BALL_CROSS_SECTIONAL_AREA * speed**2
+            drag_direction = -velocity / speed  # Opposite to velocity
+            drag_force = drag_magnitude * drag_direction
+            force += drag_force
+        
+        return force
+
+
+def convert_velocity_trajectory_to_field(vx_traj_ms, vy_traj_ms, vz_traj_ms):
+    """
+    Convert velocity vector from trajectory/integrator coordinates to field coordinates.
+    
+    This is critical for ground ball and fielding calculations to maintain consistent
+    coordinate systems across the simulation.
+    
+    **Trajectory Coordinate System** (used in physics calculations):
+    - X-axis: Direction toward outfield (positive = center field direction)
+    - Y-axis: Lateral/spray direction (positive = left field)
+    - Z-axis: Vertical (positive = up)
+    
+    **Field Coordinate System** (used for positions and fielding):
+    - X-axis: Lateral (positive = RIGHT field, negative = LEFT field)
+    - Y-axis: Forward direction (positive = toward CENTER field)
+    - Z-axis: Vertical (positive = up)
+    
+    Parameters
+    ----------
+    vx_traj_ms : float
+        X-component of velocity in trajectory coords (m/s, toward outfield)
+    vy_traj_ms : float
+        Y-component of velocity in trajectory coords (m/s, lateral, left field positive)
+    vz_traj_ms : float
+        Z-component of velocity in trajectory coords (m/s, vertical)
+    
+    Returns
+    -------
+    tuple of float
+        (vx_field_ms, vy_field_ms, vz_field_ms) - velocity in field coordinates (m/s)
+        - vx_field: lateral velocity (positive = toward right field)
+        - vy_field: forward velocity (positive = toward center field)
+        - vz_field: vertical velocity (unchanged)
+    
+    Examples
+    --------
+    A ball hit up the middle in the integrator (vx=10 m/s, vy=0) becomes:
+    >>> convert_velocity_trajectory_to_field(10, 0, 0)
+    (0, 10, 0)  # Pure center field direction
+    
+    A ball hit to left field (vx=5, vy=10) becomes:
+    >>> convert_velocity_trajectory_to_field(5, 10, 0)
+    (-10, 5, 0)  # Negative X (left field), positive Y (forward)
+    """
+    # Coordinate transformation:
+    # trajectory_x (toward outfield) -> field_y (toward center field)
+    # trajectory_y (left field +) -> -field_x (right field +)
+    # trajectory_z stays the same
+    vx_field_ms = -vy_traj_ms  # Negate Y for handedness conversion
+    vy_field_ms = vx_traj_ms   # Outfield direction becomes forward
+    vz_field_ms = vz_traj_ms   # Vertical unchanged
+    
+    return vx_field_ms, vy_field_ms, vz_field_ms
+

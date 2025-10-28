@@ -4,6 +4,17 @@ Ground ball physics simulation.
 Simulates realistic ground ball bouncing, rolling, and deceleration
 based on physics principles including coefficient of restitution,
 rolling friction, and spin effects.
+
+COORDINATE SYSTEM:
+This module uses FIELD COORDINATES exclusively:
+- X-axis: Lateral (positive = RIGHT field, negative = LEFT field)
+- Y-axis: Forward direction (positive = toward CENTER field)
+- Z-axis: Vertical (positive = up)
+
+Velocities from BattedBallResult are converted from trajectory coordinates
+to field coordinates using convert_velocity_trajectory_to_field() at the entry
+point (simulate_from_trajectory) to ensure consistency with field positions
+and fielder locations.
 """
 
 import numpy as np
@@ -28,6 +39,7 @@ from .constants import (
     MAX_GROUND_BALL_BOUNCES,
     SPIN_RETENTION_PER_BOUNCE,
 )
+from .trajectory import convert_velocity_trajectory_to_field
 
 
 class GroundBallResult:
@@ -101,13 +113,26 @@ class GroundBallSimulator:
         landing_velocity = batted_ball_result.velocity[-1]  # m/s
         landing_position = batted_ball_result.position[-1]  # m
 
-        # Convert to feet and mph
-        vx = landing_velocity[0] * MS_TO_MPH  # mph
-        vy = landing_velocity[1] * MS_TO_MPH  # mph
-        vz = landing_velocity[2] * MS_TO_MPH  # mph (usually negative at landing)
+        # Convert velocity from trajectory coordinates to field coordinates
+        # CRITICAL: Trajectory uses (x=toward outfield, y=lateral), field uses (x=lateral, y=toward CF)
+        vx_field_ms, vy_field_ms, vz_field_ms = convert_velocity_trajectory_to_field(
+            landing_velocity[0], landing_velocity[1], landing_velocity[2]
+        )
+        
+        # Convert to feet and mph - NOW IN FIELD COORDINATE SYSTEM
+        vx = vx_field_ms * MS_TO_MPH  # mph (lateral, right field = +)
+        vy = vy_field_ms * MS_TO_MPH  # mph (toward center field = +)
+        vz = vz_field_ms * MS_TO_MPH  # mph (usually negative at landing)
 
-        x0 = landing_position[0] * METERS_TO_FEET  # feet
-        y0 = landing_position[1] * METERS_TO_FEET  # feet
+        x0 = landing_position[0] * METERS_TO_FEET  # feet (but needs coordinate conversion!)
+        y0 = landing_position[1] * METERS_TO_FEET  # feet (but needs coordinate conversion!)
+        
+        # WAIT: landing position was already converted in trajectory.py
+        # But we need to use the field coordinates here
+        # Actually, landing_x and landing_y in batted_ball_result are already in field coords
+        # Let's use those instead:
+        x0 = batted_ball_result.landing_x
+        y0 = batted_ball_result.landing_y
 
         # Get initial spin (estimate from trajectory)
         initial_spin_rpm = batted_ball_result.initial_conditions.get('backspin_rpm', 0.0)

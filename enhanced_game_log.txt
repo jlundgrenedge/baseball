@@ -1,0 +1,97 @@
+
+================================================================================
+GAME START: Visitors @ Home Team
+================================================================================
+
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (-7.8, 18.6) ft, distance 20.2 ft from home (ground_ball_analysis)
+      [ 0.30s] Weakly hit ball near home plate (20 ft) (weak_hit)
+      [ 0.31s] Fielder distances - pitcher: 42.6 ft, catcher: 22.1 ft, first_base: 82.8 ft, third_base: 67.2 ft. Closest: catcher (weak_hit_fielder_analysis)
+      [ 1.54s] Weak ground ball fielded by catcher (weak_hit_fielded)
+      [ 1.99s] Throw to first base at 81.0 mph (release 1.99s, flight 0.80s) (throw_to_first)
+      [ 3.84s] Runner out at first base (runner 3.84s vs ball 2.78s) (play_at_first)
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Ground ball coordinates: (87.9, 205.2) ft, distance 223.3 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: second_base travels 157.1 ft from (40.0, 55.0) to (96.2, 201.7), margin +7.14s (ground_ball_interception_analysis)
+      [ 2.14s] Ground ball fielded by second_base at (96.2, 201.7) in 2.14s (ground_ball_fielded)
+      [ 3.75s] Force out at third (margin: 3.57s) (force_out)
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (154.8, 163.2) ft, distance 224.9 ft, hang time 2.34s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 307.2ft, margin -6.54s (too far); center_field: 213.4ft, margin -3.86s (too far); right_field: 103.7ft, margin -0.72s (too far); first_base: 163.9ft, margin -2.44s (too far); second_base: 157.7ft, margin -2.27s (too far); third_base: 270.7ft, margin -5.50s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 2.32s] Ball intercepted by left_field in right outfield at 2.32s (air_catch) (ball_retrieved)
+      [ 2.34s] Ball drops in right outfield, right_field couldn't reach it (ball_drops)
+      [ 2.34s] Ball in play at (154.8, 163.2) ft, distance 224.9 ft, peak height 23.3 ft (outfield_ball_analysis)
+      [ 2.35s] Spray angle: 43.5° from center field (trajectory_analysis)
+      [ 2.36s] Outfield interception: left_field (air_catch) travels 513.6 ft from (-135.0, 265.0) to (162.2, -153.9) at 2.32s, margin +23.26s (outfield_interception_analysis)
+    Fielding breakdown:
+      Right Field: ball 2.34s, arrival 4.31s (margin -1.97s) -> missed
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (74.7, 335.8) ft, distance 344.0 ft, hang time 3.65s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 221.3ft, margin -2.77s (too far); center_field: 79.0ft, margin 1.29s (can reach); right_field: 93.0ft, margin 0.89s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.65s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 3.65s, arrival 3.26s (margin +0.39s) -> made play
+    Play timeline:
+      [ 0.00s] Ball hit to shallow right outfield (contact)
+      [ 0.00s] Ground ball coordinates: (53.5, 144.5) ft, distance 154.1 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: second_base travels 89.1 ft from (40.0, 55.0) to (61.9, 141.4), margin +4.05s (ground_ball_interception_analysis)
+      [ 1.60s] Ground ball fielded by second_base at (61.9, 141.4) in 1.60s (ground_ball_fielded)
+      [ 1.96s] Throw to first base at 87.7 mph (release 1.96s, flight 0.61s) (throw_to_first)
+      [ 5.18s] Runner out at first base (runner 5.18s vs ball 2.56s) (play_at_first)
+    Play timeline:
+      [ 0.00s] Ball hit to deep right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (129.9, 322.0) ft, distance 347.2 ft, hang time 4.53s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 270.9ft, margin -3.31s (too far); center_field: 130.4ft, margin 0.71s (can reach); right_field: 57.2ft, margin 2.80s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 4.53s] Caught by right_field at deep right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 4.53s, arrival 2.32s (margin +2.21s) -> made play
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-66.2, 282.8) ft, distance 290.4 ft, hang time 3.76s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 71.1ft, margin 1.63s (can reach); center_field: 71.5ft, margin 1.62s (can reach); right_field: 202.0ft, margin -2.11s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 3.76s] Caught by left_field at deep outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 3.76s, arrival 2.95s (margin +0.81s) -> made play
+    Play timeline:
+      [ 0.00s] Ball hit to shallow right outfield (contact)
+      [ 0.00s] Ground ball coordinates: (105.1, 126.4) ft, distance 164.4 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: second_base travels 97.6 ft from (40.0, 55.0) to (112.5, 120.2), margin +4.43s (ground_ball_interception_analysis)
+      [ 1.58s] Ground ball fielded by second_base at (112.5, 120.2) in 1.58s (ground_ball_fielded)
+      [ 1.98s] Throw to first base at 85.3 mph (release 1.98s, flight 0.62s) (throw_to_first)
+      [ 4.45s] Runner out at first base (runner 4.45s vs ball 2.60s) (play_at_first)
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (123.1, 213.6) ft, distance 246.5 ft, hang time 2.37s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 263.1ft, margin -5.25s (too far); center_field: 156.3ft, margin -2.20s (too far); right_field: 52.8ft, margin 0.76s (can reach); first_base: 199.5ft, margin -3.43s (too far); second_base: 179.0ft, margin -2.85s (too far); third_base: 277.0ft, margin -5.64s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 2.37s] Caught by right_field at right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 2.37s, arrival 2.37s (margin +0.00s) -> made play
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (86.4, 192.1) ft, distance 210.6 ft, hang time 3.69s (fly_ball_analysis)
+      [ 0.00s] Ball intercepted by right_field in infield at 0.00s (air_catch) (ball_retrieved)
+      [ 0.05s] Fielder analysis - left_field: 233.1ft, margin -3.07s (too far); center_field: 146.2ft, margin -0.59s (too far); right_field: 87.6ft, margin 1.09s (can reach); first_base: 172.4ft, margin -1.34s (too far); second_base: 144.7ft, margin -0.54s (too far); third_base: 235.9ft, margin -3.15s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 3.69s] Ball drops in right outfield, right_field couldn't reach it (ball_drops)
+      [ 3.69s] Ball in play at (86.4, 192.1) ft, distance 210.6 ft, peak height 55.2 ft (outfield_ball_analysis)
+      [ 3.70s] Spray angle: 24.2° from center field (trajectory_analysis)
+      [ 3.71s] Outfield interception: right_field (air_catch) travels 297.4 ft from (135.0, 265.0) to (0.1, -0.0) at 0.00s, margin +14.77s (outfield_interception_analysis)
+    Fielding breakdown:
+      Right Field: ball 3.69s, arrival 3.69s (margin +0.00s) -> missed
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (88.1, 303.9) ft, distance 316.4 ft, hang time 3.67s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 226.4ft, margin -2.90s (too far); center_field: 88.3ft, margin 1.05s (can reach); right_field: 61.0ft, margin 1.82s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 3.67s] Caught by right_field at deep outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 3.67s, arrival 2.55s (margin +1.12s) -> made play
