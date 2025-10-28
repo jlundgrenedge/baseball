@@ -68,17 +68,18 @@ class OutfieldInterceptor:
             return result
             
         # Convert trajectory data to trajectory points for processing
+        # Note: trajectory_data from play_simulation is already in FIELD COORDINATES
         times = trajectory_data['time']
-        positions = trajectory_data['position']  # Nx3 array in meters
-        velocities = trajectory_data['velocity']  # Nx3 array in m/s
-        
+        positions = trajectory_data['position']  # Nx3 array in meters, FIELD COORDS
+        velocities = trajectory_data['velocity']  # Nx3 array in m/s, FIELD COORDS
+
         trajectory = []
         for i in range(len(times)):
             point = type('Point', (), {
-                't': times[i], 
-                'x': positions[i][0] * METERS_TO_FEET,  # Convert to feet
-                'y': positions[i][1] * METERS_TO_FEET, 
-                'z': positions[i][2] * METERS_TO_FEET
+                't': times[i],
+                'x': positions[i][0] * METERS_TO_FEET,  # Field X (lateral, right +)
+                'y': positions[i][1] * METERS_TO_FEET,  # Field Y (forward, CF +)
+                'z': positions[i][2] * METERS_TO_FEET   # Field Z (vertical, up +)
             })()
             trajectory.append(point)
             
@@ -88,16 +89,14 @@ class OutfieldInterceptor:
         
         # Get ball velocity at landing for rolling calculations
         # Extract final velocity vector from trajectory data
-        velocities = trajectory_data['velocity']  # Nx3 array in m/s
-        final_velocity_ms = velocities[-1]  # Final velocity in m/s
-        
-        # Convert to field coordinates and feet per second
-        # Integrator: x=toward outfield, y=lateral (left +), z=up
-        # Field: x=lateral (right +), y=toward center field, z=up
-        # Therefore: field_x = -integrator_y, field_y = integrator_x
+        velocities = trajectory_data['velocity']  # Nx3 array in m/s, FIELD COORDS (already converted)
+        final_velocity_ms = velocities[-1]  # Final velocity in m/s, FIELD COORDS
+
+        # Convert to feet per second
+        # Note: trajectory_data from play_simulation is already in field coordinates
         final_velocity_field = np.array([
-            -final_velocity_ms[1] * METERS_TO_FEET,  # Right field positive
-            final_velocity_ms[0] * METERS_TO_FEET    # Center field positive
+            final_velocity_ms[0] * METERS_TO_FEET,  # Right field positive (already converted)
+            final_velocity_ms[1] * METERS_TO_FEET   # Center field positive (already converted)
         ])
         ground_speed_fps = np.linalg.norm(final_velocity_field)
         
