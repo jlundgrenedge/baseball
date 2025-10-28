@@ -550,10 +550,13 @@ class Hitter:
         break_factor = 1.0 + (break_magnitude / 100.0)  # +1% per inch of break
 
         # Barrel accuracy affects ability to make contact
-        # Elite contact (85+): 0.6x whiff rate
-        # Average (50): 1.0x whiff rate
-        # Poor (20): 1.8x whiff rate
-        contact_factor = 1.8 - (self.barrel_accuracy - 20) * 0.0125
+        # Derive contact_factor from barrel accuracy in mm
+        # Elite: ~5mm error -> 0.6x whiff rate
+        # Average: ~15mm error -> 1.0x whiff rate
+        # Poor: ~30mm error -> 1.8x whiff rate
+        barrel_error_mm = self.attributes.get_barrel_accuracy_mm()
+        # Map linearly: 5mm -> 0.6, 15mm -> 1.0, 30mm -> 1.8
+        contact_factor = 0.6 + (barrel_error_mm - 5) * 0.048
 
         # Combine factors
         whiff_prob = base_whiff_rate * velocity_factor * break_factor * contact_factor
@@ -564,8 +567,11 @@ class Hitter:
         return whiff_prob
 
     def __repr__(self):
+        bat_speed = self.attributes.get_bat_speed_mph()
+        attack_angle = self.attributes.get_attack_angle_mean_deg()
+        barrel_error = self.attributes.get_barrel_accuracy_mm()
         return (
             f"Hitter(name='{self.name}', "
-            f"bat_speed={self.bat_speed}, barrel_accuracy={self.barrel_accuracy}, "
-            f"discipline={self.zone_discipline}, contact={self.bat_control})"
+            f"bat_speed={bat_speed:.1f} mph, angle={attack_angle:.1f}°, "
+            f"barrel_error={barrel_error:.1f}mm, discipline={self.zone_discipline})"
         )
