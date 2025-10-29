@@ -1401,10 +1401,32 @@ class PlaySimulator:
         ))
 
         # Determine how far runner can go (with realistic margin)
-        # FIX: MLB runners are more aggressive than previous 1.5s margin
-        # Typical MLB: runners go on 0.5-1.0s advantages, especially with <2 outs
-        SAFE_MARGIN = 0.6  # Runner needs reasonable advantage to attempt next base
-        
+        # FIX: Make baserunning more aggressive to increase scoring
+        # Runners should take extra bases when balls drop in the outfield
+
+        # Determine if ball was caught vs. dropped
+        ball_was_caught = (interception_result.can_be_fielded and
+                          hasattr(interception_result, 'interception_type') and
+                          interception_result.interception_type == "air_catch")
+
+        # Adjust margin based on situation:
+        # - Balls that DROP (not caught): runners are very aggressive (can accept negative margins)
+        # - Deep balls (280+ ft): extra aggressive for potential doubles/triples
+        # - Caught balls: more conservative
+        if ball_was_caught:
+            # Ball was caught cleanly - be more conservative
+            SAFE_MARGIN = 0.4
+            margin_note = "caught ball, conservative"
+        elif distance_ft >= 280:
+            # Deep ball that dropped - be very aggressive!
+            # Allow negative margins (runner willing to risk being thrown out)
+            SAFE_MARGIN = -0.5  # Willing to try even if ball might beat runner
+            margin_note = f"deep ball ({distance_ft:.0f}ft) dropped, very aggressive"
+        else:
+            # Moderate depth ball that dropped - still aggressive
+            SAFE_MARGIN = 0.0  # Try if runner can make it close
+            margin_note = f"ball ({distance_ft:.0f}ft) dropped, aggressive"
+
         # Calculate margins for each base
         margin_first = ball_at_first - time_to_first
         margin_second = ball_at_second - time_to_second
@@ -1413,7 +1435,7 @@ class PlaySimulator:
 
         result.add_event(PlayEvent(
             ball_retrieved_time + 0.04, "margin_analysis",
-            f"Runner margins (positive = runner beats ball) - 1st: {margin_first:+.2f}s, 2nd: {margin_second:+.2f}s, 3rd: {margin_third:+.2f}s, home: {margin_home:+.2f}s"
+            f"Runner margins (positive = runner beats ball) - 1st: {margin_first:+.2f}s, 2nd: {margin_second:+.2f}s, 3rd: {margin_third:+.2f}s, home: {margin_home:+.2f}s ({margin_note})"
         ))
 
         # Can runner make home? (inside-the-park home run)
