@@ -224,9 +224,14 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 
 # Collision Efficiency (q) - Master formula parameter
 # BBS = q * v_pitch + (1 + q) * v_bat
-COLLISION_EFFICIENCY_WOOD = 0.20        # Wood bats (maple, ash, birch)
-COLLISION_EFFICIENCY_ALUMINUM = 0.24    # Aluminum bats (BBCOR regulated ~0.22)
-COLLISION_EFFICIENCY_COMPOSITE = 0.25   # Composite bats (BBCOR regulated ~0.23)
+# REDUCED 2025-10-29: Previous values (0.20-0.25) produced unrealistic exit velocities
+# With typical bat speed 78 mph and pitch speed 83 mph:
+# - Old q=0.20: EV = 0.20*83 + 1.20*78 = 110 mph (too high!)
+# - New q=0.09: EV = 0.09*83 + 1.09*78 = 93 mph (realistic)
+# Target: Average MLB EV ~88-89 mph, power hitters 92-95 mph
+COLLISION_EFFICIENCY_WOOD = 0.09        # Wood bats (maple, ash, birch) - reduced from 0.20
+COLLISION_EFFICIENCY_ALUMINUM = 0.11    # Aluminum bats (BBCOR regulated) - reduced from 0.24
+COLLISION_EFFICIENCY_COMPOSITE = 0.12   # Composite bats (BBCOR regulated) - reduced from 0.25
 
 # Sweet Spot Physics
 SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone
