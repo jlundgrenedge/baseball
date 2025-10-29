@@ -576,24 +576,25 @@ class Fielder:
 
         # Calculate effective speed based on distance
         # MLB fielders can sprint at near-max speed for defensive plays
+        # ADJUSTED: Reduced speed percentages by 4-6% to allow more balls to drop
         if distance < 30.0:
-            # Short burst: 88-94% of max speed
-            speed_percentage = 0.88 + (distance / 30.0) * 0.06  # 88% at 0ft, 94% at 30ft
+            # Short burst: REDUCED from 88-94% to 84-90% of max speed
+            speed_percentage = 0.84 + (distance / 30.0) * 0.06  # 84% at 0ft, 90% at 30ft
             effective_speed = directional_max_speed * speed_percentage
             route_penalty = 1.0  # No route inefficiency on short plays
         elif distance < 60.0:
-            # Medium range: 94-98% of max speed
+            # Medium range: REDUCED from 94-98% to 90-94% of max speed
             normalized_dist = (distance - 30.0) / 30.0  # 0 to 1
-            speed_percentage = 0.94 + normalized_dist * 0.04  # 94% to 98%
+            speed_percentage = 0.90 + normalized_dist * 0.04  # 90% to 94%
             effective_speed = directional_max_speed * speed_percentage
             # Minor route inefficiency
             route_efficiency_raw = self.get_route_efficiency()
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
             route_penalty = 1.0 + (1.0 - route_efficiency) * 0.3  # Reduced penalty
         else:
-            # Long range: 98-100% of max speed
+            # Long range: REDUCED from 98-100% to 94-97% of max speed
             normalized_dist = min((distance - 60.0) / 60.0, 1.0)  # 0 to 1, capped
-            speed_percentage = 0.98 + normalized_dist * 0.02  # 98% to 100%
+            speed_percentage = 0.94 + normalized_dist * 0.03  # 94% to 97%
             effective_speed = directional_max_speed * speed_percentage
             # Reduced route efficiency penalty
             route_efficiency_raw = self.get_route_efficiency()
@@ -715,8 +716,9 @@ class Fielder:
             probability = 0.92  # After penalties: 0.92 * 0.92 = 0.85
         elif time_margin >= 0.0:
             # Fielder arrives on time (0-0.5s early) - routine play but requires hustle
-            # REDUCED from 0.95 to 0.78 to allow more balls to drop
-            probability = 0.78  # After penalties: 0.78 * 0.92 = 0.72
+            # Calibrated for MLB BABIP ~.300 (70% outs, 30% hits)
+            # FURTHER REDUCED to 0.60 to allow more balls to drop
+            probability = 0.60  # After penalties: 0.60 * 0.92 = 0.55
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
@@ -737,14 +739,24 @@ class Fielder:
         # Apply fielder's hands rating as a multiplier (typically 0.90-0.93 for average)
         probability *= base_secure_prob
 
+        # Line drive penalty - short hang time balls are much harder to catch
+        # Line drives (hang time < 2.5s) require exceptional reactions
+        # This is critical: line drives should have ~75% hit rate in MLB
+        if ball_arrival_time < 2.5:
+            # Scaled penalty: 1.5s hang = 60%, 2.5s hang = 75% of base probability
+            line_drive_penalty = 0.60 + (ball_arrival_time / 2.5) * 0.15
+            probability *= line_drive_penalty
+
         # Distance penalty for long running catches
         # Graduated penalty based on distance to encourage more hits on deep balls
         if distance > 120:
-            probability *= 0.82  # 18% penalty for 120+ ft plays (increased from 12%)
+            probability *= 0.70  # 30% penalty for 120+ ft plays (increased from 18%)
         elif distance > 100:
-            probability *= 0.88  # 12% penalty for 100-120 ft plays
+            probability *= 0.80  # 20% penalty for 100-120 ft plays (increased from 12%)
         elif distance > 80:
-            probability *= 0.93  # 7% penalty for 80-100 ft plays
+            probability *= 0.88  # 12% penalty for 80-100 ft plays (increased from 7%)
+        elif distance > 60:
+            probability *= 0.94  # 6% penalty for 60-80 ft plays (new tier)
 
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY
