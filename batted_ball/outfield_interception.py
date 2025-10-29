@@ -206,12 +206,19 @@ class OutfieldInterceptor:
         for i, point in enumerate(trajectory):
             if i == 0:
                 continue  # Skip contact point
-                
+
             ball_time = point.t
+
+            # Skip very early trajectory (ball still near batter, fielders can't react yet)
+            # Match the threshold used in trajectory_interception system
+            if ball_time < 0.15:
+                continue
+
             ball_pos = np.array([point.x, point.y])
-            
+
             # Only consider points where ball is catchable height (z > 2 ft and z < 12 ft)
-            if point.z < 2.0 * FEET_TO_METERS or point.z > 12.0 * FEET_TO_METERS:
+            # Note: point.z is already in feet (converted at line 82)
+            if point.z < 2.0 or point.z > 12.0:
                 continue
             
             # Calculate distance fielder must travel
