@@ -506,6 +506,18 @@ class PlaySimulator:
                 # Fielder can intercept! Use probabilistic catch model
                 # Catch if ball is above waist height (2.5ft) to allow for low line drive catches
                 if ball_pos_t.z > 2.5:  # Air ball catch attempt
+                    # ANTI-EXPLOIT: Prevent unrealistic early catches near home plate
+                    # Calculate distance from home plate
+                    distance_from_home = math.sqrt(ball_pos_t.x**2 + ball_pos_t.y**2)
+
+                    # Skip catches if ball is too close to home AND still early in flight
+                    # This prevents fielders from "catching" balls at 0.15-0.6s that are still near the batter
+                    # Only allow very close catches for extremely low line drives (z < 3ft) that infielders can grab
+                    if distance_from_home < 100.0 and t < 0.6 and ball_pos_t.z > 3.0:
+                        if debug:
+                            print(f"    {position_name} skipped - ball too close to home ({distance_from_home:.0f}ft) at t={t:.2f}s, z={ball_pos_t.z:.1f}ft")
+                        continue
+
                     # Calculate catch probability using the fielder's model
                     catch_prob = fielder.calculate_catch_probability(ground_position, t)
 
