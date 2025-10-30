@@ -229,7 +229,7 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # - Old q=0.20: EV = 0.20*83 + 1.20*78 = 110 mph (too high!)
 # - New q=0.09: EV = 0.09*83 + 1.09*78 = 93 mph (realistic)
 # Target: Average MLB EV ~88-89 mph, power hitters 92-95 mph
-COLLISION_EFFICIENCY_WOOD = 0.09        # Wood bats (maple, ash, birch) - reduced from 0.20
+COLLISION_EFFICIENCY_WOOD = 0.16        # Wood bats (maple, ash, birch) - calibrated to MLB Statcast EV/HR data
 COLLISION_EFFICIENCY_ALUMINUM = 0.11    # Aluminum bats (BBCOR regulated) - reduced from 0.24
 COLLISION_EFFICIENCY_COMPOSITE = 0.12   # Composite bats (BBCOR regulated) - reduced from 0.25
 

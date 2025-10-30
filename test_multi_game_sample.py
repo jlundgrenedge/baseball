@@ -4,7 +4,7 @@ sys.path.append('.')
 
 from batted_ball import GameSimulator, create_test_team
 
-NUM_GAMES = 10  # Run 10 games to see average
+NUM_GAMES = 20  # Run 20 games to see average
 
 total_runs = 0
 total_hits = 0

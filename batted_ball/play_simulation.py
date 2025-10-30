@@ -391,10 +391,12 @@ class PlaySimulator:
 
         # Debug first few attempts
         debug = False  # Disable debug output
-        # debug = not hasattr(self, 'interception_debug_done')
         # if debug:
-        #     self.interception_debug_done = True
-        #     print(f"INTERCEPTION DEBUG: flight_time={flight_time:.2f}s, peak_height={batted_ball_result.peak_height:.1f}ft")
+        #     if not hasattr(self, 'interception_debug_count'):
+        #         self.interception_debug_count = 0
+        #     self.interception_debug_count += 1
+        #     if self.interception_debug_count > 3:
+        #         debug = False  # Only debug first 3 balls in play
 
         # Sample entire trajectory, checking ALL fielders at each point
         # Skip very early trajectory (first 0.15s or 10% of flight) - ball rising too fast near batter
@@ -410,12 +412,15 @@ class PlaySimulator:
             # Get ball position at time t
             ball_pos_t = self._calculate_ball_position_at_time(batted_ball_result, t)
 
-            if debug and i <= 5:
-                print(f"  t={t:.2f}s: ball at ({ball_pos_t.x:.0f}, {ball_pos_t.y:.0f}, {ball_pos_t.z:.1f})")
+            if debug:
+                print(f"  t={t:.2f}s: ball at ({ball_pos_t.x:.0f}, {ball_pos_t.y:.0f}, {ball_pos_t.z:.1f}ft)")
 
-            # Skip very high fly balls (>20ft) until they come down to more catchable height
-            # This allows fielders to position themselves while ball is descending
-            if ball_pos_t.z > 20.0:
+            # For catchable fly balls, check throughout descent phase
+            # Skip only extremely high balls (>50ft) during first 30% of flight
+            # This allows checks for most fly balls while avoiding premature catches near batter
+            if ball_pos_t.z > 50.0 and t < flight_time * 0.3:
+                if debug:
+                    print(f"    SKIP: ball too high ({ball_pos_t.z:.1f}ft) and still rising")
                 continue
 
             # Check ALL fielders to see who can reach this position
@@ -475,9 +480,10 @@ class PlaySimulator:
                 })
 
                 # Fielders need to arrive with time to spare to attempt catch
-                # Require positive time margin (fielder arrives before ball)
-                # This prevents unrealistic diving catches on deep balls
-                if time_margin >= 0.0:
+                # Require at least some margin for realistic catches
+                # This prevents unrealistic diving catches where fielder barely gets there
+                min_margin = 0.05 if distance > 200 else 0.0
+                if time_margin >= min_margin:
                     candidates.append({
                         'position': position_name,
                         'fielder': fielder,
@@ -541,6 +547,13 @@ class PlaySimulator:
                             f"Caught by {position_name} at {actual_catch_time:.2f}s ({catch_prob:.0%} prob)"
                         ))
                         self.baserunning_simulator.remove_runner("home")
+                        
+                        # Preserve all existing runners (they stay on their bases after fly out)
+                        for base in ["first", "second", "third"]:
+                            runner = self.baserunning_simulator.get_runner_at_base(base)
+                            if runner:
+                                result.final_runner_positions[base] = runner
+                        
                         return True
                     else:
                         # Catch attempt failed - ball drops, continue checking other time points
@@ -712,9 +725,18 @@ class PlaySimulator:
                         fielding_time, "double_play",
                         f"Double play! {position_name} to {force_result['to_base']} to first"
                     ))
-                    # Remove both runners
+                    # Remove both runners (forced runner and batter)
                     self.baserunning_simulator.remove_runner(force_result['from_base'])
                     self.baserunning_simulator.remove_runner("home")
+                    
+                    # Add any OTHER runners (not involved in the DP) to final positions
+                    forced_base = force_result['from_base']
+                    for base in ["first", "second", "third"]:
+                        if base != forced_base:  # Don't include the two runners who were out
+                            other_runner = self.baserunning_simulator.get_runner_at_base(base)
+                            if other_runner:
+                                result.final_runner_positions[base] = other_runner
+                    
                     return True
             
             # Just the force out (no DP or couldn't complete DP)
@@ -734,6 +756,16 @@ class PlaySimulator:
                 self.baserunning_simulator.remove_runner("home")
                 self.baserunning_simulator.add_runner("first", batter_runner)
                 result.outcome = PlayOutcome.SINGLE  # Fielder's choice counted as single
+                result.final_runner_positions["first"] = batter_runner
+                
+                # Add any OTHER runners (not involved in the force) to final positions
+                # The force_result tells us which runner was out
+                forced_base = force_result['from_base']
+                for base in ["first", "second", "third"]:
+                    if base != forced_base and base != "first":  # Don't duplicate batter, don't include forced runner
+                        other_runner = self.baserunning_simulator.get_runner_at_base(base)
+                        if other_runner:
+                            result.final_runner_positions[base] = other_runner
             
             return True
         
@@ -775,6 +807,10 @@ class PlaySimulator:
         if time_difference <= -CLOSE_PLAY_TOLERANCE:
             # Runner beats throw easily
             result.outcome = PlayOutcome.SINGLE
+            batter_runner.current_base = "first"
+            self.baserunning_simulator.remove_runner("home")
+            self.baserunning_simulator.add_runner("first", batter_runner)
+            result.final_runner_positions["first"] = batter_runner
             result.add_event(PlayEvent(
                 runner_time_to_first, "safe_at_first",
                 f"Safe at first, beats throw by {abs(time_difference):.2f}s"
@@ -804,6 +840,13 @@ class PlaySimulator:
                 f"Ground out to {position_name}, throw beats runner by {time_difference:.2f}s"
             ))
             self.baserunning_simulator.remove_runner("home")
+            
+            # Preserve all existing runners (they stay on their bases after ground out)
+            for base in ["first", "second", "third"]:
+                other_runner = self.baserunning_simulator.get_runner_at_base(base)
+                if other_runner:
+                    result.final_runner_positions[base] = other_runner
+            
             if debug:
                 print(f"      GROUND OUT to {position_name}!")
             return True
@@ -977,10 +1020,10 @@ class PlaySimulator:
             if distance_ft >= fence_distance - 5:  # 5 ft cushion for measurement variance
                 result.outcome = PlayOutcome.HOME_RUN
                 result.runs_scored = 1
-            elif distance_ft > 340 and 10 < abs_angle < 50 and exit_velocity >= 90:
-                # Fair contact can produce triples only with good EV in gaps
+            elif distance_ft > 300 and 10 < abs_angle < 50 and exit_velocity >= 88:
+                # Fair contact can produce triples with decent EV in gaps
                 result.outcome = PlayOutcome.TRIPLE
-            elif distance_ft > 260:
+            elif distance_ft > 230:
                 result.outcome = PlayOutcome.DOUBLE
             else:
                 result.outcome = PlayOutcome.SINGLE
@@ -991,12 +1034,12 @@ class PlaySimulator:
             if distance_ft >= fence_distance - 5:  # 5 ft cushion
                 result.outcome = PlayOutcome.HOME_RUN
                 result.runs_scored = 1
-            # Triples are RARE - only for balls in the gap that roll far
-            # Require 340+ ft AND in the gap (10-50° angle)
-            elif distance_ft > 340 and 10 < abs_angle < 50:
+            # Triples are RARE but achievable - balls in gaps that roll far
+            # Require 300+ ft AND in the gap (10-50° angle)
+            elif distance_ft > 300 and 10 < abs_angle < 50:
                 result.outcome = PlayOutcome.TRIPLE
-            # Doubles for well-hit balls to the gaps or down the lines
-            elif distance_ft > 260:
+            # Doubles for well-hit balls to the outfield - lower threshold for more doubles
+            elif distance_ft > 230:
                 result.outcome = PlayOutcome.DOUBLE
             else:
                 result.outcome = PlayOutcome.SINGLE
@@ -1018,11 +1061,15 @@ class PlaySimulator:
         # DEBUG FLAG - set to True to see baserunning decisions
         DEBUG_BASERUNNING = False
         
-        # Get batter runner
+        # Get batter runner - they might already be on first base
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
         if not batter_runner:
+            # Batter might already have been moved to first - check there
+            batter_runner = self.baserunning_simulator.get_runner_at_base("first")
+        
+        if not batter_runner:
             if DEBUG_BASERUNNING:
-                print(f"  [BR] No batter runner found!")
+                print(f"  [BR] No batter runner found at home or first!")
             return
         
         # Map outcome to hit type for decision logic
@@ -1050,20 +1097,15 @@ class PlaySimulator:
         fielder_position = result.primary_fielder.position if result.primary_fielder else "CF"
         fielder_arm = result.primary_fielder.arm_strength if result.primary_fielder else 50.0
         
-        # Place batter on appropriate base (this is certain)
+        # Determine target base for batter
         base_map = {
             "single": "first",
             "double": "second", 
             "triple": "third"
         }
         batter_base = base_map[hit_type]
-        batter_runner.current_base = batter_base
-        self.baserunning_simulator.remove_runner("home")
-        self.baserunning_simulator.add_runner(batter_base, batter_runner)
-        result.final_runner_positions[batter_base] = batter_runner
         
-        # Handle existing runners with smart decision logic
-        # Process runners in reverse order (3rd, 2nd, 1st) to avoid base conflicts
+        # FIRST: Get existing runners BEFORE placing batter (so we don't overwrite them!)
         runners_to_process = []
         for base in ["third", "second", "first"]:
             if base in self.baserunning_simulator.runners:
@@ -1074,6 +1116,17 @@ class PlaySimulator:
         if DEBUG_BASERUNNING:
             print(f"  [BR] Hit type: {hit_type}, Runners to process: {[base for base, _ in runners_to_process]}")
         
+        # THEN: Place batter on appropriate base
+        if batter_runner.current_base != batter_base:
+            batter_runner.current_base = batter_base
+            # Remove from wherever they currently are
+            if self.baserunning_simulator.get_runner_at_base("home") == batter_runner:
+                self.baserunning_simulator.remove_runner("home")
+            self.baserunning_simulator.add_runner(batter_base, batter_runner)
+        
+        result.final_runner_positions[batter_base] = batter_runner
+        
+        # Handle existing runners with smart decision logic
         # Track which bases will be occupied after all movements
         new_positions = {batter_base: batter_runner}
         runners_to_remove = []
@@ -1244,6 +1297,12 @@ class PlaySimulator:
         
         # Remove batter-runner
         self.baserunning_simulator.remove_runner("home")
+        
+        # Preserve all existing runners (they stay on their bases after fly out)
+        for base in ["first", "second", "third"]:
+            runner = self.baserunning_simulator.get_runner_at_base(base)
+            if runner:
+                result.final_runner_positions[base] = runner
     
     def _handle_ball_in_play(self, ball_position: FieldPosition,
                             ball_time: float, result: PlayResult):
@@ -1332,8 +1391,17 @@ class PlaySimulator:
         # ENHANCED LOGGING: Add detailed outfield interception analysis
         self._log_outfield_interception_details(interception_result, ball_position, ball_time, result)
         
+        # CRITICAL FIX: If ball was not caught in the air during trajectory interception,
+        # it's a HIT. The outfield interception system should ONLY be used for timing
+        # how long it takes to retrieve the ball, NOT for making outs/force plays.
+        # The ball has already dropped - it's a hit!
+        
+        # Determine hit type first (this is a hit since trajectory interception failed)
+        self._determine_hit_type(ball_position, distance_ft, result)
+        
+        # Now calculate ball retrieval time for baserunning decisions
         if interception_result.can_be_fielded:
-            # Use interception-based timing
+            # Use interception-based timing for how long it takes fielder to run down the ball
             ball_retrieved_time = interception_result.interception_time
             responsible_position = interception_result.fielding_position
             fielder = interception_result.fielding_fielder
@@ -1342,13 +1410,10 @@ class PlaySimulator:
             location_desc = self._describe_field_location(ball_position)
             result.add_event(PlayEvent(
                 ball_retrieved_time, "ball_retrieved",
-                f"Ball intercepted by {responsible_position} in {location_desc} at {ball_retrieved_time:.2f}s ({interception_result.interception_type})"
+                f"Ball retrieved by {responsible_position} in {location_desc} at {ball_retrieved_time:.2f}s ({interception_result.interception_type})"
             ))
         else:
-            # No fielder could intercept - determine hit type
-            self._determine_hit_type(ball_position, distance_ft, result)
-            
-            # Fallback to old method if interception fails
+            # Fallback timing if interception system fails
             responsible_position = self.fielding_simulator.determine_responsible_fielder(
                 ball_position, ball_time
             )
@@ -1359,7 +1424,7 @@ class PlaySimulator:
             location_desc = self._describe_field_location(ball_position)
             result.add_event(PlayEvent(
                 ball_retrieved_time, "ball_retrieved",
-                f"Ball retrieved by {responsible_position} in {location_desc} at {ball_retrieved_time:.2f}s (OLD FALLBACK - interception failed)"
+                f"Ball retrieved by {responsible_position} in {location_desc} at {ball_retrieved_time:.2f}s"
             ))
 
         # ENHANCED LOGGING: Add detailed baserunning race analysis
@@ -1367,7 +1432,7 @@ class PlaySimulator:
         if not batter_runner:
             return  # Safety check
 
-        # Calculate runner times to each base
+        # Calculate batter runner times to each base (for logging and first base check)
         time_to_first = batter_runner.calculate_time_to_base("home", "first", include_leadoff=False)
         time_to_second = batter_runner.calculate_time_to_base("home", "second", include_leadoff=False)
         time_to_third = batter_runner.calculate_time_to_base("home", "third", include_leadoff=False)
@@ -1377,10 +1442,10 @@ class PlaySimulator:
                        batter_runner.calculate_time_to_base("second", "third", include_leadoff=False) +
                        batter_runner.calculate_time_to_base("third", "home", include_leadoff=False))
 
-        # Log runner timing analysis
+        # Log batter runner timing analysis
         result.add_event(PlayEvent(
             ball_retrieved_time + 0.01, "baserunning_analysis",
-            f"Runner times - 1st: {time_to_first:.2f}s, 2nd: {time_to_second:.2f}s, 3rd: {time_to_third:.2f}s, home: {time_to_home:.2f}s"
+            f"Batter runner times - 1st: {time_to_first:.2f}s, 2nd: {time_to_second:.2f}s, 3rd: {time_to_third:.2f}s, home: {time_to_home:.2f}s"
         ))
 
         # Calculate fielder throw times to each base (with transfer time)
@@ -1412,94 +1477,142 @@ class PlaySimulator:
             f"Ball arrival times - 1st: {ball_at_first:.2f}s, 2nd: {ball_at_second:.2f}s, 3rd: {ball_at_third:.2f}s, home: {ball_at_home:.2f}s"
         ))
 
-        # Determine how far runner can go (with realistic margin)
-        # FIX: Make baserunning more aggressive to increase scoring
-        # If we're in _handle_ball_in_play, the ball was NOT caught
-        # (caught balls exit earlier with fly out), so always use aggressive margins
-
-        # Adjust margin based on ball distance:
-        # - Deep balls (280+ ft): very aggressive (willing to risk being thrown out)
-        # - Moderate depth: still aggressive (try if close)
-        if distance_ft >= 280:
-            # Deep ball that dropped - be very aggressive!
-            # Allow negative margins (runner willing to risk being thrown out)
-            SAFE_MARGIN = -0.5  # Willing to try even if ball might beat runner
-            margin_note = f"deep ball ({distance_ft:.0f}ft) dropped, very aggressive"
-        else:
-            # Moderate depth ball that dropped - still aggressive
-            SAFE_MARGIN = 0.0  # Try if runner can make it close
-            margin_note = f"ball ({distance_ft:.0f}ft) dropped, aggressive"
-
-        # Calculate margins for each base
-        margin_first = ball_at_first - time_to_first
-        margin_second = ball_at_second - time_to_second
-        margin_third = ball_at_third - time_to_third
-        margin_home = ball_at_home - time_to_home
-
-        result.add_event(PlayEvent(
-            ball_retrieved_time + 0.04, "margin_analysis",
-            f"Runner margins (positive = runner beats ball) - 1st: {margin_first:+.2f}s, 2nd: {margin_second:+.2f}s, 3rd: {margin_third:+.2f}s, home: {margin_home:+.2f}s ({margin_note})"
-        ))
-
-        # Can runner make home? (inside-the-park home run)
-        if time_to_home + SAFE_MARGIN < ball_at_home:
-            bases_to_try = 4  # Try for home
-            decision_reason = f"home run attempt (margin: {margin_home - SAFE_MARGIN:.2f}s)"
-        # Can runner make third?
-        elif time_to_third + SAFE_MARGIN < ball_at_third:
-            bases_to_try = 3
-            decision_reason = f"triple attempt (margin: {margin_third - SAFE_MARGIN:.2f}s)"
-        # Can runner make second?
-        elif time_to_second + SAFE_MARGIN < ball_at_second:
-            bases_to_try = 2
-            decision_reason = f"double attempt (margin: {margin_second - SAFE_MARGIN:.2f}s)"
-        # Just try for first
-        else:
-            bases_to_try = 1
-            decision_reason = f"single attempt (insufficient margin for 2nd: {margin_second - SAFE_MARGIN:.2f}s)"
-
-        result.add_event(PlayEvent(
-            ball_retrieved_time + 0.05, "baserunning_decision",
-            f"Runner decision: {decision_reason}"
-        ))
-
-        # Simulate the actual attempt based on decision
-        if bases_to_try >= 2:
-            # Advance existing runners proportionally
-            runner_results = self.baserunning_simulator.advance_all_runners(bases_to_try)
-            result.baserunning_results.extend(runner_results)
-
-        # Determine outcome for batter
-        if bases_to_try == 4:
-            # Inside-the-park home run attempt
-            if time_to_home < ball_at_home:
-                result.outcome = PlayOutcome.HOME_RUN
-                result.runs_scored = 1
-                self.baserunning_simulator.remove_runner("home")
+        # NEW APPROACH: Determine hit type based on ball location and distance
+        # Then use decide_runner_advancement() for existing runners
+        # This accounts for each runner's position and the specific situation
+        
+        # Classify hit type based on distance and field location
+        # These thresholds are based on typical MLB outcomes:
+        # - 175-250 ft: Usually singles, sometimes doubles to gaps
+        # - 250-325 ft: Usually doubles, sometimes triples to gaps
+        # - 325+ ft: Usually triples or home runs
+        
+        # Adjust thresholds based on ball location (gaps allow more advancement)
+        is_gap_hit = False
+        abs_x = abs(ball_position.x)
+        abs_y = ball_position.y
+        # Left-center or right-center gap (large X, moderate-deep Y)
+        if abs_x > 150 and abs_y > 200:
+            is_gap_hit = True
+        
+        # Determine base hit type for batter
+        if distance_ft >= 325:
+            # Very deep - likely triple or inside-the-park HR
+            # Check if batter can actually make it home
+            if time_to_home < ball_at_home - 0.5:  # Good margin for home
+                batter_hit_type = "home_run"
+                bases_for_batter = 4
             else:
-                result.outcome = PlayOutcome.TRIPLE  # Held at third
+                batter_hit_type = "triple"
+                bases_for_batter = 3
+        elif distance_ft >= 230 or (distance_ft >= 200 and is_gap_hit):
+            # Deep enough for double, or gap hit
+            # Check if batter can actually make second base
+            if time_to_second < ball_at_second:  # Can make second safely
+                batter_hit_type = "double"
+                bases_for_batter = 2
+            else:
+                batter_hit_type = "single"
+                bases_for_batter = 1
+        else:
+            # Standard single range
+            # Check if batter beats throw to first
+            if time_to_first < ball_at_first - 0.1:  # Safe at first
+                batter_hit_type = "single"
+                bases_for_batter = 1
+            else:
+                # Ball beats batter to first - will be handled below
+                batter_hit_type = "single"  # Attempt single
+                bases_for_batter = 1
+
+        # Log batter decision
+        result.add_event(PlayEvent(
+            ball_retrieved_time + 0.04, "batter_decision",
+            f"Batter: {batter_hit_type} (distance: {distance_ft:.0f}ft, gap: {is_gap_hit})"
+        ))
+
+        # FIX: For singles (bases_for_batter == 1), use _handle_hit_baserunning
+        # which properly calls decide_runner_advancement() for each runner
+        # CRITICAL: Do NOT throw to first on fly balls that drop - these are clean hits!
+        # The ball was not caught, so batter should be safe at first
+        if bases_for_batter == 1:
+            result.outcome = PlayOutcome.SINGLE
+            # Let _handle_hit_baserunning handle batter and all runners with smart decisions
+            self._handle_hit_baserunning(result, self.current_outs)
+                
+        # For extra-base hits (doubles, triples, HR), handle runners using decide_runner_advancement
+        elif bases_for_batter >= 2:
+            # Get existing runners BEFORE moving batter
+            existing_runners = []
+            for base in ["first", "second", "third"]:
+                runner = self.baserunning_simulator.get_runner_at_base(base)
+                if runner:
+                    existing_runners.append((base, runner))
+            
+            # Use decide_runner_advancement for each existing runner
+            for base, runner in existing_runners:
+                # Get runner attributes
+                runner_speed = getattr(runner, 'sprint_speed', 50.0)
+                runner_br_iq = getattr(runner, 'base_running_iq', 50.0)
+                
+                # Get fielder arm strength
+                fielder_arm = getattr(fielder, 'arm_strength', 50.0)
+                
+                # Make baserunning decision
+                decision = decide_runner_advancement(
+                    current_base=base,
+                    hit_type=batter_hit_type,  # "double", "triple", or "home_run"
+                    ball_location=ball_position,
+                    fielder_position=responsible_position,
+                    fielder_arm_strength=fielder_arm,
+                    is_fly_ball=False,
+                    fly_ball_depth=0.0,
+                    runner_speed_rating=runner_speed,
+                    runner_baserunning_rating=runner_br_iq,
+                    is_forced=False,
+                    outs=self.current_outs
+                )
+                
+                target_base = decision["target_base"]
+                
+                # Log runner decision
+                result.add_event(PlayEvent(
+                    ball_retrieved_time + 0.05, "runner_advancement",
+                    f"Runner on {base} -> {target_base} (risk: {decision['risk_level']})"
+                ))
+                
+                # Move runner
+                if target_base == "home":
+                    result.runs_scored += 1
+                    self.baserunning_simulator.remove_runner(base)
+                else:
+                    runner.current_base = target_base
+                    self.baserunning_simulator.remove_runner(base)
+                    self.baserunning_simulator.add_runner(target_base, runner)
+                    result.final_runner_positions[target_base] = runner
+            
+            # Now handle the batter
+            if bases_for_batter == 4:
+                # Inside-the-park home run
+                result.outcome = PlayOutcome.HOME_RUN
+                result.runs_scored += 1
+                self.baserunning_simulator.remove_runner("home")
+                result.add_event(PlayEvent(
+                    ball_retrieved_time + 0.06, "batter_scores",
+                    f"Batter scores on inside-the-park home run!"
+                ))
+            elif bases_for_batter == 3:
+                result.outcome = PlayOutcome.TRIPLE
                 batter_runner.current_base = "third"
                 self.baserunning_simulator.remove_runner("home")
                 self.baserunning_simulator.add_runner("third", batter_runner)
-        elif bases_to_try == 3:
-            result.outcome = PlayOutcome.TRIPLE
-            batter_runner.current_base = "third"
-            self.baserunning_simulator.remove_runner("home")
-            self.baserunning_simulator.add_runner("third", batter_runner)
-        elif bases_to_try == 2:
-            result.outcome = PlayOutcome.DOUBLE
-            batter_runner.current_base = "second"
-            self.baserunning_simulator.remove_runner("home")
-            self.baserunning_simulator.add_runner("second", batter_runner)
-        else:
-            # Try for first - simulate throw
-            if ball_at_first < time_to_first - 0.1:  # Ball beats runner
-                self._simulate_throw_to_first(fielder, ball_retrieved_time, batter_runner, result)
-            else:
-                result.outcome = PlayOutcome.SINGLE
-                batter_runner.current_base = "first"
+                result.final_runner_positions["third"] = batter_runner
+            elif bases_for_batter == 2:
+                result.outcome = PlayOutcome.DOUBLE
+                batter_runner.current_base = "second"
                 self.baserunning_simulator.remove_runner("home")
-                self.baserunning_simulator.add_runner("first", batter_runner)
+                self.baserunning_simulator.add_runner("second", batter_runner)
+                result.final_runner_positions["second"] = batter_runner
     
     def _handle_ground_ball(self, ball_position: FieldPosition, result: PlayResult):
         """
@@ -1549,6 +1662,13 @@ class PlaySimulator:
             
             if closest_fielder is None:
                 result.outcome = PlayOutcome.SINGLE
+                # Place batter on first
+                batter_runner = self.baserunning_simulator.get_runner_at_base("home")
+                if batter_runner:
+                    batter_runner.current_base = "first"
+                    self.baserunning_simulator.remove_runner("home")
+                    self.baserunning_simulator.add_runner("first", batter_runner)
+                    result.final_runner_positions["first"] = batter_runner
                 return
             
             # Simple fielding for weak hits (quick pickup)
@@ -1850,28 +1970,31 @@ class PlaySimulator:
             # Runner beats throw easily
             outcome = "safe"
             result.outcome = PlayOutcome.SINGLE
+            batter_runner.current_base = "first"
+            self.baserunning_simulator.remove_runner("home")
+            self.baserunning_simulator.add_runner("first", batter_runner)
+            result.final_runner_positions["first"] = batter_runner
         elif time_difference <= SAFE_RUNNER_BIAS:
             # Close play, tie goes to runner
             outcome = "safe"
             result.outcome = PlayOutcome.SINGLE
+            batter_runner.current_base = "first"
+            self.baserunning_simulator.remove_runner("home")
+            self.baserunning_simulator.add_runner("first", batter_runner)
+            result.final_runner_positions["first"] = batter_runner
         else:
             # Ball beats runner
             outcome = "out"
             result.outcome = PlayOutcome.GROUND_OUT
             result.outs_made = 1
+            self.baserunning_simulator.remove_runner("home")
         
         result.add_event(PlayEvent(
             max(throw_arrival_time, runner_arrival_time), "play_at_first",
             f"Runner {outcome} at first base (runner {runner_arrival_time:.2f}s vs ball {throw_arrival_time:.2f}s)"
         ))
         
-        # Update runner status
-        if outcome == "safe":
-            batter_runner.current_base = "first"
-            self.baserunning_simulator.remove_runner("home")
-            self.baserunning_simulator.add_runner("first", batter_runner)
-        else:
-            self.baserunning_simulator.remove_runner("home")
+        # Update runner status is now handled above in the outcome determination
 
     def _estimate_ground_ball_roll_time(self, distance_to_fielder: float,
                                         exit_velocity_fps: float,

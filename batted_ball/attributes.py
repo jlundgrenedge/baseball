@@ -136,17 +136,17 @@ class HitterAttributes:
         """
         Convert BAT_SPEED rating to barrel speed (mph).
 
-        Anchors:
-        - 0: 45 mph (weak/youth)
-        - 50k: 63 mph (average MLB)
-        - 85k: 73 mph (elite MLB)
-        - 100k: 85 mph (superhuman)
+        Anchors (calibrated to MLB Statcast 2024 data):
+        - 0: 52 mph (weak/youth)
+        - 50k: 70 mph (average MLB - matches Statcast avg)
+        - 85k: 80 mph (elite MLB - top 10%)
+        - 100k: 92 mph (superhuman)
         """
         return piecewise_logistic_map(
             self.BAT_SPEED,
-            human_min=45.0,
-            human_cap=73.0,
-            super_cap=85.0
+            human_min=52.0,
+            human_cap=80.0,
+            super_cap=92.0
         )
 
     def get_attack_angle_mean_deg(self) -> float:

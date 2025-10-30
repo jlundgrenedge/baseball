@@ -864,9 +864,9 @@ def decide_runner_advancement(
             }
         
         elif current_base == "second":
-            # Usually score from 2nd on single
-            # Don't score only if: strong arm CF + shallow single
-            if fielder_position == "CF" and fielder_arm_strength > 75 and distance < 180:
+            # AGGRESSIVE: Score from 2nd on single almost always
+            # Only stop at third if: elite arm CF + very shallow single
+            if fielder_position == "CF" and fielder_arm_strength > 80 and distance < 150:
                 return {
                     "target_base": "third",
                     "should_tag_up": False,
@@ -874,6 +874,7 @@ def decide_runner_advancement(
                     "risk_level": "safe"
                 }
             else:
+                # Score from 2nd on singles (MLB standard play)
                 return {
                     "target_base": "home",
                     "should_tag_up": False,
@@ -882,27 +883,23 @@ def decide_runner_advancement(
                 }
         
         elif current_base == "first":
-            # First to third opportunity on single
-            # Go for it if: ball to RF, weak arm, deep ball, good baserunning
-            angle = np.arctan2(ball_location.x, ball_location.y) * 180 / np.pi
-            is_to_right_field = angle > 20  # Ball to right side
-            
-            if (is_to_right_field and 
-                (fielder_arm_strength < 60 or distance > 250) and
-                runner_baserunning_rating > 60):
+            # AGGRESSIVE: First to third on deep outfield singles
+            # 180+ ft threshold (balls well into outfield)
+            if distance > 180:  # Deep outfield hit
                 return {
                     "target_base": "third",
                     "should_tag_up": False,
                     "advancement_bases": 2,
                     "risk_level": "aggressive"
                 }
-            else:
-                return {
-                    "target_base": "second",
-                    "should_tag_up": False,
-                    "advancement_bases": 1,
-                    "risk_level": "safe"
-                }
+            
+            # Stay at second for shallow hits
+            return {
+                "target_base": "second",
+                "should_tag_up": False,
+                "advancement_bases": 1,
+                "risk_level": "safe"
+            }
     
     # Doubles
     elif hit_type == "double":
@@ -916,9 +913,9 @@ def decide_runner_advancement(
             }
         
         elif current_base == "second":
-            # Score from 2nd on double MOST of the time
-            # Don't score only if: shallow double to CF with strong arm
-            if fielder_position == "CF" and fielder_arm_strength > 75 and distance < 300:
+            # AGGRESSIVE: Score from 2nd on double almost always
+            # Only stop at third if: very shallow double to CF with elite arm
+            if fielder_position == "CF" and fielder_arm_strength > 80 and distance < 250:
                 return {
                     "target_base": "third",
                     "should_tag_up": False,
@@ -926,7 +923,7 @@ def decide_runner_advancement(
                     "risk_level": "safe"
                 }
             else:
-                # Usually score from 2nd on double
+                # Score from 2nd on doubles (MLB standard play)
                 return {
                     "target_base": "home",
                     "should_tag_up": False,
@@ -935,15 +932,27 @@ def decide_runner_advancement(
                 }
         
         elif current_base == "first":
-            # First to third on double (rarely try to score)
-            if outs == 2 and runner_speed_rating > 75 and distance > 380:
+            # ULTRA AGGRESSIVE: Score from 1st on doubles more often
+            # With 2 outs: almost always try (300+ ft)
+            # With 0-1 outs: fast runners on deep doubles (350+ ft)
+            if outs == 2 and distance > 300:
+                # 2 outs: take the risk on any decent double
                 return {
                     "target_base": "home",
                     "should_tag_up": False,
                     "advancement_bases": 3,
-                    "risk_level": "very_risky"
+                    "risk_level": "aggressive"
+                }
+            elif distance > 350 and runner_speed_rating > 60:
+                # Deep doubles with decent speed
+                return {
+                    "target_base": "home",
+                    "should_tag_up": False,
+                    "advancement_bases": 3,
+                    "risk_level": "aggressive"
                 }
             else:
+                # Go to third (standard)
                 return {
                     "target_base": "third",
                     "should_tag_up": False,

@@ -1,97 +1,2072 @@
+========================================
+Baseball Game Simulation
+========================================
+
+This runs a complete baseball game simulation that integrates
+all the physics components for realistic gameplay:
+
+- Pitch-by-pitch simulation with realistic physics
+- Bat-ball collision mechanics with exit velocity/launch angle
+- Fielding physics with reaction time, speed, and range
+- Baserunning mechanics with acceleration and timing
+- Complete play outcomes based on timing comparisons
+
+You can choose between quick demos or full 9-inning games
+with teams of different skill levels.
+
+Press any key to continue . . .
+
+Running game simulation...
+BASEBALL GAME SIMULATION DEMO
+==================================================
+
+This demonstration shows the complete game simulation system
+that integrates all physics components:
+- Realistic pitch simulation
+- Bat-ball collision physics
+- Fielding mechanics with reaction time and range
+- Baserunning physics and timing
+- Complete play outcomes based on timing comparisons
+
+Choose simulation type:
+1. Quick Game (3 innings)
+2. Full Game (9 innings)
+3. Custom Team Matchup
+4. Quality Comparison Game
+
+Enter choice (1-4): 2
+
+============================================================
+FULL GAME SIMULATION - 9 INNINGS
+============================================================
+    Starter: 95.8 mph, 2612 rpm, 106 pitch stamina
+    Reliever: 99.3 mph, 2672 rpm, 50 pitch stamina
+    Reliever: 97.4 mph, 2669 rpm, 50 pitch stamina
+    C: line drive hitter (bat: 72.4 mph, angle: 14.2°)
+    1B: power hitter (bat: 82.6 mph, angle: 27.3°)
+    2B: power hitter (bat: 78.9 mph, angle: 27.1°)
+    3B: balanced hitter (bat: 72.0 mph, angle: 15.8°)
+    SS: balanced hitter (bat: 68.8 mph, angle: 16.1°)
+    LF: balanced hitter (bat: 71.6 mph, angle: 16.7°)
+    CF: fly ball hitter (bat: 76.8 mph, angle: 27.3°)
+    RF: line drive hitter (bat: 72.4 mph, angle: 15.5°)
+    DH: line drive hitter (bat: 69.8 mph, angle: 15.8°)
 
 ================================================================================
-GAME START: Visitors @ Home Team
+GAME START: Road Warriors @ Home Heroes
 ================================================================================
 
-    Play timeline:
-      [ 0.00s] Ball hit to infield (contact)
-      [ 0.00s] Ground ball coordinates: (-7.8, 18.6) ft, distance 20.2 ft from home (ground_ball_analysis)
-      [ 0.30s] Weakly hit ball near home plate (20 ft) (weak_hit)
-      [ 0.31s] Fielder distances - pitcher: 42.6 ft, catcher: 22.1 ft, first_base: 82.8 ft, third_base: 67.2 ft. Closest: catcher (weak_hit_fielder_analysis)
-      [ 1.54s] Weak ground ball fielded by catcher (weak_hit_fielded)
-      [ 1.99s] Throw to first base at 81.0 mph (release 1.99s, flight 0.80s) (throw_to_first)
-      [ 3.84s] Runner out at first base (runner 3.84s vs ball 2.78s) (play_at_first)
-    Play timeline:
-      [ 0.00s] Ball hit to right outfield (contact)
-      [ 0.00s] Ground ball coordinates: (87.9, 205.2) ft, distance 223.3 ft from home (ground_ball_analysis)
-      [ 0.10s] Interception: second_base travels 157.1 ft from (40.0, 55.0) to (96.2, 201.7), margin +7.14s (ground_ball_interception_analysis)
-      [ 2.14s] Ground ball fielded by second_base at (96.2, 201.7) in 2.14s (ground_ball_fielded)
-      [ 3.75s] Force out at third (margin: 3.57s) (force_out)
-    Play timeline:
-      [ 0.00s] Ball hit to right outfield (contact)
-      [ 0.00s] Fly ball coordinates: (154.8, 163.2) ft, distance 224.9 ft, hang time 2.34s (fly_ball_analysis)
-      [ 0.05s] Fielder analysis - left_field: 307.2ft, margin -6.54s (too far); center_field: 213.4ft, margin -3.86s (too far); right_field: 103.7ft, margin -0.72s (too far); first_base: 163.9ft, margin -2.44s (too far); second_base: 157.7ft, margin -2.27s (too far); third_base: 270.7ft, margin -5.50s (too far) (fly_ball_fielder_analysis)
-      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
-      [ 2.32s] Ball intercepted by left_field in right outfield at 2.32s (air_catch) (ball_retrieved)
-      [ 2.34s] Ball drops in right outfield, right_field couldn't reach it (ball_drops)
-      [ 2.34s] Ball in play at (154.8, 163.2) ft, distance 224.9 ft, peak height 23.3 ft (outfield_ball_analysis)
-      [ 2.35s] Spray angle: 43.5° from center field (trajectory_analysis)
-      [ 2.36s] Outfield interception: left_field (air_catch) travels 513.6 ft from (-135.0, 265.0) to (162.2, -153.9) at 2.32s, margin +23.26s (outfield_interception_analysis)
-    Fielding breakdown:
-      Right Field: ball 2.34s, arrival 4.31s (margin -1.97s) -> missed
-    Play timeline:
-      [ 0.00s] Ball hit to deep outfield (contact)
-      [ 0.00s] Fly ball coordinates: (74.7, 335.8) ft, distance 344.0 ft, hang time 3.65s (fly_ball_analysis)
-      [ 0.05s] Fielder analysis - left_field: 221.3ft, margin -2.77s (too far); center_field: 79.0ft, margin 1.29s (can reach); right_field: 93.0ft, margin 0.89s (can reach) (fly_ball_fielder_analysis)
-      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
-      [ 3.65s] Caught by center_field at deep outfield (catch)
-    Fielding breakdown:
-      Center Field: ball 3.65s, arrival 3.26s (margin +0.39s) -> made play
-    Play timeline:
-      [ 0.00s] Ball hit to shallow right outfield (contact)
-      [ 0.00s] Ground ball coordinates: (53.5, 144.5) ft, distance 154.1 ft from home (ground_ball_analysis)
-      [ 0.10s] Interception: second_base travels 89.1 ft from (40.0, 55.0) to (61.9, 141.4), margin +4.05s (ground_ball_interception_analysis)
-      [ 1.60s] Ground ball fielded by second_base at (61.9, 141.4) in 1.60s (ground_ball_fielded)
-      [ 1.96s] Throw to first base at 87.7 mph (release 1.96s, flight 0.61s) (throw_to_first)
-      [ 5.18s] Runner out at first base (runner 5.18s vs ball 2.56s) (play_at_first)
+
+============================================================
+Top 1 | 0-0 | 0 out | Runners: empty
+============================================================
+
+Road Warriors C batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 91.8->82.6 mph to (0.09', 2.69') [0-0 -> 0-0] put in play (contact: solid, EV 82.5 mph, LA 29.3°)
+  ⚾ Fly out to outfield
+    Physics: EV=82.5 mph, LA=29.3°, Dist=291.1 ft, Hang=3.77s, Peak=53.4 ft, Contact: solid
+    Pitch: fastball 82.6 mph at zone (0.1', 2.7')
     Play timeline:
       [ 0.00s] Ball hit to deep right outfield (contact)
-      [ 0.00s] Fly ball coordinates: (129.9, 322.0) ft, distance 347.2 ft, hang time 4.53s (fly_ball_analysis)
-      [ 0.05s] Fielder analysis - left_field: 270.9ft, margin -3.31s (too far); center_field: 130.4ft, margin 0.71s (can reach); right_field: 57.2ft, margin 2.80s (can reach) (fly_ball_fielder_analysis)
+      [ 0.00s] Fly ball coordinates: (149.6, 249.8) ft, distance 291.1 ft, hang time 3.77s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 285.0ft, margin -6.44s (too far); center_field: 161.3ft, margin -2.11s (too far); right_field: 21.1ft, margin 2.76s (can reach) (fly_ball_fielder_analysis)
       [ 0.06s] Assigned to: right_field (fly_ball_assignment)
-      [ 4.53s] Caught by right_field at deep right outfield (catch)
+      [ 3.77s] Caught by right_field at deep right outfield (catch)
     Fielding breakdown:
-      Right Field: ball 4.53s, arrival 2.32s (margin +2.21s) -> made play
+      Right Field: ball 3.77s, arrival 1.10s (margin +2.67s) -> made play
+
+Road Warriors 1B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 91.8->82.5 mph to (-0.08', 3.04') [0-0 -> 0-1] swing and miss
+    #2: fastball 91.7->82.4 mph to (-0.63', 3.35') [0-1 -> 0-2] swing and miss
+    #3: fastball 91.7->82.4 mph to (0.67', 3.40') [0-2 -> 0-2] put in play (contact: fair, EV 90.9 mph, LA 30.1°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=90.9 mph, LA=30.1°, Dist=338.0 ft, Hang=4.26s, Peak=66.9 ft, Contact: fair
+    Pitch: fastball 82.4 mph at zone (0.7', 3.4')
     Play timeline:
       [ 0.00s] Ball hit to deep outfield (contact)
-      [ 0.00s] Fly ball coordinates: (-66.2, 282.8) ft, distance 290.4 ft, hang time 3.76s (fly_ball_analysis)
-      [ 0.05s] Fielder analysis - left_field: 71.1ft, margin 1.63s (can reach); center_field: 71.5ft, margin 1.62s (can reach); right_field: 202.0ft, margin -2.11s (too far) (fly_ball_fielder_analysis)
+      [ 0.00s] Fly ball coordinates: (112.3, 318.8) ft, distance 338.0 ft, hang time 4.26s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 253.1ft, margin -4.83s (too far); center_field: 112.7ft, margin 0.10s (can reach); right_field: 58.4ft, margin 1.85s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 4.23s] Ball retrieved by left_field in deep right outfield at 4.23s (air_catch) (ball_retrieved)
+      [ 4.26s] Ball drops in deep outfield, center_field couldn't reach it (ball_drops)
+      [ 4.26s] Ball in play at (112.3, 318.8) ft, distance 338.0 ft, peak height 66.9 ft (outfield_ball_analysis)
+      [ 4.27s] Spray angle: 19.4° from center field (trajectory_analysis)
+      [ 4.28s] Outfield interception: left_field (air_catch) travels 588.2 ft from (-135.0, 265.0) to (316.8, -111.7) at 4.23s, margin +16.60s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 4.26s, arrival 4.15s (margin +0.11s) -> missed
+    Runners after play: Road Warriors 1B on second
+
+Road Warriors 2B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 91.7->82.6 mph to (-0.68', 1.94') [0-0 -> 0-1] fouled off (contact: weak, EV 87.0 mph, LA 24.0°)
+    #2: fastball 91.6->82.4 mph to (0.52', 2.60') [0-1 -> 0-2] taken for strike
+    #3: fastball 91.6->82.6 mph to (-0.20', 0.88') [0-2 -> 1-2] taken for ball
+    #4: fastball 91.6->82.3 mph to (-0.14', 3.28') [1-2 -> 1-2] put in play (contact: fair, EV 87.0 mph, LA 41.8°)
+  ⚾ Fly out to outfield
+    Physics: EV=87.0 mph, LA=41.8°, Dist=321.6 ft, Hang=5.05s, Peak=97.4 ft, Contact: fair
+    Pitch: fastball 82.3 mph at zone (-0.1', 3.3')
+    Play timeline:
+      [ 0.00s] Ball hit to deep right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (126.7, 295.6) ft, distance 321.6 ft, hang time 5.05s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 263.5ft, margin -4.40s (too far); center_field: 127.5ft, margin 0.37s (can reach); right_field: 31.7ft, margin 3.64s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 5.05s] Caught by center_field at deep right outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 5.05s, arrival 4.67s (margin +0.39s) -> made play
+    Runners after play: Road Warriors 1B on second
+
+Road Warriors 3B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 91.5->82.4 mph to (0.20', 2.34') [0-0 -> 0-1] taken for strike
+    #2: fastball 91.5->82.2 mph to (-0.01', 3.51') [0-1 -> 1-1] taken for ball
+    #3: fastball 91.4->82.2 mph to (-0.51', 3.13') [1-1 -> 1-1] put in play (contact: solid, EV 85.2 mph, LA 11.4°)
+  ✓ SINGLE
+    Physics: EV=85.2 mph, LA=11.4°, Dist=194.8 ft, Hang=1.92s, Peak=13.7 ft, Contact: solid
+    Pitch: fastball 82.2 mph at zone (-0.5', 3.1')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (35.1, 191.7) ft, distance 194.8 ft, hang time 1.92s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 185.2ft, margin -4.79s (too far); center_field: 123.4ft, margin -2.63s (too far); right_field: 124.0ft, margin -2.96s (too far); first_base: 176.2ft, margin -4.55s (too far); second_base: 136.7ft, margin -3.41s (too far); third_base: 203.9ft, margin -5.42s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 1.25s] Ball retrieved by right_field in shallow right outfield at 1.25s (air_catch) (ball_retrieved)
+      [ 1.92s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 1.92s] Ball in play at (35.1, 191.7) ft, distance 194.8 ft, peak height 13.7 ft (outfield_ball_analysis)
+      [ 1.93s] Spray angle: 10.4° from center field (trajectory_analysis)
+      [ 1.94s] Outfield interception: right_field (air_catch) travels 289.2 ft from (135.0, 265.0) to (131.9, -24.2) at 1.25s, margin +9.78s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 1.92s, arrival 4.71s (margin -2.79s) -> missed
+    🏃 Run scores!
+    Runners after play: Road Warriors 3B on first
+
+Road Warriors SS batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 91.4->82.3 mph to (-0.06', 2.30') [0-0 -> 0-0] put in play (contact: solid, EV 77.8 mph, LA 16.9°)
+  ⚾ Fly out to infield
+    Physics: EV=77.8 mph, LA=16.9°, Dist=189.8 ft, Hang=2.07s, Peak=18.4 ft, Contact: solid
+    Pitch: fastball 82.3 mph at zone (-0.1', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-46.2, 184.1) ft, distance 189.8 ft, hang time 2.07s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 120.1ft, margin -2.35s (too far); center_field: 134.1ft, margin -2.85s (too far); right_field: 198.4ft, margin -5.61s (too far); first_base: 204.0ft, margin -5.38s (too far); second_base: 155.2ft, margin -3.96s (too far); third_base: 166.6ft, margin -3.97s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 0.66s] Caught by first_base at 0.66s (55% prob) (air_catch)
+      [ 2.07s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.07s] Ball in play at (-46.2, 184.1) ft, distance 189.8 ft, peak height 18.4 ft (outfield_ball_analysis)
+      [ 2.08s] Spray angle: -14.1° from center field (trajectory_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.07s, arrival 5.10s (margin -3.04s) -> missed
+    Runners after play: Road Warriors 3B on first
+
+============================================================
+Bot 1 | 1-0 | 0 out | Runners: empty
+============================================================
+
+Home Heroes C batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 95.8->86.1 mph to (-0.47', 2.20') [0-0 -> 0-0] put in play (contact: solid, EV 79.6 mph, LA 7.7°)
+  ⚾ Ground out to infield
+    Physics: EV=79.6 mph, LA=7.7°, Dist=50.0 ft, Hang=0.55s, Peak=4.2 ft, Contact: solid
+    Pitch: fastball 86.1 mph at zone (-0.5', 2.2')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (-10.7, 48.8) ft, distance 50.0 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: pitcher travels 13.0 ft from (0.0, 60.5) to (-12.7, 57.6), margin +0.78s (ground_ball_interception_analysis)
+      [ 0.65s] Ground ball fielded by pitcher at (-12.7, 57.6) in 0.65s (ground_ball_fielded)
+      [ 1.08s] Throw to first base at 88.7 mph (release 1.08s, flight 0.88s) (throw_to_first)
+      [ 3.84s] Runner out at first base (runner 3.84s vs ball 1.96s) (play_at_first)
+
+Home Heroes 1B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 95.8->86.0 mph to (-0.18', 3.08') [0-0 -> 0-0] put in play (contact: fair, EV 70.4 mph, LA 8.8°)
+  ⚾ Ground out to infield
+    Physics: EV=70.4 mph, LA=8.8°, Dist=48.7 ft, Hang=0.57s, Peak=4.4 ft, Contact: fair
+    Pitch: fastball 86.0 mph at zone (-0.2', 3.1')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (-1.5, 48.7) ft, distance 48.7 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: pitcher travels 2.0 ft from (0.0, 60.5) to (-1.9, 61.2), margin +0.23s (ground_ball_interception_analysis)
+      [ 0.72s] Ground ball fielded by pitcher at (-1.9, 61.2) in 0.72s (ground_ball_fielded)
+      [ 1.16s] Throw to first base at 88.7 mph (release 1.16s, flight 0.88s) (throw_to_first)
+      [ 4.45s] Runner out at first base (runner 4.45s vs ball 2.03s) (play_at_first)
+
+Home Heroes 2B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 95.7->86.0 mph to (-0.27', 2.26') [0-0 -> 0-0] put in play (contact: fair, EV 75.1 mph, LA 12.8°)
+  ✓ SINGLE
+    Physics: EV=75.1 mph, LA=12.8°, Dist=150.4 ft, Hang=1.60s, Peak=11.6 ft, Contact: fair
+    Pitch: fastball 86.0 mph at zone (-0.3', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (15.5, 149.6) ft, distance 150.4 ft, hang time 1.60s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 189.6ft, margin -5.23s (too far); center_field: 161.1ft, margin -4.30s (too far); right_field: 166.1ft, margin -4.58s (too far); first_base: 142.6ft, margin -3.66s (too far); second_base: 97.7ft, margin -2.35s (too far); third_base: 158.1ft, margin -4.40s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: second_base (fly_ball_assignment)
+      [ 0.60s] Ball retrieved by right_field in infield at 0.60s (air_catch) (ball_retrieved)
+      [ 1.60s] Ball drops in shallow outfield, second_base couldn't reach it (ball_drops)
+      [ 1.60s] Ball in play at (15.5, 149.6) ft, distance 150.4 ft, peak height 11.6 ft (outfield_ball_analysis)
+      [ 1.61s] Spray angle: 5.9° from center field (trajectory_analysis)
+      [ 1.62s] Outfield interception: right_field (air_catch) travels 281.3 ft from (135.0, 265.0) to (60.7, -6.3) at 0.60s, margin +9.66s (outfield_interception_analysis)
+    Fielding breakdown:
+      Second Base: ball 1.60s, arrival 3.86s (margin -2.25s) -> missed
+    Runners after play: Home Heroes 2B on first
+
+Home Heroes 3B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 95.7->86.0 mph to (-0.10', 2.53') [0-0 -> 0-0] put in play (contact: fair, EV 86.1 mph, LA 17.9°)
+  ✓ SINGLE
+    Physics: EV=86.1 mph, LA=17.9°, Dist=219.1 ft, Hang=2.23s, Peak=22.3 ft, Contact: fair
+    Pitch: fastball 86.0 mph at zone (-0.1', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (12.9, 218.7) ft, distance 219.1 ft, hang time 2.23s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 154.9ft, margin -3.40s (too far); center_field: 92.2ft, margin -1.25s (too far); right_field: 130.6ft, margin -2.68s (too far); first_base: 208.2ft, margin -5.37s (too far); second_base: 165.9ft, margin -4.31s (too far); third_base: 217.3ft, margin -5.93s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 1.84s] Ball retrieved by right_field in right outfield at 1.84s (air_catch) (ball_retrieved)
+      [ 2.23s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.23s] Ball in play at (12.9, 218.7) ft, distance 219.1 ft, peak height 22.3 ft (outfield_ball_analysis)
+      [ 2.24s] Spray angle: 3.4° from center field (trajectory_analysis)
+      [ 2.25s] Outfield interception: right_field (air_catch) travels 280.6 ft from (135.0, 265.0) to (186.0, -10.9) at 1.84s, margin +8.40s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.23s, arrival 4.00s (margin -1.78s) -> missed
+    Runners after play: Home Heroes 3B on first, Home Heroes 2B on second
+
+Home Heroes SS batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 95.7->85.9 mph to (0.00', 2.52') [0-0 -> 0-1] taken for strike
+    #2: fastball 95.6->86.0 mph to (-0.19', 1.81') [0-1 -> 0-2] taken for strike
+    #3: fastball 95.6->86.1 mph to (0.10', 1.13') [0-2 -> 1-2] taken for ball
+    #4: fastball 95.6->86.0 mph to (-0.15', 1.20') [1-2 -> 2-2] taken for ball
+    #5: fastball 95.5->85.7 mph to (0.46', 3.38') [2-2 -> 2-2] put in play (contact: weak, EV 73.5 mph, LA 7.6°)
+  ⚾⚾ DOUBLE PLAY!
+    Physics: EV=73.5 mph, LA=7.6°, Dist=43.6 ft, Hang=0.52s, Peak=4.0 ft, Contact: weak
+    Pitch: fastball 85.7 mph at zone (0.5', 3.4')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (-18.6, 39.4) ft, distance 43.6 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: shortstop travels 8.2 ft from (-35.0, 55.0) to (-27.4, 57.9), margin +0.30s (ground_ball_interception_analysis)
+      [ 0.77s] Ground ball fielded by shortstop at (-27.4, 57.9) in 0.77s (ground_ball_fielded)
+      [ 1.83s] Force out at third (margin: 2.79s) (force_out)
+      [ 3.78s] Double play! infield to third to first (double_play)
+
+============================================================
+Top 2 | 1-0 | 0 out | Runners: empty
+============================================================
+
+Road Warriors LF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 91.4->82.2 mph to (0.05', 2.35') [0-0 -> 0-1] taken for strike
+    #2: fastball 91.3->82.2 mph to (-0.46', 2.22') [0-1 -> 0-2] swing and miss
+    #3: fastball 91.3->82.2 mph to (-1.11', 2.42') [0-2 -> 1-2] taken for ball
+    #4: fastball 91.3->82.0 mph to (-0.68', 3.37') [1-2 -> 1-2] put in play (contact: solid, EV 82.9 mph, LA 24.8°)
+  ⚾ Fly out to outfield
+    Physics: EV=82.9 mph, LA=24.8°, Dist=254.6 ft, Hang=2.92s, Peak=36.3 ft, Contact: solid
+    Pitch: fastball 82.0 mph at zone (-0.7', 3.4')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-63.9, 246.5) ft, distance 254.6 ft, hang time 2.92s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 73.5ft, margin 0.14s (can reach); center_field: 90.1ft, margin -0.44s (too far); right_field: 199.7ft, margin -4.80s (too far) (fly_ball_fielder_analysis)
       [ 0.06s] Assigned to: left_field (fly_ball_assignment)
-      [ 3.76s] Caught by left_field at deep outfield (catch)
+      [ 2.92s] Caught by left_field at outfield (catch)
     Fielding breakdown:
-      Left Field: ball 3.76s, arrival 2.95s (margin +0.81s) -> made play
-    Play timeline:
-      [ 0.00s] Ball hit to shallow right outfield (contact)
-      [ 0.00s] Ground ball coordinates: (105.1, 126.4) ft, distance 164.4 ft from home (ground_ball_analysis)
-      [ 0.10s] Interception: second_base travels 97.6 ft from (40.0, 55.0) to (112.5, 120.2), margin +4.43s (ground_ball_interception_analysis)
-      [ 1.58s] Ground ball fielded by second_base at (112.5, 120.2) in 1.58s (ground_ball_fielded)
-      [ 1.98s] Throw to first base at 85.3 mph (release 1.98s, flight 0.62s) (throw_to_first)
-      [ 4.45s] Runner out at first base (runner 4.45s vs ball 2.60s) (play_at_first)
-    Play timeline:
-      [ 0.00s] Ball hit to right outfield (contact)
-      [ 0.00s] Fly ball coordinates: (123.1, 213.6) ft, distance 246.5 ft, hang time 2.37s (fly_ball_analysis)
-      [ 0.05s] Fielder analysis - left_field: 263.1ft, margin -5.25s (too far); center_field: 156.3ft, margin -2.20s (too far); right_field: 52.8ft, margin 0.76s (can reach); first_base: 199.5ft, margin -3.43s (too far); second_base: 179.0ft, margin -2.85s (too far); third_base: 277.0ft, margin -5.64s (too far) (fly_ball_fielder_analysis)
-      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
-      [ 2.37s] Caught by right_field at right outfield (catch)
-    Fielding breakdown:
-      Right Field: ball 2.37s, arrival 2.37s (margin +0.00s) -> made play
-    Play timeline:
-      [ 0.00s] Ball hit to right outfield (contact)
-      [ 0.00s] Fly ball coordinates: (86.4, 192.1) ft, distance 210.6 ft, hang time 3.69s (fly_ball_analysis)
-      [ 0.00s] Ball intercepted by right_field in infield at 0.00s (air_catch) (ball_retrieved)
-      [ 0.05s] Fielder analysis - left_field: 233.1ft, margin -3.07s (too far); center_field: 146.2ft, margin -0.59s (too far); right_field: 87.6ft, margin 1.09s (can reach); first_base: 172.4ft, margin -1.34s (too far); second_base: 144.7ft, margin -0.54s (too far); third_base: 235.9ft, margin -3.15s (too far) (fly_ball_fielder_analysis)
-      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
-      [ 3.69s] Ball drops in right outfield, right_field couldn't reach it (ball_drops)
-      [ 3.69s] Ball in play at (86.4, 192.1) ft, distance 210.6 ft, peak height 55.2 ft (outfield_ball_analysis)
-      [ 3.70s] Spray angle: 24.2° from center field (trajectory_analysis)
-      [ 3.71s] Outfield interception: right_field (air_catch) travels 297.4 ft from (135.0, 265.0) to (0.1, -0.0) at 0.00s, margin +14.77s (outfield_interception_analysis)
-    Fielding breakdown:
-      Right Field: ball 3.69s, arrival 3.69s (margin +0.00s) -> missed
+      Left Field: ball 2.92s, arrival 2.81s (margin +0.11s) -> made play
+
+Road Warriors CF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 91.2->82.1 mph to (-0.43', 2.43') [0-0 -> 0-1] taken for strike
+    #2: fastball 91.2->82.2 mph to (0.69', 1.87') [0-1 -> 0-1] put in play (contact: fair, EV 85.3 mph, LA 49.0°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=85.3 mph, LA=49.0°, Dist=300.3 ft, Hang=5.17s, Peak=108.5 ft, Contact: fair
+    Pitch: fastball 82.2 mph at zone (0.7', 1.9')
     Play timeline:
       [ 0.00s] Ball hit to deep outfield (contact)
-      [ 0.00s] Fly ball coordinates: (88.1, 303.9) ft, distance 316.4 ft, hang time 3.67s (fly_ball_analysis)
-      [ 0.05s] Fielder analysis - left_field: 226.4ft, margin -2.90s (too far); center_field: 88.3ft, margin 1.05s (can reach); right_field: 61.0ft, margin 1.82s (can reach) (fly_ball_fielder_analysis)
-      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
-      [ 3.67s] Caught by right_field at deep outfield (catch)
+      [ 0.00s] Fly ball coordinates: (-37.0, 298.0) ft, distance 300.3 ft, hang time 5.17s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 103.4ft, margin 1.34s (can reach); center_field: 38.9ft, margin 3.62s (can reach); right_field: 175.1ft, margin -1.63s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 5.01s] Ball retrieved by center_field in deep right outfield at 5.01s (air_catch) (ball_retrieved)
+      [ 5.17s] Ball drops in deep outfield, left_field couldn't reach it (ball_drops)
+      [ 5.17s] Ball in play at (-37.0, 298.0) ft, distance 300.3 ft, peak height 108.5 ft (outfield_ball_analysis)
+      [ 5.18s] Spray angle: -7.1° from center field (trajectory_analysis)
+      [ 5.19s] Outfield interception: center_field (air_catch) travels 399.6 ft from (0.0, 310.0) to (291.0, 36.1) at 5.01s, margin +9.25s (outfield_interception_analysis)
     Fielding breakdown:
-      Right Field: ball 3.67s, arrival 2.55s (margin +1.12s) -> made play
+      Left Field: ball 5.17s, arrival 3.84s (margin +1.33s) -> missed
+    Runners after play: Road Warriors CF on second
+
+Road Warriors RF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 91.1->81.9 mph to (0.49', 3.35') [0-0 -> 0-1] taken for strike
+    #2: fastball 91.1->81.9 mph to (-0.36', 3.42') [0-1 -> 0-1] put in play (contact: fair, EV 80.1 mph, LA 50.8°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=80.1 mph, LA=50.8°, Dist=271.7 ft, Hang=5.07s, Peak=103.8 ft, Contact: fair
+    Pitch: fastball 81.9 mph at zone (-0.4', 3.4')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (25.1, 270.5) ft, distance 271.7 ft, hang time 5.07s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 160.2ft, margin -0.76s (too far); center_field: 46.8ft, margin 3.24s (can reach); right_field: 110.0ft, margin 0.71s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 4.90s] Ball retrieved by center_field in right outfield at 4.90s (air_catch) (ball_retrieved)
+      [ 5.07s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 5.07s] Ball in play at (25.1, 270.5) ft, distance 271.7 ft, peak height 103.8 ft (outfield_ball_analysis)
+      [ 5.08s] Spray angle: 5.3° from center field (trajectory_analysis)
+      [ 5.09s] Outfield interception: center_field (air_catch) travels 426.0 ft from (0.0, 310.0) to (263.7, -24.5) at 4.90s, margin +10.29s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 5.07s, arrival 1.99s (margin +3.08s) -> missed
+    🏃 Run scores!
+    Runners after play: Road Warriors RF on second
+
+Road Warriors DH batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 91.1->82.0 mph to (0.14', 2.36') [0-0 -> 0-0] put in play (contact: solid, EV 77.5 mph, LA 31.1°)
+  ⚾ Fly out to outfield
+    Physics: EV=77.5 mph, LA=31.1°, Dist=260.0 ft, Hang=3.45s, Peak=48.6 ft, Contact: solid
+    Pitch: fastball 82.0 mph at zone (0.1', 2.4')
+    Play timeline:
+      [ 0.00s] Ball hit to left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-90.2, 243.8) ft, distance 260.0 ft, hang time 3.45s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 49.5ft, margin 1.51s (can reach); center_field: 111.9ft, margin -0.68s (too far); right_field: 226.2ft, margin -5.26s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 3.45s] Caught by left_field at left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 3.45s, arrival 2.02s (margin +1.43s) -> made play
+    Runners after play: Road Warriors RF on second
+
+Road Warriors C batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 91.0->81.9 mph to (-0.34', 2.66') [0-0 -> 0-0] put in play (contact: fair, EV 80.1 mph, LA 14.9°)
+  ⚾ Fly out to infield
+    Physics: EV=80.1 mph, LA=14.9°, Dist=191.3 ft, Hang=2.01s, Peak=16.7 ft, Contact: fair
+    Pitch: fastball 81.9 mph at zone (-0.3', 2.7')
+    Play timeline:
+      [ 0.00s] Ball hit to left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-72.4, 177.1) ft, distance 191.3 ft, hang time 2.01s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 107.9ft, margin -1.98s (too far); center_field: 151.4ft, margin -3.52s (too far); right_field: 225.3ft, margin -6.67s (too far); first_base: 215.4ft, margin -5.83s (too far); second_base: 166.0ft, margin -4.41s (too far); third_base: 157.1ft, margin -3.69s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 0.68s] Caught by first_base at 0.68s (55% prob) (air_catch)
+      [ 2.01s] Ball drops in left outfield, center_field couldn't reach it (ball_drops)
+      [ 2.01s] Ball in play at (-72.4, 177.1) ft, distance 191.3 ft, peak height 16.7 ft (outfield_ball_analysis)
+      [ 2.02s] Spray angle: -22.2° from center field (trajectory_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.01s, arrival 5.74s (margin -3.72s) -> missed
+    Runners after play: Road Warriors RF on second
+
+============================================================
+Bot 2 | 2-0 | 0 out | Runners: empty
+============================================================
+
+Home Heroes LF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 95.5->85.8 mph to (0.01', 2.43') [0-0 -> 0-0] put in play (contact: fair, EV 73.2 mph, LA 3.0°)
+  ⚾ Ground out to infield
+    Physics: EV=73.2 mph, LA=3.0°, Dist=25.9 ft, Hang=0.37s, Peak=3.1 ft, Contact: fair
+    Pitch: fastball 85.8 mph at zone (0.0', 2.4')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (-18.3, 18.3) ft, distance 25.9 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: shortstop travels 14.1 ft from (-35.0, 55.0) to (-45.0, 45.0), margin +0.27s (ground_ball_interception_analysis)
+      [ 0.92s] Ground ball fielded by shortstop at (-45.0, 45.0) in 0.92s (ground_ball_fielded)
+      [ 1.29s] Throw to first base at 82.9 mph (release 1.29s, flight 1.18s) (throw_to_first)
+      [ 3.84s] Runner out at first base (runner 3.84s vs ball 2.47s) (play_at_first)
+
+Home Heroes CF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 95.4->85.9 mph to (0.34', 1.26') [0-0 -> 1-0] taken for ball
+    #2: fastball 95.4->86.0 mph to (-0.58', 0.59') [1-0 -> 2-0] taken for ball
+    #3: fastball 95.4->85.6 mph to (0.14', 3.45') [2-0 -> 2-1] swing and miss
+    #4: fastball 95.3->85.8 mph to (-0.68', 1.54') [2-1 -> 2-1] put in play (contact: fair, EV 85.1 mph, LA -6.5°)
+  ⚾ Ground out to infield
+    Physics: EV=85.1 mph, LA=-6.5°, Dist=12.8 ft, Hang=0.22s, Peak=3.0 ft, Contact: fair
+    Pitch: fastball 85.8 mph at zone (-0.7', 1.5')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (0.6, 12.8) ft, distance 12.8 ft from home (ground_ball_analysis)
+      [ 0.30s] Weakly hit ball near home plate (13 ft) (weak_hit)
+      [ 0.31s] Fielder distances - pitcher: 47.7 ft, catcher: 14.8 ft, first_base: 74.7 ft, third_base: 76.0 ft. Closest: catcher (weak_hit_fielder_analysis)
+      [ 1.29s] Weak ground ball fielded by catcher (weak_hit_fielded)
+      [ 1.69s] Throw to first base at 87.6 mph (release 1.69s, flight 0.74s) (throw_to_first)
+      [ 5.18s] Runner out at first base (runner 5.18s vs ball 2.43s) (play_at_first)
+
+Home Heroes RF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 95.3->85.6 mph to (-0.13', 2.48') [0-0 -> 0-0] put in play (contact: solid, EV 73.9 mph, LA 11.8°)
+  ✓ SINGLE
+    Physics: EV=73.9 mph, LA=11.8°, Dist=134.7 ft, Hang=1.43s, Peak=9.9 ft, Contact: solid
+    Pitch: fastball 85.6 mph at zone (-0.1', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (20.3, 133.1) ft, distance 134.7 ft, hang time 1.43s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 203.8ft, margin -5.90s (too far); center_field: 178.0ft, margin -5.06s (too far); right_field: 174.7ft, margin -5.06s (too far); first_base: 125.6ft, margin -3.23s (too far); second_base: 80.6ft, margin -1.87s (too far); third_base: 147.9ft, margin -4.20s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: second_base (fly_ball_assignment)
+      [ 0.60s] Ball retrieved by right_field in infield at 0.60s (air_catch) (ball_retrieved)
+      [ 1.43s] Ball drops in shallow outfield, second_base couldn't reach it (ball_drops)
+      [ 1.43s] Ball in play at (20.3, 133.1) ft, distance 134.7 ft, peak height 9.9 ft (outfield_ball_analysis)
+      [ 1.44s] Spray angle: 8.7° from center field (trajectory_analysis)
+      [ 1.45s] Outfield interception: right_field (air_catch) travels 284.3 ft from (135.0, 265.0) to (59.6, -9.1) at 0.60s, margin +9.77s (outfield_interception_analysis)
+    Fielding breakdown:
+      Second Base: ball 1.43s, arrival 3.24s (margin -1.81s) -> missed
+    Runners after play: Home Heroes RF on first
+
+Home Heroes DH batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 95.3->85.6 mph to (-0.06', 2.38') [0-0 -> 0-1] swing and miss
+    #2: fastball 95.2->85.7 mph to (0.07', 1.85') [0-1 -> 0-1] put in play (contact: solid, EV 82.1 mph, LA 24.0°)
+  ⚾ Fly out to outfield
+    Physics: EV=82.1 mph, LA=24.0°, Dist=251.3 ft, Hang=2.89s, Peak=34.8 ft, Contact: solid
+    Pitch: fastball 85.7 mph at zone (0.1', 1.8')
+    Play timeline:
+      [ 0.00s] Ball hit to left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-123.0, 219.1) ft, distance 251.3 ft, hang time 2.89s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 47.4ft, margin 1.02s (can reach); center_field: 152.9ft, margin -2.72s (too far); right_field: 262.0ft, margin -6.73s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 2.89s] Caught by left_field at left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 2.89s, arrival 2.03s (margin +0.86s) -> made play
+    Runners after play: Home Heroes RF on first
+
+============================================================
+Top 3 | 2-0 | 0 out | Runners: empty
+============================================================
+
+Road Warriors 1B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 91.0->81.9 mph to (0.23', 2.59') [0-0 -> 0-0] put in play (contact: fair, EV 90.8 mph, LA 17.5°)
+  ✓ SINGLE
+    Physics: EV=90.8 mph, LA=17.5°, Dist=239.1 ft, Hang=2.34s, Peak=23.9 ft, Contact: fair
+    Pitch: fastball 81.9 mph at zone (0.2', 2.6')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (69.9, 228.7) ft, distance 239.1 ft, hang time 2.34s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 208.1ft, margin -5.17s (too far); center_field: 107.2ft, margin -1.63s (too far); right_field: 74.5ft, margin -0.68s (too far); first_base: 208.7ft, margin -5.27s (too far); second_base: 176.2ft, margin -4.47s (too far); third_base: 254.1ft, margin -6.74s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.28s] Ball retrieved by left_field in right outfield at 2.28s (air_catch) (ball_retrieved)
+      [ 2.34s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.34s] Ball in play at (69.9, 228.7) ft, distance 239.1 ft, peak height 23.9 ft (outfield_ball_analysis)
+      [ 2.35s] Spray angle: 17.0° from center field (trajectory_analysis)
+      [ 2.36s] Outfield interception: left_field (air_catch) travels 490.2 ft from (-135.0, 265.0) to (224.3, -68.6) at 2.28s, margin +15.10s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.34s, arrival 4.13s (margin -1.79s) -> missed
+    Runners after play: Road Warriors 1B on first
+
+Road Warriors 2B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 91.0->82.0 mph to (-0.45', 1.59') [0-0 -> 0-0] put in play (contact: weak, EV 87.0 mph, LA 18.9°)
+  ✓ SINGLE
+    Physics: EV=87.0 mph, LA=18.9°, Dist=235.1 ft, Hang=2.42s, Peak=25.3 ft, Contact: weak
+    Pitch: fastball 82.0 mph at zone (-0.5', 1.6')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (50.4, 229.6) ft, distance 235.1 ft, hang time 2.42s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 188.8ft, margin -4.42s (too far); center_field: 94.9ft, margin -1.12s (too far); right_field: 91.7ft, margin -1.25s (too far); first_base: 211.0ft, margin -5.28s (too far); second_base: 174.9ft, margin -4.34s (too far); third_base: 244.3ft, margin -6.32s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.36s] Ball retrieved by left_field in right outfield at 2.36s (air_catch) (ball_retrieved)
+      [ 2.42s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.42s] Ball in play at (50.4, 229.6) ft, distance 235.1 ft, peak height 25.3 ft (outfield_ball_analysis)
+      [ 2.43s] Spray angle: 12.4° from center field (trajectory_analysis)
+      [ 2.44s] Outfield interception: left_field (air_catch) travels 478.3 ft from (-135.0, 265.0) to (225.4, -49.5) at 2.36s, margin +14.60s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.42s, arrival 3.69s (margin -1.28s) -> missed
+    Runners after play: Road Warriors 2B on first, Road Warriors 1B on second
+
+Road Warriors 3B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 90.9->81.8 mph to (0.30', 2.63') [0-0 -> 0-1] swing and miss
+    #2: fastball 90.9->81.7 mph to (0.82', 3.24') [0-1 -> 1-1] taken for ball
+    #3: fastball 90.8->81.6 mph to (-0.67', 3.42') [1-1 -> 1-2] taken for strike
+    #4: fastball 90.8->81.5 mph to (0.31', 3.86') [1-2 -> 2-2] taken for ball
+    #5: fastball 90.8->81.8 mph to (-0.67', 1.68') [2-2 -> 2-2] put in play (contact: weak, EV 78.1 mph, LA 31.3°)
+  ✓ SINGLE
+    Physics: EV=78.1 mph, LA=31.3°, Dist=258.2 ft, Hang=3.38s, Peak=47.9 ft, Contact: weak
+    Pitch: fastball 81.8 mph at zone (-0.7', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (21.3, 257.3) ft, distance 258.2 ft, hang time 3.38s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 156.5ft, margin -2.32s (too far); center_field: 56.8ft, margin 1.19s (can reach); right_field: 114.0ft, margin -1.13s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.34s] Ball retrieved by left_field in right outfield at 3.34s (air_catch) (ball_retrieved)
+      [ 3.38s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 3.38s] Ball in play at (21.3, 257.3) ft, distance 258.2 ft, peak height 47.9 ft (outfield_ball_analysis)
+      [ 3.39s] Spray angle: 4.7° from center field (trajectory_analysis)
+      [ 3.40s] Outfield interception: left_field (air_catch) travels 483.6 ft from (-135.0, 265.0) to (254.9, -21.1) at 3.34s, margin +13.81s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 3.38s, arrival 2.35s (margin +1.03s) -> missed
+    🏃 Run scores!
+    Runners after play: Road Warriors 3B on first, Road Warriors 2B on second
+
+Road Warriors SS batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 90.7->81.7 mph to (0.25', 2.52') [0-0 -> 0-0] put in play (contact: fair, EV 76.3 mph, LA 15.6°)
+  ✓ SINGLE
+    Physics: EV=76.3 mph, LA=15.6°, Dist=165.9 ft, Hang=1.79s, Peak=15.0 ft, Contact: fair
+    Pitch: fastball 81.7 mph at zone (0.3', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (17.3, 165.0) ft, distance 165.9 ft, hang time 1.79s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 182.2ft, margin -4.81s (too far); center_field: 146.0ft, margin -3.55s (too far); right_field: 154.4ft, margin -4.23s (too far); first_base: 156.1ft, margin -3.96s (too far); second_base: 112.3ft, margin -2.63s (too far); third_base: 171.9ft, margin -4.43s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: second_base (fly_ball_assignment)
+      [ 1.25s] Ball retrieved by right_field in shallow right outfield at 1.25s (air_catch) (ball_retrieved)
+      [ 1.79s] Ball drops in shallow outfield, second_base couldn't reach it (ball_drops)
+      [ 1.79s] Ball in play at (17.3, 165.0) ft, distance 165.9 ft, peak height 15.0 ft (outfield_ball_analysis)
+      [ 1.80s] Spray angle: 6.0° from center field (trajectory_analysis)
+      [ 1.81s] Outfield interception: right_field (air_catch) travels 278.0 ft from (135.0, 265.0) to (120.1, -12.6) at 1.25s, margin +9.36s (outfield_interception_analysis)
+    Fielding breakdown:
+      Second Base: ball 1.79s, arrival 4.29s (margin -2.50s) -> missed
+    🏃 Run scores!
+    Runners after play: Road Warriors SS on first, Road Warriors 3B on second
+
+Road Warriors LF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 90.7->81.5 mph to (-0.65', 3.14') [0-0 -> 0-1] taken for strike
+    #2: fastball 90.7->81.7 mph to (0.78', 1.62') [0-1 -> 0-1] put in play (contact: fair, EV 80.5 mph, LA 24.2°)
+  ✓ SINGLE
+    Physics: EV=80.5 mph, LA=24.2°, Dist=245.8 ft, Hang=2.88s, Peak=34.4 ft, Contact: fair
+    Pitch: fastball 81.7 mph at zone (0.8', 1.6')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-31.7, 243.8) ft, distance 245.8 ft, hang time 2.88s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 105.4ft, margin -1.02s (too far); center_field: 73.4ft, margin 0.11s (can reach); right_field: 168.1ft, margin -3.65s (too far); first_base: 247.9ft, margin -6.12s (too far); second_base: 201.9ft, margin -4.89s (too far); third_base: 227.9ft, margin -5.29s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.58s] Ball retrieved by right_field in right outfield at 2.58s (air_catch) (ball_retrieved)
+      [ 2.88s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.88s] Ball in play at (-31.7, 243.8) ft, distance 245.8 ft, peak height 34.4 ft (outfield_ball_analysis)
+      [ 2.89s] Spray angle: -7.4° from center field (trajectory_analysis)
+      [ 2.90s] Outfield interception: right_field (air_catch) travels 251.8 ft from (135.0, 265.0) to (222.8, 29.0) at 2.58s, margin +7.05s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.88s, arrival 2.92s (margin -0.04s) -> missed
+    🏃 Run scores!
+    Runners after play: Road Warriors LF on first, Road Warriors SS on second
+
+Road Warriors CF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 90.6->81.6 mph to (0.18', 2.59') [0-0 -> 0-1] swing and miss
+    #2: fastball 90.6->81.8 mph to (-0.03', 1.05') [0-1 -> 1-1] taken for ball
+    #3: fastball 90.5->81.4 mph to (0.41', 3.16') [1-1 -> 1-1] put in play (contact: fair, EV 84.7 mph, LA 35.6°)
+  ⚾ Fly out to outfield
+    Physics: EV=84.7 mph, LA=35.6°, Dist=299.2 ft, Hang=3.98s, Peak=66.3 ft, Contact: fair
+    Pitch: fastball 81.4 mph at zone (0.4', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-35.0, 297.2) ft, distance 299.2 ft, hang time 3.98s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 105.0ft, margin 0.09s (can reach); center_field: 37.3ft, margin 2.49s (can reach); right_field: 173.0ft, margin -2.74s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.98s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 3.98s, arrival 1.58s (margin +2.40s) -> made play
+    Runners after play: Road Warriors LF on first, Road Warriors SS on second
+
+Road Warriors RF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 90.5->81.6 mph to (-0.55', 2.08') [0-0 -> 0-0] put in play (contact: fair, EV 81.1 mph, LA 24.9°)
+  ✓ SINGLE
+    Physics: EV=81.1 mph, LA=24.9°, Dist=246.3 ft, Hang=2.87s, Peak=35.2 ft, Contact: fair
+    Pitch: fastball 81.6 mph at zone (-0.5', 2.1')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-25.7, 245.0) ft, distance 246.3 ft, hang time 2.87s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 111.1ft, margin -1.23s (too far); center_field: 69.9ft, margin 0.22s (can reach); right_field: 161.9ft, margin -3.43s (too far); first_base: 246.5ft, margin -6.07s (too far); second_base: 201.0ft, margin -4.86s (too far); third_base: 230.3ft, margin -5.38s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.58s] Ball retrieved by right_field in right outfield at 2.58s (air_catch) (ball_retrieved)
+      [ 2.87s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.87s] Ball in play at (-25.7, 245.0) ft, distance 246.3 ft, peak height 35.2 ft (outfield_ball_analysis)
+      [ 2.88s] Spray angle: -6.0° from center field (trajectory_analysis)
+      [ 2.89s] Outfield interception: right_field (air_catch) travels 257.5 ft from (135.0, 265.0) to (224.4, 23.5) at 2.58s, margin +7.26s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.87s, arrival 2.79s (margin +0.09s) -> missed
+    🏃 Run scores!
+    Runners after play: Road Warriors RF on first, Road Warriors LF on second
+
+Road Warriors DH batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 90.5->81.4 mph to (0.46', 3.08') [0-0 -> 0-1] taken for strike
+    #2: fastball 90.4->81.3 mph to (-0.39', 3.12') [0-1 -> 0-2] taken for strike
+    #3: fastball 90.4->81.5 mph to (-0.35', 1.68') [0-2 -> 0-2] put in play (contact: fair, EV 77.9 mph, LA 21.5°)
+  ✓ SINGLE
+    Physics: EV=77.9 mph, LA=21.5°, Dist=214.9 ft, Hang=2.46s, Peak=26.2 ft, Contact: fair
+    Pitch: fastball 81.5 mph at zone (-0.4', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-22.3, 213.7) ft, distance 214.9 ft, hang time 2.46s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 123.8ft, margin -2.09s (too far); center_field: 98.8ft, margin -1.21s (too far); right_field: 165.5ft, margin -3.97s (too far); first_base: 216.8ft, margin -5.43s (too far); second_base: 170.5ft, margin -4.13s (too far); third_base: 200.8ft, margin -4.76s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.11s] Ball retrieved by right_field in right outfield at 2.11s (air_catch) (ball_retrieved)
+      [ 2.46s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.46s] Ball in play at (-22.3, 213.7) ft, distance 214.9 ft, peak height 26.2 ft (outfield_ball_analysis)
+      [ 2.47s] Spray angle: -6.0° from center field (trajectory_analysis)
+      [ 2.48s] Outfield interception: right_field (air_catch) travels 251.0 ft from (135.0, 265.0) to (187.8, 19.6) at 2.11s, margin +7.49s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.46s, arrival 3.83s (margin -1.37s) -> missed
+    🏃 Run scores!
+    Runners after play: Road Warriors DH on first, Road Warriors RF on second
+
+Road Warriors C batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 90.3->81.4 mph to (-0.11', 2.41') [0-0 -> 0-1] swing and miss
+    #2: fastball 90.3->81.3 mph to (-0.18', 2.84') [0-1 -> 0-2] taken for strike
+    #3: fastball 90.3->81.4 mph to (0.47', 1.57') [0-2 -> 0-3] taken for strike
+  ⚾ STRIKEOUT! 2 out(s)
+
+Road Warriors 1B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 90.2->81.2 mph to (0.19', 2.79') [0-0 -> 0-0] put in play (contact: solid, EV 93.2 mph, LA 46.5°)
+  ⚾ Fly out to outfield
+    Physics: EV=93.2 mph, LA=46.5°, Dist=341.2 ft, Hang=5.36s, Peak=115.9 ft, Contact: solid
+    Pitch: fastball 81.2 mph at zone (0.2', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to deep left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-241.6, 240.9) ft, distance 341.2 ft, hang time 5.36s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 109.3ft, margin 1.32s (can reach); center_field: 251.3ft, margin -3.71s (too far); right_field: 377.4ft, margin -9.03s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 5.36s] Caught by left_field at deep left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 5.36s, arrival 4.04s (margin +1.32s) -> made play
+    Runners after play: Road Warriors DH on first, Road Warriors RF on second
+
+============================================================
+Bot 3 | 7-0 | 0 out | Runners: empty
+============================================================
+
+Home Heroes C batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 95.2->85.4 mph to (-0.14', 3.65') [0-0 -> 1-0] taken for ball
+    #2: fastball 95.1->85.6 mph to (0.49', 1.83') [1-0 -> 1-1] swing and miss
+    #3: fastball 95.1->85.7 mph to (0.04', 0.77') [1-1 -> 2-1] taken for ball
+    #4: fastball 95.1->85.6 mph to (-0.67', 1.69') [2-1 -> 2-2] swing and miss
+    #5: fastball 95.0->85.3 mph to (0.71', 3.44') [2-2 -> 2-3] taken for strike
+  ⚾ STRIKEOUT! 1 out(s)
+
+Home Heroes 1B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 95.0->85.5 mph to (0.26', 1.52') [0-0 -> 0-1] taken for strike
+    #2: fastball 95.0->85.3 mph to (-0.02', 3.22') [0-1 -> 0-1] put in play (contact: fair, EV 70.4 mph, LA 16.6°)
+  ✓ SINGLE
+    Physics: EV=70.4 mph, LA=16.6°, Dist=153.7 ft, Hang=1.78s, Peak=14.8 ft, Contact: fair
+    Pitch: fastball 85.3 mph at zone (-0.0', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-2.5, 153.7) ft, distance 153.7 ft, hang time 1.78s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 173.1ft, margin -4.48s (too far); center_field: 156.3ft, margin -3.95s (too far); right_field: 176.9ft, margin -4.78s (too far); first_base: 154.5ft, margin -3.91s (too far); second_base: 107.4ft, margin -2.54s (too far); third_base: 152.1ft, margin -4.00s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: shortstop (fly_ball_assignment)
+      [ 1.23s] Ball retrieved by right_field in shallow right outfield at 1.23s (air_catch) (ball_retrieved)
+      [ 1.78s] Ball drops in shallow outfield, shortstop couldn't reach it (ball_drops)
+      [ 1.78s] Ball in play at (-2.5, 153.7) ft, distance 153.7 ft, peak height 14.8 ft (outfield_ball_analysis)
+      [ 1.79s] Spray angle: -0.9° from center field (trajectory_analysis)
+      [ 1.80s] Outfield interception: right_field (air_catch) travels 264.4 ft from (135.0, 265.0) to (110.4, 1.8) at 1.23s, margin +8.42s (outfield_interception_analysis)
+    Fielding breakdown:
+      Shortstop: ball 1.78s, arrival 3.49s (margin -1.71s) -> missed
+    Runners after play: Home Heroes 1B on first
+
+Home Heroes 2B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 94.9->85.2 mph to (-0.02', 3.04') [0-0 -> 0-1] taken for strike
+    #2: fastball 94.9->85.4 mph to (0.01', 2.06') [0-1 -> 0-1] put in play (contact: solid, EV 75.6 mph, LA 20.7°)
+  ✓ SINGLE
+    Physics: EV=75.6 mph, LA=20.7°, Dist=220.7 ft, Hang=2.65s, Peak=26.8 ft, Contact: solid
+    Pitch: fastball 85.4 mph at zone (0.0', 2.1')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-20.6, 219.7) ft, distance 220.7 ft, hang time 2.65s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 123.0ft, margin -1.87s (too far); center_field: 92.6ft, margin -0.84s (too far); right_field: 162.1ft, margin -3.39s (too far); first_base: 221.4ft, margin -5.43s (too far); second_base: 175.5ft, margin -4.25s (too far); third_base: 207.0ft, margin -5.14s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.28s] Ball retrieved by right_field in right outfield at 2.28s (air_catch) (ball_retrieved)
+      [ 2.65s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.65s] Ball in play at (-20.6, 219.7) ft, distance 220.7 ft, peak height 26.8 ft (outfield_ball_analysis)
+      [ 2.66s] Spray angle: -5.4° from center field (trajectory_analysis)
+      [ 2.67s] Outfield interception: right_field (air_catch) travels 253.7 ft from (135.0, 265.0) to (194.1, 18.2) at 2.28s, margin +6.99s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.65s, arrival 4.02s (margin -1.37s) -> missed
+    Runners after play: Home Heroes 2B on first, Home Heroes 1B on second
+
+Home Heroes 3B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st_2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 94.8->85.3 mph to (-0.15', 2.29') [0-0 -> 0-0] put in play (contact: fair, EV 83.2 mph, LA 33.5°)
+  ⚾ Fly out to outfield
+    Physics: EV=83.2 mph, LA=33.5°, Dist=287.5 ft, Hang=3.74s, Peak=58.6 ft, Contact: fair
+    Pitch: fastball 85.3 mph at zone (-0.2', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to deep right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (145.8, 247.7) ft, distance 287.5 ft, hang time 3.74s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 281.3ft, margin -6.30s (too far); center_field: 158.5ft, margin -2.07s (too far); right_field: 20.4ft, margin 2.78s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 3.74s] Caught by right_field at deep right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 3.74s, arrival 0.97s (margin +2.77s) -> made play
+    Runners after play: Home Heroes 2B on first, Home Heroes 1B on second
+
+Home Heroes SS batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 94.8->85.2 mph to (-0.09', 2.64') [0-0 -> 0-0] put in play (contact: solid, EV 73.5 mph, LA 16.1°)
+  ⚾ Fly out to infield
+    Physics: EV=73.5 mph, LA=16.1°, Dist=161.7 ft, Hang=1.81s, Peak=15.0 ft, Contact: solid
+    Pitch: fastball 85.2 mph at zone (-0.1', 2.6')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-114.2, 114.4) ft, distance 161.7 ft, hang time 1.81s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 152.0ft, margin -3.72s (too far); center_field: 226.5ft, margin -6.39s (too far); right_field: 291.2ft, margin -8.86s (too far); first_base: 211.5ft, margin -5.91s (too far); second_base: 165.3ft, margin -4.70s (too far); third_base: 102.3ft, margin -2.17s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: third_base (fly_ball_assignment)
+      [ 0.72s] Caught by second_base at 0.72s (56% prob) (air_catch)
+      [ 1.81s] Ball drops in shallow left outfield, third_base couldn't reach it (ball_drops)
+      [ 1.81s] Ball in play at (-114.2, 114.4) ft, distance 161.7 ft, peak height 15.0 ft (outfield_ball_analysis)
+      [ 1.82s] Spray angle: -44.9° from center field (trajectory_analysis)
+    Fielding breakdown:
+      Third Base: ball 1.81s, arrival 3.54s (margin -1.74s) -> missed
+    Runners after play: Home Heroes 2B on first, Home Heroes 1B on second
+
+============================================================
+Top 4 | 7-0 | 0 out | Runners: empty
+============================================================
+
+Road Warriors 2B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 90.2->81.3 mph to (-0.13', 2.27') [0-0 -> 0-0] put in play (contact: solid, EV 88.7 mph, LA 44.1°)
+  ⚾ Fly out to outfield
+    Physics: EV=88.7 mph, LA=44.1°, Dist=324.6 ft, Hang=5.00s, Peak=100.7 ft, Contact: solid
+    Pitch: fastball 81.3 mph at zone (-0.1', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to deep left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-118.8, 302.1) ft, distance 324.6 ft, hang time 5.00s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 40.4ft, margin 3.38s (can reach); center_field: 119.1ft, margin 0.61s (can reach); right_field: 256.5ft, margin -4.85s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 5.00s] Caught by left_field at deep left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 5.00s, arrival 1.66s (margin +3.34s) -> made play
+
+Road Warriors 3B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 90.2->81.2 mph to (-0.05', 2.67') [0-0 -> 0-0] put in play (contact: solid, EV 84.6 mph, LA 30.3°)
+  ⚾ Fly out to outfield
+    Physics: EV=84.6 mph, LA=30.3°, Dist=305.1 ft, Hang=3.97s, Peak=59.0 ft, Contact: solid
+    Pitch: fastball 81.2 mph at zone (-0.0', 2.7')
+    Play timeline:
+      [ 0.00s] Ball hit to deep left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-136.6, 272.8) ft, distance 305.1 ft, hang time 3.97s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 8.0ft, margin 3.49s (can reach); center_field: 141.6ft, margin -1.21s (too far); right_field: 271.7ft, margin -6.45s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 3.97s] Caught by left_field at deep left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 3.97s, arrival 0.49s (margin +3.48s) -> made play
+
+Road Warriors SS batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 90.1->81.1 mph to (0.35', 2.86') [0-0 -> 0-0] put in play (contact: fair, EV 76.7 mph, LA 19.4°)
+  ✓ SINGLE
+    Physics: EV=76.7 mph, LA=19.4°, Dist=194.5 ft, Hang=2.19s, Peak=21.4 ft, Contact: fair
+    Pitch: fastball 81.1 mph at zone (0.4', 2.9')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (52.0, 187.5) ft, distance 194.5 ft, hang time 2.19s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 202.4ft, margin -5.12s (too far); center_field: 133.1ft, margin -2.70s (too far); right_field: 113.6ft, margin -2.30s (too far); first_base: 169.0ft, margin -4.02s (too far); second_base: 133.0ft, margin -3.00s (too far); third_base: 210.1ft, margin -5.36s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.13s] Ball retrieved by left_field in right outfield at 2.13s (air_catch) (ball_retrieved)
+      [ 2.19s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.19s] Ball in play at (52.0, 187.5) ft, distance 194.5 ft, peak height 21.4 ft (outfield_ball_analysis)
+      [ 2.20s] Spray angle: 15.5° from center field (trajectory_analysis)
+      [ 2.21s] Outfield interception: left_field (air_catch) travels 448.3 ft from (-135.0, 265.0) to (183.3, -50.8) at 2.13s, margin +13.78s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.19s, arrival 5.07s (margin -2.88s) -> missed
+    Runners after play: Road Warriors SS on first
+
+Road Warriors LF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 90.1->81.3 mph to (0.43', 1.69') [0-0 -> 0-0] put in play (contact: solid, EV 81.8 mph, LA 23.6°)
+  ✓ SINGLE
+    Physics: EV=81.8 mph, LA=23.6°, Dist=248.7 ft, Hang=2.86s, Peak=33.9 ft, Contact: solid
+    Pitch: fastball 81.3 mph at zone (0.4', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-156.9, 193.0) ft, distance 248.7 ft, hang time 2.86s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 75.3ft, margin 0.01s (can reach); center_field: 195.8ft, margin -4.24s (too far); right_field: 300.7ft, margin -8.65s (too far); first_base: 289.3ft, margin -7.60s (too far); second_base: 240.5ft, margin -6.36s (too far); third_base: 191.4ft, margin -4.04s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 2.55s] Ball retrieved by center_field in right outfield at 2.55s (air_catch) (ball_retrieved)
+      [ 2.86s] Ball drops in left outfield, left_field couldn't reach it (ball_drops)
+      [ 2.86s] Ball in play at (-156.9, 193.0) ft, distance 248.7 ft, peak height 33.9 ft (outfield_ball_analysis)
+      [ 2.87s] Spray angle: -39.1° from center field (trajectory_analysis)
+      [ 2.88s] Outfield interception: center_field (air_catch) travels 242.5 ft from (0.0, 310.0) to (176.0, 143.2) at 2.55s, margin +6.15s (outfield_interception_analysis)
+    Fielding breakdown:
+      Left Field: ball 2.86s, arrival 2.99s (margin -0.13s) -> missed
+    Runners after play: Road Warriors LF on first, Road Warriors SS on second
+
+Road Warriors CF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 90.0->81.2 mph to (0.85', 1.89') [0-0 -> 1-0] taken for ball
+    #2: fastball 90.0->80.9 mph to (0.52', 3.71') [1-0 -> 2-0] taken for ball
+    #3: fastball 90.0->80.9 mph to (-0.44', 3.25') [2-0 -> 2-0] put in play (contact: fair, EV 84.7 mph, LA 32.8°)
+  ⚾ Fly out to outfield
+    Physics: EV=84.7 mph, LA=32.8°, Dist=297.3 ft, Hang=3.82s, Peak=59.8 ft, Contact: fair
+    Pitch: fastball 80.9 mph at zone (-0.4', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-15.1, 296.9) ft, distance 297.3 ft, hang time 3.82s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 124.1ft, margin -0.74s (too far); center_field: 20.0ft, margin 2.94s (can reach); right_field: 153.5ft, margin -2.16s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.82s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 3.82s, arrival 0.93s (margin +2.89s) -> made play
+    Runners after play: Road Warriors LF on first, Road Warriors SS on second
+
+============================================================
+Bot 4 | 7-0 | 0 out | Runners: empty
+============================================================
+
+Home Heroes LF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 94.8->85.2 mph to (-0.20', 2.63') [0-0 -> 0-0] put in play (contact: fair, EV 74.9 mph, LA 17.0°)
+  ✓ SINGLE
+    Physics: EV=74.9 mph, LA=17.0°, Dist=170.2 ft, Hang=1.89s, Peak=16.6 ft, Contact: fair
+    Pitch: fastball 85.2 mph at zone (-0.2', 2.6')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (2.0, 170.2) ft, distance 170.2 ft, hang time 1.89s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 166.6ft, margin -4.14s (too far); center_field: 139.8ft, margin -3.26s (too far); right_field: 163.4ft, margin -4.19s (too far); first_base: 167.0ft, margin -4.24s (too far); second_base: 121.3ft, margin -2.95s (too far); third_base: 168.8ft, margin -4.50s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: second_base (fly_ball_assignment)
+      [ 1.40s] Ball retrieved by right_field in shallow right outfield at 1.40s (air_catch) (ball_retrieved)
+      [ 1.89s] Ball drops in shallow outfield, second_base couldn't reach it (ball_drops)
+      [ 1.89s] Ball in play at (2.0, 170.2) ft, distance 170.2 ft, peak height 16.6 ft (outfield_ball_analysis)
+      [ 1.90s] Spray angle: 0.7° from center field (trajectory_analysis)
+      [ 1.91s] Outfield interception: right_field (air_catch) travels 266.5 ft from (135.0, 265.0) to (131.0, -1.5) at 1.40s, margin +8.33s (outfield_interception_analysis)
+    Fielding breakdown:
+      Second Base: ball 1.89s, arrival 4.69s (margin -2.80s) -> missed
+    Runners after play: Home Heroes LF on first
+
+Home Heroes CF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 94.7->85.1 mph to (-0.21', 2.65') [0-0 -> 0-0] put in play (contact: solid, EV 88.0 mph, LA 8.1°)
+  ⚾⚾ DOUBLE PLAY!
+    Physics: EV=88.0 mph, LA=8.1°, Dist=62.0 ft, Hang=0.61s, Peak=4.7 ft, Contact: solid
+    Pitch: fastball 85.1 mph at zone (-0.2', 2.7')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (-3.7, 61.9) ft, distance 62.0 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: pitcher travels 12.1 ft from (0.0, 60.5) to (-4.3, 71.8), margin +0.74s (ground_ball_interception_analysis)
+      [ 0.71s] Ground ball fielded by pitcher at (-4.3, 71.8) in 0.71s (ground_ball_fielded)
+      [ 1.38s] Force out at second (margin: 4.51s) (force_out)
+      [ 2.86s] Double play! infield to second to first (double_play)
+
+Home Heroes RF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 94.7->85.1 mph to (0.08', 2.89') [0-0 -> 0-0] put in play (contact: fair, EV 72.7 mph, LA 44.8°)
+  ⚾ Fly out to outfield
+    Physics: EV=72.7 mph, LA=44.8°, Dist=248.4 ft, Hang=4.38s, Peak=76.5 ft, Contact: fair
+    Pitch: fastball 85.1 mph at zone (0.1', 2.9')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-73.9, 237.1) ft, distance 248.4 ft, hang time 4.38s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 67.1ft, margin 1.81s (can reach); center_field: 103.8ft, margin 0.49s (can reach); right_field: 210.8ft, margin -3.41s (too far); first_base: 263.3ft, margin -5.19s (too far); second_base: 214.8ft, margin -4.01s (too far); third_base: 217.1ft, margin -3.78s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 4.38s] Caught by left_field at outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 4.38s, arrival 2.60s (margin +1.78s) -> made play
+
+============================================================
+Top 5 | 7-0 | 0 out | Runners: empty
+============================================================
+
+Road Warriors RF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 89.9->80.9 mph to (-0.14', 3.16') [0-0 -> 0-0] put in play (contact: fair, EV 80.1 mph, LA 27.2°)
+  ⚾ Fly out to outfield
+    Physics: EV=80.1 mph, LA=27.2°, Dist=247.4 ft, Hang=2.99s, Peak=38.8 ft, Contact: fair
+    Pitch: fastball 80.9 mph at zone (-0.1', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-1.1, 247.4) ft, distance 247.4 ft, hang time 2.99s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 135.0ft, margin -1.95s (too far); center_field: 62.6ft, margin 0.60s (can reach); right_field: 137.2ft, margin -2.39s (too far); first_base: 239.8ft, margin -5.72s (too far); second_base: 196.8ft, margin -4.59s (too far); third_base: 239.1ft, margin -5.57s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.99s] Caught by center_field at outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 2.99s, arrival 2.52s (margin +0.47s) -> made play
+
+Road Warriors DH batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 89.9->81.0 mph to (-0.57', 2.45') [0-0 -> 0-0] put in play (contact: solid, EV 80.4 mph, LA 19.6°)
+  ✓ SINGLE
+    Physics: EV=80.4 mph, LA=19.6°, Dist=213.9 ft, Hang=2.34s, Peak=23.8 ft, Contact: solid
+    Pitch: fastball 81.0 mph at zone (-0.6', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-126.6, 172.5) ft, distance 213.9 ft, hang time 2.34s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 92.9ft, margin -1.12s (too far); center_field: 186.9ft, margin -4.45s (too far); right_field: 277.5ft, margin -8.30s (too far); first_base: 252.7ft, margin -6.83s (too far); second_base: 203.8ft, margin -5.50s (too far); third_base: 160.9ft, margin -3.50s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 1.96s] Ball retrieved by center_field in right outfield at 1.96s (air_catch) (ball_retrieved)
+      [ 2.34s] Ball drops in left outfield, left_field couldn't reach it (ball_drops)
+      [ 2.34s] Ball in play at (-126.6, 172.5) ft, distance 213.9 ft, peak height 23.8 ft (outfield_ball_analysis)
+      [ 2.35s] Spray angle: -36.3° from center field (trajectory_analysis)
+      [ 2.36s] Outfield interception: center_field (air_catch) travels 249.9 ft from (0.0, 310.0) to (148.7, 109.2) at 1.96s, margin +7.00s (outfield_interception_analysis)
+    Fielding breakdown:
+      Left Field: ball 2.34s, arrival 3.63s (margin -1.29s) -> missed
+    Runners after play: Road Warriors DH on first
+
+Road Warriors C batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 89.9->80.9 mph to (0.30', 2.70') [0-0 -> 0-1] swing and miss
+    #2: fastball 89.8->81.2 mph to (0.08', 0.79') [0-1 -> 1-1] taken for ball
+    #3: fastball 89.8->80.8 mph to (0.08', 3.35') [1-1 -> 1-2] swing and miss
+    #4: fastball 89.7->80.7 mph to (0.63', 3.26') [1-2 -> 1-3] taken for strike
+  ⚾ STRIKEOUT! 2 out(s)
+
+Road Warriors 1B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 89.7->80.6 mph to (-0.03', 3.63') [0-0 -> 0-1] swing and miss
+    #2: fastball 89.7->80.6 mph to (0.27', 3.54') [0-1 -> 1-1] taken for ball
+    #3: fastball 89.6->80.9 mph to (0.62', 1.90') [1-1 -> 1-1] put in play (contact: fair, EV 90.8 mph, LA 37.4°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=90.8 mph, LA=37.4°, Dist=334.6 ft, Hang=4.46s, Peak=81.1 ft, Contact: fair
+    Pitch: fastball 80.9 mph at zone (0.6', 1.9')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-37.3, 332.6) ft, distance 334.6 ft, hang time 4.46s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 118.8ft, margin 0.09s (can reach); center_field: 43.6ft, margin 2.74s (can reach); right_field: 185.0ft, margin -2.71s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 4.43s] Ball retrieved by left_field in deep right outfield at 4.43s (air_catch) (ball_retrieved)
+      [ 4.46s] Ball drops in deep outfield, center_field couldn't reach it (ball_drops)
+      [ 4.46s] Ball in play at (-37.3, 332.6) ft, distance 334.6 ft, peak height 81.1 ft (outfield_ball_analysis)
+      [ 4.47s] Spray angle: -6.4° from center field (trajectory_analysis)
+      [ 4.48s] Outfield interception: left_field (air_catch) travels 518.6 ft from (-135.0, 265.0) to (330.8, 37.1) at 4.43s, margin +13.95s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 4.46s, arrival 1.80s (margin +2.66s) -> missed
+    Runners after play: Road Warriors 1B on second, Road Warriors DH on third
+
+Road Warriors 2B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd_3rd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 89.6->80.6 mph to (0.69', 3.20') [0-0 -> 0-0] put in play (contact: fair, EV 88.1 mph, LA 47.0°)
+  ⚾ Fly out to outfield
+    Physics: EV=88.1 mph, LA=47.0°, Dist=317.1 ft, Hang=5.15s, Peak=107.8 ft, Contact: fair
+    Pitch: fastball 80.6 mph at zone (0.7', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (54.1, 312.5) ft, distance 317.1 ft, hang time 5.15s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 194.9ft, margin -1.89s (too far); center_field: 54.1ft, margin 3.06s (can reach); right_field: 93.8ft, margin 1.41s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 5.15s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 5.15s, arrival 2.16s (margin +2.99s) -> made play
+    Runners after play: Road Warriors 1B on second, Road Warriors DH on third
+
+============================================================
+Bot 5 | 7-0 | 0 out | Runners: empty
+============================================================
+
+Home Heroes DH batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 94.7->85.2 mph to (-0.45', 1.85') [0-0 -> 0-0] put in play (contact: weak, EV 75.6 mph, LA 0.9°)
+  ⚾ Ground out to infield
+    Physics: EV=75.6 mph, LA=0.9°, Dist=22.0 ft, Hang=0.32s, Peak=3.0 ft, Contact: weak
+    Pitch: fastball 85.2 mph at zone (-0.4', 1.8')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (1.5, 22.0) ft, distance 22.0 ft from home (ground_ball_analysis)
+      [ 0.30s] Weakly hit ball near home plate (22 ft) (weak_hit)
+      [ 0.31s] Fielder distances - pitcher: 38.6 ft, catcher: 24.0 ft, first_base: 73.5 ft, third_base: 76.6 ft. Closest: catcher (weak_hit_fielder_analysis)
+      [ 1.60s] Weak ground ball fielded by catcher (weak_hit_fielded)
+      [ 2.00s] Throw to first base at 87.6 mph (release 2.00s, flight 0.74s) (throw_to_first)
+      [ 4.45s] Runner out at first base (runner 4.45s vs ball 2.74s) (play_at_first)
+
+Home Heroes C batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 94.6->85.0 mph to (0.47', 3.29') [0-0 -> 0-1] fouled off (contact: weak, EV 76.4 mph, LA 12.3°)
+    #2: fastball 94.6->85.1 mph to (-0.85', 2.10') [0-1 -> 0-1] put in play (contact: weak, EV 76.4 mph, LA 18.6°)
+  ✓ SINGLE
+    Physics: EV=76.4 mph, LA=18.6°, Dist=191.3 ft, Hang=2.14s, Peak=20.2 ft, Contact: weak
+    Pitch: fastball 85.1 mph at zone (-0.9', 2.1')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-2.1, 191.3) ft, distance 191.3 ft, hang time 2.14s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 152.0ft, margin -3.38s (too far); center_field: 118.7ft, margin -2.27s (too far); right_field: 155.6ft, margin -3.66s (too far); first_base: 187.8ft, margin -4.73s (too far); second_base: 142.6ft, margin -3.51s (too far); third_base: 186.2ft, margin -4.88s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 1.72s] Ball retrieved by right_field in shallow right outfield at 1.72s (air_catch) (ball_retrieved)
+      [ 2.14s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.14s] Ball in play at (-2.1, 191.3) ft, distance 191.3 ft, peak height 20.2 ft (outfield_ball_analysis)
+      [ 2.15s] Spray angle: -0.6° from center field (trajectory_analysis)
+      [ 2.16s] Outfield interception: right_field (air_catch) travels 264.3 ft from (135.0, 265.0) to (158.4, 1.7) at 1.72s, margin +7.93s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.14s, arrival 5.05s (margin -2.90s) -> missed
+    Runners after play: Home Heroes C on first
+
+Home Heroes 1B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 94.5->85.0 mph to (0.12', 2.79') [0-0 -> 0-0] put in play (contact: solid, EV 74.4 mph, LA 30.2°)
+  ⚾ Fly out to outfield
+    Physics: EV=74.4 mph, LA=30.2°, Dist=238.2 ft, Hang=3.17s, Peak=42.1 ft, Contact: solid
+    Pitch: fastball 85.0 mph at zone (0.1', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (128.3, 200.7) ft, distance 238.2 ft, hang time 3.17s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 271.0ft, margin -6.51s (too far); center_field: 168.5ft, margin -2.99s (too far); right_field: 64.6ft, margin 0.62s (can reach); first_base: 188.4ft, margin -3.73s (too far); second_base: 170.4ft, margin -3.54s (too far); third_base: 272.0ft, margin -6.98s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 3.17s] Caught by right_field at right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 3.17s, arrival 2.46s (margin +0.71s) -> made play
+    Runners after play: Home Heroes C on first
+
+Home Heroes 2B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 94.5->84.9 mph to (0.72', 3.25') [0-0 -> 0-0] put in play (contact: weak, EV 75.0 mph, LA 23.7°)
+  ✓ SINGLE
+    Physics: EV=75.0 mph, LA=23.7°, Dist=232.0 ft, Hang=2.91s, Peak=32.4 ft, Contact: weak
+    Pitch: fastball 84.9 mph at zone (0.7', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-22.9, 230.9) ft, distance 232.0 ft, hang time 2.91s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 117.2ft, margin -1.40s (too far); center_field: 82.3ft, margin -0.22s (too far); right_field: 161.5ft, margin -3.11s (too far); first_base: 232.5ft, margin -5.56s (too far); second_base: 186.8ft, margin -4.41s (too far); third_base: 217.2ft, margin -5.25s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.59s] Ball retrieved by right_field in right outfield at 2.59s (air_catch) (ball_retrieved)
+      [ 2.91s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.91s] Ball in play at (-22.9, 230.9) ft, distance 232.0 ft, peak height 32.4 ft (outfield_ball_analysis)
+      [ 2.92s] Spray angle: -5.7° from center field (trajectory_analysis)
+      [ 2.93s] Outfield interception: right_field (air_catch) travels 255.3 ft from (135.0, 265.0) to (209.5, 20.8) at 2.59s, margin +6.74s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.91s, arrival 3.61s (margin -0.70s) -> missed
+    Runners after play: Home Heroes 2B on first, Home Heroes C on second
+
+Home Heroes 3B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 94.5->84.9 mph to (0.26', 2.90') [0-0 -> 0-1] swing and miss
+    #2: fastball 94.4->85.1 mph to (-0.53', 1.36') [0-1 -> 0-2] swing and miss
+    #3: fastball 94.4->84.8 mph to (1.23', 3.07') [0-2 -> 1-2] taken for ball
+    #4: fastball 94.4->85.1 mph to (0.18', 1.02') [1-2 -> 2-2] taken for ball
+    #5: fastball 94.3->85.0 mph to (-0.75', 0.96') [2-2 -> 3-2] taken for ball
+    #6: fastball 94.3->84.8 mph to (-0.41', 2.50') [3-2 -> 3-2] put in play (contact: fair, EV 86.0 mph, LA 43.4°)
+  ⚾ Fly out to outfield
+    Physics: EV=86.0 mph, LA=43.4°, Dist=308.8 ft, Hang=4.65s, Peak=90.0 ft, Contact: fair
+    Pitch: fastball 84.8 mph at zone (-0.4', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to deep right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (204.7, 231.2) ft, distance 308.8 ft, hang time 4.65s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 341.3ft, margin -7.49s (too far); center_field: 219.3ft, margin -3.30s (too far); right_field: 77.4ft, margin 1.64s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 4.65s] Caught by right_field at deep right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 4.65s, arrival 2.78s (margin +1.87s) -> made play
+    Runners after play: Home Heroes 2B on first, Home Heroes C on second
+
+============================================================
+Top 6 | 7-0 | 0 out | Runners: empty
+============================================================
+
+Road Warriors 3B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 89.6->80.7 mph to (-0.26', 2.75') [0-0 -> 0-0] put in play (contact: solid, EV 84.7 mph, LA 40.1°)
+  ⚾ Fly out to outfield
+    Physics: EV=84.7 mph, LA=40.1°, Dist=313.1 ft, Hang=4.81s, Peak=88.1 ft, Contact: solid
+    Pitch: fastball 80.7 mph at zone (-0.3', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (59.3, 307.5) ft, distance 313.1 ft, hang time 4.81s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 198.8ft, margin -2.38s (too far); center_field: 59.3ft, margin 2.53s (can reach); right_field: 86.8ft, margin 1.32s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 4.81s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 4.81s, arrival 2.34s (margin +2.47s) -> made play
+
+Road Warriors SS batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 89.5->80.8 mph to (-0.19', 1.73') [0-0 -> 0-1] swing and miss
+    #2: fastball 89.5->80.5 mph to (0.76', 3.39') [0-1 -> 1-1] taken for ball
+    #3: fastball 89.4->80.7 mph to (0.35', 1.62') [1-1 -> 1-1] put in play (contact: fair, EV 76.2 mph, LA 15.7°)
+  ✓ SINGLE
+    Physics: EV=76.2 mph, LA=15.7°, Dist=170.9 ft, Hang=1.85s, Peak=15.5 ft, Contact: fair
+    Pitch: fastball 80.7 mph at zone (0.3', 1.6')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (54.4, 162.0) ft, distance 170.9 ft, hang time 1.85s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 215.6ft, margin -5.93s (too far); center_field: 157.7ft, margin -3.90s (too far); right_field: 130.8ft, margin -3.28s (too far); first_base: 143.4ft, margin -3.45s (too far); second_base: 107.9ft, margin -2.40s (too far); third_base: 192.1ft, margin -5.07s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: first_base (fly_ball_assignment)
+      [ 1.78s] Ball retrieved by left_field in shallow right outfield at 1.78s (air_catch) (ball_retrieved)
+      [ 1.85s] Ball drops in shallow outfield, first_base couldn't reach it (ball_drops)
+      [ 1.85s] Ball in play at (54.4, 162.0) ft, distance 170.9 ft, peak height 15.5 ft (outfield_ball_analysis)
+      [ 1.86s] Spray angle: 18.6° from center field (trajectory_analysis)
+      [ 1.87s] Outfield interception: left_field (air_catch) travels 431.3 ft from (-135.0, 265.0) to (156.8, -52.7) at 1.78s, margin +13.53s (outfield_interception_analysis)
+    Fielding breakdown:
+      First Base: ball 1.85s, arrival 4.69s (margin -2.84s) -> missed
+    Runners after play: Road Warriors SS on first
+
+Road Warriors LF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 89.4->80.6 mph to (-0.07', 2.62') [0-0 -> 0-0] put in play (contact: solid, EV 83.1 mph, LA 25.4°)
+  ✓ SINGLE
+    Physics: EV=83.1 mph, LA=25.4°, Dist=257.5 ft, Hang=2.97s, Peak=37.6 ft, Contact: solid
+    Pitch: fastball 80.6 mph at zone (-0.1', 2.6')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (58.2, 250.8) ft, distance 257.5 ft, hang time 2.97s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 193.8ft, margin -4.03s (too far); center_field: 83.0ft, margin -0.14s (too far); right_field: 78.1ft, margin -0.18s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 2.93s] Ball retrieved by left_field in right outfield at 2.93s (air_catch) (ball_retrieved)
+      [ 2.97s] Ball drops in outfield, right_field couldn't reach it (ball_drops)
+      [ 2.97s] Ball in play at (58.2, 250.8) ft, distance 257.5 ft, peak height 37.6 ft (outfield_ball_analysis)
+      [ 2.98s] Spray angle: 13.1° from center field (trajectory_analysis)
+      [ 2.99s] Outfield interception: left_field (air_catch) travels 500.5 ft from (-135.0, 265.0) to (247.8, -57.5) at 2.93s, margin +14.82s (outfield_interception_analysis)
+    Fielding breakdown:
+      Right Field: ball 2.97s, arrival 3.18s (margin -0.21s) -> missed
+    Runners after play: Road Warriors LF on first, Road Warriors SS on second
+
+Road Warriors CF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 89.4->80.5 mph to (0.18', 2.85') [0-0 -> 0-0] put in play (contact: solid, EV 90.6 mph, LA 30.2°)
+  ⚾ Fly out to outfield
+    Physics: EV=90.6 mph, LA=30.2°, Dist=336.8 ft, Hang=4.26s, Peak=66.8 ft, Contact: solid
+    Pitch: fastball 80.5 mph at zone (0.2', 2.9')
+    Play timeline:
+      [ 0.00s] Ball hit to deep left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-119.1, 315.0) ft, distance 336.8 ft, hang time 4.26s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 52.4ft, margin 2.22s (can reach); center_field: 119.2ft, margin -0.13s (too far); right_field: 259.0ft, margin -5.69s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 4.26s] Caught by left_field at deep left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 4.26s, arrival 2.06s (margin +2.20s) -> made play
+    Runners after play: Road Warriors LF on first, Road Warriors SS on second
+
+Road Warriors RF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 89.3->80.4 mph to (0.43', 3.35') [0-0 -> 0-0] put in play (contact: solid, EV 84.2 mph, LA 20.5°)
+  ✓ SINGLE
+    Physics: EV=84.2 mph, LA=20.5°, Dist=235.6 ft, Hang=2.53s, Peak=27.5 ft, Contact: solid
+    Pitch: fastball 80.4 mph at zone (0.4', 3.4')
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (143.4, 186.9) ft, distance 235.6 ft, hang time 2.53s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 289.1ft, margin -7.83s (too far); center_field: 189.0ft, margin -4.33s (too far); right_field: 78.5ft, margin -0.64s (too far); first_base: 180.4ft, margin -4.08s (too far); second_base: 167.6ft, margin -3.96s (too far); third_base: 274.9ft, margin -7.27s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 2.48s] Ball retrieved by left_field in right outfield at 2.48s (air_catch) (ball_retrieved)
+      [ 2.53s] Ball drops in right outfield, right_field couldn't reach it (ball_drops)
+      [ 2.53s] Ball in play at (143.4, 186.9) ft, distance 235.6 ft, peak height 27.5 ft (outfield_ball_analysis)
+      [ 2.54s] Spray angle: 37.5° from center field (trajectory_analysis)
+      [ 2.55s] Outfield interception: left_field (air_catch) travels 516.2 ft from (-135.0, 265.0) to (183.8, -141.0) at 2.48s, margin +15.82s (outfield_interception_analysis)
+    Fielding breakdown:
+      Right Field: ball 2.53s, arrival 3.33s (margin -0.80s) -> missed
+    🏃 Run scores!
+    Runners after play: Road Warriors RF on first, Road Warriors LF on second
+
+Road Warriors DH batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 89.3->80.4 mph to (-0.04', 2.83') [0-0 -> 0-0] put in play (contact: solid, EV 79.7 mph, LA 49.7°)
+  ⚾ Fly out to outfield
+    Physics: EV=79.7 mph, LA=49.7°, Dist=273.2 ft, Hang=4.93s, Peak=99.2 ft, Contact: solid
+    Pitch: fastball 80.4 mph at zone (-0.0', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (172.5, 211.9) ft, distance 273.2 ft, hang time 4.93s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 312.1ft, margin -6.24s (too far); center_field: 198.5ft, margin -2.26s (too far); right_field: 65.0ft, margin 2.27s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 4.93s] Caught by right_field at right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 4.93s, arrival 2.80s (margin +2.13s) -> made play
+    Runners after play: Road Warriors RF on first, Road Warriors LF on second
+
+============================================================
+Bot 6 | 8-0 | 0 out | Runners: empty
+============================================================
+
+Home Heroes SS batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 94.2->84.7 mph to (-0.16', 2.60') [0-0 -> 0-1] taken for strike
+    #2: fastball 94.2->84.6 mph to (0.15', 3.57') [0-1 -> 1-1] taken for ball
+    #3: fastball 94.2->84.7 mph to (-1.45', 2.46') [1-1 -> 2-1] taken for ball
+    #4: fastball 94.1->84.7 mph to (-0.71', 1.97') [2-1 -> 2-2] swing and miss
+    #5: fastball 94.1->84.8 mph to (0.08', 1.51') [2-2 -> 2-2] fouled off (contact: weak, EV 72.3 mph, LA -8.0°)
+    #6: fastball 94.0->84.4 mph to (0.19', 3.85') [2-2 -> 3-2] taken for ball
+    #7: fastball 94.0->84.6 mph to (0.27', 2.06') [3-2 -> 3-2] put in play (contact: fair, EV 73.5 mph, LA 18.6°)
+  ✓ SINGLE
+    Physics: EV=73.5 mph, LA=18.6°, Dist=179.2 ft, Hang=2.06s, Peak=19.0 ft, Contact: fair
+    Pitch: fastball 84.6 mph at zone (0.3', 2.1')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-101.1, 148.0) ft, distance 179.2 ft, hang time 2.06s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 121.8ft, margin -2.41s (too far); center_field: 191.0ft, margin -4.88s (too far); right_field: 263.5ft, margin -7.61s (too far); first_base: 217.7ft, margin -5.87s (too far); second_base: 169.0ft, margin -4.58s (too far); third_base: 130.6ft, margin -2.94s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: third_base (fly_ball_assignment)
+      [ 1.62s] Ball retrieved by center_field in shallow right outfield at 1.62s (air_catch) (ball_retrieved)
+      [ 2.06s] Ball drops in shallow left outfield, third_base couldn't reach it (ball_drops)
+      [ 2.06s] Ball in play at (-101.1, 148.0) ft, distance 179.2 ft, peak height 19.0 ft (outfield_ball_analysis)
+      [ 2.07s] Spray angle: -34.3° from center field (trajectory_analysis)
+      [ 2.08s] Outfield interception: center_field (air_catch) travels 257.7 ft from (0.0, 310.0) to (120.1, 82.0) at 1.62s, margin +7.62s (outfield_interception_analysis)
+    Fielding breakdown:
+      Third Base: ball 2.06s, arrival 4.43s (margin -2.37s) -> missed
+    Runners after play: Home Heroes SS on first
+
+Home Heroes LF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 94.0->84.6 mph to (0.45', 2.43') [0-0 -> 0-1] swing and miss
+    #2: fastball 93.9->84.4 mph to (0.40', 3.04') [0-1 -> 0-2] taken for strike
+    #3: fastball 93.9->84.6 mph to (-0.36', 1.79') [0-2 -> 0-3] taken for strike
+  ⚾ STRIKEOUT! 1 out(s)
+
+Home Heroes CF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 93.9->84.3 mph to (0.38', 3.56') [0-0 -> 0-1] swing and miss
+    #2: fastball 93.8->84.3 mph to (0.39', 3.42') [0-1 -> 0-2] swing and miss
+    #3: fastball 93.8->84.3 mph to (1.36', 3.21') [0-2 -> 1-2] taken for ball
+    #4: fastball 93.7->84.6 mph to (0.15', 0.83') [1-2 -> 2-2] taken for ball
+    #5: fastball 93.7->84.2 mph to (0.99', 3.12') [2-2 -> 3-2] taken for ball
+    #6: fastball 93.7->84.3 mph to (0.15', 2.64') [3-2 -> 3-2] fouled off (contact: solid, EV 88.9 mph, LA 62.2°)
+    #7: fastball 93.6->84.3 mph to (0.39', 2.48') [3-2 -> 3-3] swing and miss
+  ⚾ STRIKEOUT! 2 out(s)
+
+Home Heroes RF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 93.6->84.2 mph to (0.06', 2.90') [0-0 -> 0-1] taken for strike
+    #2: fastball 93.6->84.0 mph to (-0.20', 3.61') [0-1 -> 1-1] taken for ball
+    #3: fastball 93.5->84.0 mph to (0.32', 3.34') [1-1 -> 1-2] taken for strike
+    #4: fastball 93.5->84.2 mph to (1.59', 2.17') [1-2 -> 2-2] taken for ball
+    #5: fastball 93.4->84.0 mph to (0.31', 2.89') [2-2 -> 2-3] swing and miss
+  ⚾ STRIKEOUT! 3 out(s)
+
+============================================================
+Top 7 | 8-0 | 0 out | Runners: empty
+============================================================
+
+Road Warriors C batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 89.2->80.6 mph to (-0.33', 1.54') [0-0 -> 0-1] taken for strike
+    #2: fastball 89.2->80.3 mph to (0.64', 3.17') [0-1 -> 0-2] swing and miss
+    #3: fastball 89.2->80.3 mph to (-0.84', 2.84') [0-2 -> 1-2] taken for ball
+    #4: fastball 89.1->80.5 mph to (0.07', 1.65') [1-2 -> 1-2] put in play (contact: solid, EV 85.0 mph, LA 17.2°)
+  ✓ SINGLE
+    Physics: EV=85.0 mph, LA=17.2°, Dist=244.3 ft, Hang=2.61s, Peak=25.1 ft, Contact: solid
+    Pitch: fastball 80.5 mph at zone (0.1', 1.6')
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (164.2, 180.9) ft, distance 244.3 ft, hang time 2.61s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 310.8ft, margin -8.51s (too far); center_field: 208.9ft, margin -4.95s (too far); right_field: 89.0ft, margin -0.95s (too far); first_base: 184.0ft, margin -4.12s (too far); second_base: 176.8ft, margin -4.22s (too far); third_base: 288.3ft, margin -7.65s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 2.55s] Ball retrieved by left_field in right outfield at 2.55s (air_catch) (ball_retrieved)
+      [ 2.61s] Ball drops in right outfield, right_field couldn't reach it (ball_drops)
+      [ 2.61s] Ball in play at (164.2, 180.9) ft, distance 244.3 ft, peak height 25.1 ft (outfield_ball_analysis)
+      [ 2.62s] Spray angle: 42.2° from center field (trajectory_analysis)
+      [ 2.63s] Outfield interception: left_field (air_catch) travels 528.6 ft from (-135.0, 265.0) to (177.6, -161.3) at 2.55s, margin +16.18s (outfield_interception_analysis)
+    Fielding breakdown:
+      Right Field: ball 2.61s, arrival 3.73s (margin -1.12s) -> missed
+    Runners after play: Road Warriors C on first
+
+Road Warriors 1B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 89.1->80.3 mph to (-0.24', 2.31') [0-0 -> 0-0] put in play (contact: solid, EV 95.5 mph, LA 42.5°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=95.5 mph, LA=42.5°, Dist=359.4 ft, Hang=5.58s, Peak=117.1 ft, Contact: solid
+    Pitch: fastball 80.3 mph at zone (-0.2', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (34.4, 357.8) ft, distance 359.4 ft, hang time 5.58s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 193.1ft, margin -1.41s (too far); center_field: 58.9ft, margin 3.32s (can reach); right_field: 136.8ft, margin 0.22s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 5.55s] Ball retrieved by left_field in deep right outfield at 5.55s (air_catch) (ball_retrieved)
+      [ 5.58s] Ball drops in deep outfield, center_field couldn't reach it (ball_drops)
+      [ 5.58s] Ball in play at (34.4, 357.8) ft, distance 359.4 ft, peak height 117.1 ft (outfield_ball_analysis)
+      [ 5.59s] Spray angle: 5.5° from center field (trajectory_analysis)
+      [ 5.60s] Outfield interception: left_field (air_catch) travels 575.4 ft from (-135.0, 265.0) to (356.4, -34.3) at 5.55s, margin +14.83s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 5.58s, arrival 2.26s (margin +3.32s) -> missed
+    Runners after play: Road Warriors 1B on second, Road Warriors C on third
+
+Road Warriors 2B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd_3rd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 89.1->80.2 mph to (1.17', 3.09') [0-0 -> 1-0] taken for ball
+    #2: fastball 89.0->80.4 mph to (-0.06', 1.84') [1-0 -> 1-1] taken for strike
+    #3: fastball 89.0->80.1 mph to (-0.64', 3.35') [1-1 -> 1-2] taken for strike
+    #4: fastball 88.9->80.1 mph to (1.54', 3.30') [1-2 -> 2-2] taken for ball
+    #5: fastball 88.9->80.2 mph to (-1.33', 2.15') [2-2 -> 3-2] taken for ball
+    #6: fastball 88.9->80.1 mph to (0.34', 2.38') [3-2 -> 3-3] taken for strike
+  ⚾ STRIKEOUT! 1 out(s)
+
+Road Warriors 3B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd_3rd, 1 out(s)
+  Pitch sequence:
+    #1: fastball 88.8->80.0 mph to (-0.13', 2.92') [0-0 -> 0-1] taken for strike
+    #2: fastball 88.8->80.2 mph to (-0.69', 1.40') [0-1 -> 0-2] fouled off (contact: weak, EV 79.6 mph, LA 23.8°)
+    #3: fastball 88.8->79.9 mph to (1.04', 3.33') [0-2 -> 1-2] taken for ball
+    #4: fastball 88.7->79.7 mph to (-0.68', 4.19') [1-2 -> 2-2] taken for ball
+    #5: fastball 88.7->80.2 mph to (-0.24', 0.90') [2-2 -> 3-2] taken for ball
+    #6: fastball 88.6->79.9 mph to (0.43', 2.67') [3-2 -> 3-2] put in play (contact: solid, EV 82.7 mph, LA 25.1°)
+  ✓ SINGLE
+    Physics: EV=82.7 mph, LA=25.1°, Dist=254.0 ft, Hang=2.93s, Peak=36.6 ft, Contact: solid
+    Pitch: fastball 79.9 mph at zone (0.4', 2.7')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (39.9, 250.9) ft, distance 254.0 ft, hang time 2.93s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 175.5ft, margin -3.44s (too far); center_field: 71.4ft, margin 0.23s (can reach); right_field: 96.1ft, margin -0.90s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.88s] Ball retrieved by left_field in right outfield at 2.88s (air_catch) (ball_retrieved)
+      [ 2.93s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.93s] Ball in play at (39.9, 250.9) ft, distance 254.0 ft, peak height 36.6 ft (outfield_ball_analysis)
+      [ 2.94s] Spray angle: 9.0° from center field (trajectory_analysis)
+      [ 2.95s] Outfield interception: left_field (air_catch) travels 489.1 ft from (-135.0, 265.0) to (247.8, -39.4) at 2.88s, margin +14.46s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.93s, arrival 2.84s (margin +0.09s) -> missed
+    🏃 Run scores!
+    🏃 Run scores!
+    Runners after play: Road Warriors 3B on first
+
+Road Warriors SS batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 88.6->80.0 mph to (0.28', 2.00') [0-0 -> 0-1] swing and miss
+    #2: fastball 88.6->80.0 mph to (0.52', 1.75') [0-1 -> 0-1] put in play (contact: fair, EV 76.2 mph, LA 32.7°)
+  ⚾ Fly out to outfield
+    Physics: EV=76.2 mph, LA=32.7°, Dist=257.5 ft, Hang=3.54s, Peak=51.0 ft, Contact: fair
+    Pitch: fastball 80.0 mph at zone (0.5', 1.8')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (22.3, 256.6) ft, distance 257.5 ft, hang time 3.54s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 157.5ft, margin -2.19s (too far); center_field: 57.9ft, margin 1.31s (can reach); right_field: 113.1ft, margin -0.93s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.54s] Caught by center_field at outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 3.54s, arrival 2.38s (margin +1.15s) -> made play
+    Runners after play: Road Warriors 3B on first
+
+Road Warriors LF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 88.5->80.0 mph to (-0.07', 1.52') [0-0 -> 0-0] put in play (contact: weak, EV 79.2 mph, LA 25.3°)
+  ✓ SINGLE
+    Physics: EV=79.2 mph, LA=25.3°, Dist=247.6 ft, Hang=2.99s, Peak=36.5 ft, Contact: weak
+    Pitch: fastball 80.0 mph at zone (-0.1', 1.5')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (79.5, 234.5) ft, distance 247.6 ft, hang time 2.99s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 216.6ft, margin -4.82s (too far); center_field: 109.6ft, margin -1.06s (too far); right_field: 63.4ft, margin 0.39s (can reach); first_base: 214.6ft, margin -4.83s (too far); second_base: 183.8ft, margin -4.10s (too far); third_base: 264.3ft, margin -6.44s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 2.94s] Ball retrieved by left_field in right outfield at 2.94s (air_catch) (ball_retrieved)
+      [ 2.99s] Ball drops in outfield, right_field couldn't reach it (ball_drops)
+      [ 2.99s] Ball in play at (79.5, 234.5) ft, distance 247.6 ft, peak height 36.5 ft (outfield_ball_analysis)
+      [ 3.00s] Spray angle: 18.7° from center field (trajectory_analysis)
+      [ 3.01s] Outfield interception: left_field (air_catch) travels 502.4 ft from (-135.0, 265.0) to (231.6, -78.5) at 2.94s, margin +14.86s (outfield_interception_analysis)
+    Fielding breakdown:
+      Right Field: ball 2.99s, arrival 2.64s (margin +0.35s) -> missed
+    Runners after play: Road Warriors LF on first, Road Warriors 3B on second
+
+Road Warriors CF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 88.5->79.8 mph to (0.08', 2.82') [0-0 -> 0-0] put in play (contact: solid, EV 88.7 mph, LA 28.1°)
+  ⚾ Fly out to outfield
+    Physics: EV=88.7 mph, LA=28.1°, Dist=321.3 ft, Hang=3.96s, Peak=57.7 ft, Contact: solid
+    Pitch: fastball 79.8 mph at zone (0.1', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (31.7, 319.7) ft, distance 321.3 ft, hang time 3.96s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 175.4ft, margin -2.40s (too far); center_field: 33.2ft, margin 2.61s (can reach); right_field: 116.9ft, margin -0.65s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.96s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 3.96s, arrival 1.43s (margin +2.53s) -> made play
+    Runners after play: Road Warriors LF on first, Road Warriors 3B on second
+
+============================================================
+Bot 7 | 10-0 | 0 out | Runners: empty
+============================================================
+
+Home Heroes DH batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 93.4->84.0 mph to (-0.67', 3.21') [0-0 -> 0-0] put in play (contact: solid, EV 81.9 mph, LA 23.2°)
+  ✓ SINGLE
+    Physics: EV=81.9 mph, LA=23.2°, Dist=245.5 ft, Hang=2.80s, Peak=32.7 ft, Contact: solid
+    Pitch: fastball 84.0 mph at zone (-0.7', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (35.6, 243.0) ft, distance 245.5 ft, hang time 2.80s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 172.0ft, margin -3.43s (too far); center_field: 75.9ft, margin -0.11s (too far); right_field: 101.9ft, margin -1.08s (too far); first_base: 226.4ft, margin -5.45s (too far); second_base: 188.0ft, margin -4.57s (too far); third_base: 248.9ft, margin -6.51s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.75s] Ball retrieved by left_field in right outfield at 2.75s (air_catch) (ball_retrieved)
+      [ 2.80s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.80s] Ball in play at (35.6, 243.0) ft, distance 245.5 ft, peak height 32.7 ft (outfield_ball_analysis)
+      [ 2.81s] Spray angle: 8.3° from center field (trajectory_analysis)
+      [ 2.82s] Outfield interception: left_field (air_catch) travels 479.9 ft from (-135.0, 265.0) to (239.5, -35.1) at 2.75s, margin +14.17s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.80s, arrival 3.36s (margin -0.56s) -> missed
+    Runners after play: Home Heroes DH on first
+
+Home Heroes C batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 93.4->83.9 mph to (-0.35', 3.56') [0-0 -> 1-0] taken for ball
+    #2: fastball 93.3->83.9 mph to (0.27', 3.32') [1-0 -> 1-0] put in play (contact: fair, EV 76.3 mph, LA 4.5°)
+  ⚾⚾ DOUBLE PLAY!
+    Physics: EV=76.3 mph, LA=4.5°, Dist=31.8 ft, Hang=0.42s, Peak=3.3 ft, Contact: fair
+    Pitch: fastball 83.9 mph at zone (0.3', 3.3')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (3.9, 31.5) ft, distance 31.8 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: second_base travels 32.9 ft from (40.0, 55.0) to (7.2, 57.7), margin +1.40s (ground_ball_interception_analysis)
+      [ 0.77s] Ground ball fielded by second_base at (7.2, 57.7) in 0.77s (ground_ball_fielded)
+      [ 2.26s] Force out at second (margin: 3.69s) (force_out)
+      [ 4.43s] Double play! infield to second to first (double_play)
+
+Home Heroes 1B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 93.3->84.1 mph to (0.26', 1.75') [0-0 -> 0-0] put in play (contact: fair, EV 70.3 mph, LA 33.9°)
+  ✓ SINGLE
+    Physics: EV=70.3 mph, LA=33.9°, Dist=225.8 ft, Hang=3.28s, Peak=45.5 ft, Contact: fair
+    Pitch: fastball 84.1 mph at zone (0.3', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (19.6, 225.0) ft, distance 225.8 ft, hang time 3.28s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 159.7ft, margin -2.52s (too far); center_field: 87.3ft, margin -0.02s (too far); right_field: 122.2ft, margin -1.33s (too far); first_base: 212.3ft, margin -4.47s (too far); second_base: 171.2ft, margin -3.45s (too far); third_base: 225.7ft, margin -5.19s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.02s] Ball retrieved by right_field in right outfield at 3.02s (air_catch) (ball_retrieved)
+      [ 3.28s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 3.28s] Ball in play at (19.6, 225.0) ft, distance 225.8 ft, peak height 45.5 ft (outfield_ball_analysis)
+      [ 3.29s] Spray angle: 5.0° from center field (trajectory_analysis)
+      [ 3.30s] Outfield interception: right_field (air_catch) travels 293.3 ft from (135.0, 265.0) to (210.8, -18.3) at 3.02s, margin +7.67s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 3.28s, arrival 3.81s (margin -0.53s) -> missed
+    Runners after play: Home Heroes 1B on first
+
+Home Heroes 2B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 93.3->84.0 mph to (-0.18', 1.88') [0-0 -> 0-0] put in play (contact: solid, EV 77.0 mph, LA 21.1°)
+  ✓ SINGLE
+    Physics: EV=77.0 mph, LA=21.1°, Dist=212.9 ft, Hang=2.46s, Peak=25.6 ft, Contact: solid
+    Pitch: fastball 84.0 mph at zone (-0.2', 1.9')
+    Play timeline:
+      [ 0.00s] Ball hit to left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-150.6, 150.4) ft, distance 212.9 ft, hang time 2.46s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 115.6ft, margin -1.80s (too far); center_field: 219.4ft, margin -5.49s (too far); right_field: 307.7ft, margin -8.80s (too far); first_base: 260.6ft, margin -7.01s (too far); second_base: 213.2ft, margin -5.86s (too far); third_base: 150.8ft, margin -3.28s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 2.09s] Ball retrieved by left_field in right outfield at 2.09s (air_catch) (ball_retrieved)
+      [ 2.46s] Ball drops in left outfield, left_field couldn't reach it (ball_drops)
+      [ 2.46s] Ball in play at (-150.6, 150.4) ft, distance 212.9 ft, peak height 25.6 ft (outfield_ball_analysis)
+      [ 2.47s] Spray angle: -45.0° from center field (trajectory_analysis)
+      [ 2.48s] Outfield interception: left_field (air_catch) travels 298.0 ft from (-135.0, 265.0) to (131.5, 131.7) at 2.09s, margin +8.48s (outfield_interception_analysis)
+    Fielding breakdown:
+      Left Field: ball 2.46s, arrival 4.42s (margin -1.96s) -> missed
+    Runners after play: Home Heroes 2B on first, Home Heroes 1B on second
+
+Home Heroes 3B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 93.2->84.1 mph to (0.23', 1.46') [0-0 -> 0-0] put in play (contact: solid, EV 89.8 mph, LA 33.1°)
+  ⚾ Fly out to outfield
+    Physics: EV=89.8 mph, LA=33.1°, Dist=318.2 ft, Hang=3.93s, Peak=64.7 ft, Contact: solid
+    Pitch: fastball 84.1 mph at zone (0.2', 1.5')
+    Play timeline:
+      [ 0.00s] Ball hit to deep left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-139.5, 285.9) ft, distance 318.2 ft, hang time 3.93s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 21.4ft, margin 2.97s (can reach); center_field: 141.6ft, margin -1.28s (too far); right_field: 275.3ft, margin -6.16s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 3.93s] Caught by left_field at deep left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 3.93s, arrival 0.99s (margin +2.94s) -> made play
+    Runners after play: Home Heroes 2B on first, Home Heroes 1B on second
+
+============================================================
+Top 8 | 10-0 | 0 out | Runners: empty
+============================================================
+
+Road Warriors RF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 88.5->79.8 mph to (-0.05', 2.60') [0-0 -> 0-0] put in play (contact: solid, EV 80.0 mph, LA 21.4°)
+  ✓ SINGLE
+    Physics: EV=80.0 mph, LA=21.4°, Dist=231.1 ft, Hang=2.63s, Peak=28.4 ft, Contact: solid
+    Pitch: fastball 79.8 mph at zone (-0.1', 2.6')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-7.8, 231.0) ft, distance 231.1 ft, hang time 2.63s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 131.7ft, margin -2.20s (too far); center_field: 79.4ft, margin -0.35s (too far); right_field: 146.8ft, margin -3.10s (too far); first_base: 226.7ft, margin -5.62s (too far); second_base: 182.4ft, margin -4.41s (too far); third_base: 221.5ft, margin -5.32s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.29s] Ball retrieved by right_field in right outfield at 2.29s (air_catch) (ball_retrieved)
+      [ 2.63s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.63s] Ball in play at (-7.8, 231.0) ft, distance 231.1 ft, peak height 28.4 ft (outfield_ball_analysis)
+      [ 2.64s] Spray angle: -1.9° from center field (trajectory_analysis)
+      [ 2.65s] Outfield interception: right_field (air_catch) travels 267.6 ft from (135.0, 265.0) to (205.8, 6.9) at 2.29s, margin +7.93s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.63s, arrival 3.13s (margin -0.50s) -> missed
+    Runners after play: Road Warriors RF on first
+
+Road Warriors DH batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 88.4->79.8 mph to (-0.54', 2.09') [0-0 -> 0-0] put in play (contact: solid, EV 79.0 mph, LA 9.8°)
+  ⚾⚾ DOUBLE PLAY!
+    Physics: EV=79.0 mph, LA=9.8°, Dist=67.7 ft, Hang=0.68s, Peak=5.3 ft, Contact: solid
+    Pitch: fastball 79.8 mph at zone (-0.5', 2.1')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (-14.2, 66.2) ft, distance 67.7 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: pitcher travels 22.4 ft from (0.0, 60.5) to (-16.3, 75.8), margin +1.11s (ground_ball_interception_analysis)
+      [ 0.78s] Ground ball fielded by pitcher at (-16.3, 75.8) in 0.78s (ground_ball_fielded)
+      [ 1.41s] Force out at second (margin: 3.20s) (force_out)
+      [ 2.91s] Double play! infield to second to first (double_play)
+
+Road Warriors C batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 88.4->79.8 mph to (0.25', 2.00') [0-0 -> 0-1] swing and miss
+    #2: fastball 88.3->79.7 mph to (-0.39', 2.22') [0-1 -> 0-2] taken for strike
+    #3: fastball 88.3->79.5 mph to (-1.02', 3.31') [0-2 -> 1-2] taken for ball
+    #4: fastball 88.3->79.5 mph to (0.72', 3.03') [1-2 -> 1-2] put in play (contact: fair, EV 81.2 mph, LA 20.4°)
+  ✓ SINGLE
+    Physics: EV=81.2 mph, LA=20.4°, Dist=228.7 ft, Hang=2.53s, Peak=26.8 ft, Contact: fair
+    Pitch: fastball 79.5 mph at zone (0.7', 3.0')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (38.1, 225.5) ft, distance 228.7 ft, hang time 2.53s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 177.6ft, margin -3.90s (too far); center_field: 92.7ft, margin -0.92s (too far); right_field: 104.6ft, margin -1.62s (too far); first_base: 208.8ft, margin -5.08s (too far); second_base: 170.5ft, margin -4.06s (too far); third_base: 234.6ft, margin -5.87s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.48s] Ball retrieved by left_field in right outfield at 2.48s (air_catch) (ball_retrieved)
+      [ 2.53s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.53s] Ball in play at (38.1, 225.5) ft, distance 228.7 ft, peak height 26.8 ft (outfield_ball_analysis)
+      [ 2.54s] Spray angle: 9.6° from center field (trajectory_analysis)
+      [ 2.55s] Outfield interception: left_field (air_catch) travels 467.6 ft from (-135.0, 265.0) to (221.7, -37.5) at 2.48s, margin +14.11s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.53s, arrival 3.61s (margin -1.08s) -> missed
+    Runners after play: Road Warriors C on first
+
+Road Warriors 1B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 88.2->79.4 mph to (0.92', 3.36') [0-0 -> 1-0] taken for ball
+    #2: fastball 88.2->79.4 mph to (0.74', 3.74') [1-0 -> 2-0] taken for ball
+    #3: fastball 88.1->79.8 mph to (-0.78', 0.95') [2-0 -> 3-0] taken for ball
+    #4: fastball 88.1->79.4 mph to (0.51', 2.86') [3-0 -> 3-1] fouled off (contact: weak, EV 90.7 mph, LA 44.5°)
+    #5: fastball 88.1->79.4 mph to (-0.13', 2.89') [3-1 -> 3-1] put in play (contact: solid, EV 91.3 mph, LA 36.1°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=91.3 mph, LA=36.1°, Dist=329.7 ft, Hang=4.23s, Peak=75.0 ft, Contact: solid
+    Pitch: fastball 79.4 mph at zone (-0.1', 2.9')
+    Play timeline:
+      [ 0.00s] Ball hit to deep left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-118.4, 307.7) ft, distance 329.7 ft, hang time 4.23s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 45.8ft, margin 2.42s (can reach); center_field: 118.4ft, margin -0.14s (too far); right_field: 256.9ft, margin -5.64s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 4.03s] Ball retrieved by right_field in deep right outfield at 4.03s (air_catch) (ball_retrieved)
+      [ 4.23s] Ball drops in deep left outfield, left_field couldn't reach it (ball_drops)
+      [ 4.23s] Ball in play at (-118.4, 307.7) ft, distance 329.7 ft, peak height 75.0 ft (outfield_ball_analysis)
+      [ 4.24s] Spray angle: -21.0° from center field (trajectory_analysis)
+      [ 4.25s] Outfield interception: right_field (air_catch) travels 221.3 ft from (135.0, 265.0) to (297.1, 114.3) at 4.03s, margin +4.45s (outfield_interception_analysis)
+    Fielding breakdown:
+      Left Field: ball 4.23s, arrival 1.84s (margin +2.39s) -> missed
+    Runners after play: Road Warriors 1B on second, Road Warriors C on third
+
+Road Warriors 2B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd_3rd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 88.0->79.4 mph to (-0.09', 2.71') [0-0 -> 0-0] put in play (contact: solid, EV 87.5 mph, LA 30.3°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=87.5 mph, LA=30.3°, Dist=307.3 ft, Hang=3.77s, Peak=57.0 ft, Contact: solid
+    Pitch: fastball 79.4 mph at zone (-0.1', 2.7')
+    Play timeline:
+      [ 0.00s] Ball hit to deep left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-127.2, 279.7) ft, distance 307.3 ft, hang time 3.77s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 16.6ft, margin 2.99s (can reach); center_field: 130.8ft, margin -1.03s (too far); right_field: 262.6ft, margin -6.31s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 3.54s] Ball retrieved by right_field in deep right outfield at 3.54s (air_catch) (ball_retrieved)
+      [ 3.77s] Ball drops in deep left outfield, left_field couldn't reach it (ball_drops)
+      [ 3.77s] Ball in play at (-127.2, 279.7) ft, distance 307.3 ft, peak height 57.0 ft (outfield_ball_analysis)
+      [ 3.78s] Spray angle: -24.5° from center field (trajectory_analysis)
+      [ 3.79s] Outfield interception: right_field (air_catch) travels 194.8 ft from (135.0, 265.0) to (266.4, 121.2) at 3.54s, margin +3.95s (outfield_interception_analysis)
+    Fielding breakdown:
+      Left Field: ball 3.77s, arrival 0.81s (margin +2.97s) -> missed
+    🏃 Run scores!
+    🏃 Run scores!
+    Runners after play: Road Warriors 2B on second
+
+Road Warriors 3B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 88.0->79.4 mph to (-0.06', 2.66') [0-0 -> 0-1] taken for strike
+    #2: fastball 88.0->79.2 mph to (-0.74', 3.24') [0-1 -> 0-2] swing and miss
+    #3: fastball 87.9->79.2 mph to (-0.10', 3.65') [0-2 -> 1-2] taken for ball
+    #4: fastball 87.9->79.4 mph to (0.62', 1.72') [1-2 -> 1-2] put in play (contact: weak, EV 79.5 mph, LA 11.8°)
+  ⚾ Fly out to infield
+    Physics: EV=79.5 mph, LA=11.8°, Dist=159.1 ft, Hang=1.61s, Peak=11.5 ft, Contact: weak
+    Pitch: fastball 79.4 mph at zone (0.6', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-32.9, 155.7) ft, distance 159.1 ft, hang time 1.61s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 149.6ft, margin -3.84s (too far); center_field: 157.8ft, margin -4.15s (too far); right_field: 200.4ft, margin -6.14s (too far); first_base: 173.4ft, margin -4.75s (too far); second_base: 124.3ft, margin -3.25s (too far); third_base: 142.1ft, margin -3.58s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: shortstop (fly_ball_assignment)
+      [ 0.64s] Caught by first_base at 0.64s (55% prob) (air_catch)
+      [ 1.61s] Ball drops in shallow outfield, shortstop couldn't reach it (ball_drops)
+      [ 1.61s] Ball in play at (-32.9, 155.7) ft, distance 159.1 ft, peak height 11.5 ft (outfield_ball_analysis)
+      [ 1.62s] Spray angle: -11.9° from center field (trajectory_analysis)
+    Fielding breakdown:
+      Shortstop: ball 1.61s, arrival 3.86s (margin -2.25s) -> missed
+    Runners after play: Road Warriors 2B on second
+
+============================================================
+Bot 8 | 12-0 | 0 out | Runners: empty
+============================================================
+
+Home Heroes SS batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 93.2->84.0 mph to (0.61', 1.43') [0-0 -> 0-0] put in play (contact: fair, EV 75.9 mph, LA 27.4°)
+  ⚾ Fly out to outfield
+    Physics: EV=75.9 mph, LA=27.4°, Dist=237.9 ft, Hang=3.02s, Peak=37.9 ft, Contact: fair
+    Pitch: fastball 84.0 mph at zone (0.6', 1.4')
+    Play timeline:
+      [ 0.00s] Ball hit to right outfield (contact)
+      [ 0.00s] Fly ball coordinates: (111.4, 210.2) ft, distance 237.9 ft, hang time 3.02s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 252.4ft, margin -6.01s (too far); center_field: 149.6ft, margin -2.48s (too far); right_field: 59.7ft, margin 0.65s (can reach); first_base: 193.6ft, margin -4.07s (too far); second_base: 170.8ft, margin -3.70s (too far); third_base: 266.3ft, margin -6.92s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 3.02s] Caught by right_field at right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 3.02s, arrival 2.32s (margin +0.70s) -> made play
+
+Home Heroes LF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 93.1->84.0 mph to (0.84', 1.72') [0-0 -> 1-0] taken for ball
+    #2: fastball 93.1->83.7 mph to (-0.80', 3.08') [1-0 -> 2-0] taken for ball
+    #3: fastball 93.1->83.9 mph to (0.08', 1.58') [2-0 -> 2-0] put in play (contact: solid, EV 75.8 mph, LA 2.0°)
+  ⚾ Ground out to infield
+    Physics: EV=75.8 mph, LA=2.0°, Dist=24.6 ft, Hang=0.35s, Peak=3.0 ft, Contact: solid
+    Pitch: fastball 83.9 mph at zone (0.1', 1.6')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (1.8, 24.5) ft, distance 24.6 ft from home (ground_ball_analysis)
+      [ 0.30s] Weakly hit ball near home plate (25 ft) (weak_hit)
+      [ 0.31s] Fielder distances - pitcher: 36.0 ft, catcher: 26.6 ft, first_base: 73.4 ft, third_base: 76.9 ft. Closest: catcher (weak_hit_fielder_analysis)
+      [ 1.69s] Weak ground ball fielded by catcher (weak_hit_fielded)
+      [ 2.09s] Throw to first base at 87.6 mph (release 2.09s, flight 0.74s) (throw_to_first)
+      [ 3.84s] Runner out at first base (runner 3.84s vs ball 2.82s) (play_at_first)
+
+Home Heroes CF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 93.0->83.8 mph to (-0.27', 2.51') [0-0 -> 0-0] put in play (contact: solid, EV 85.1 mph, LA 17.7°)
+  ✓ SINGLE
+    Physics: EV=85.1 mph, LA=17.7°, Dist=224.0 ft, Hang=2.31s, Peak=22.7 ft, Contact: solid
+    Pitch: fastball 83.8 mph at zone (-0.3', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (69.8, 212.8) ft, distance 224.0 ft, hang time 2.31s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 211.4ft, margin -5.28s (too far); center_field: 119.7ft, margin -2.13s (too far); right_field: 83.5ft, margin -0.91s (too far); first_base: 192.9ft, margin -4.74s (too far); second_base: 160.6ft, margin -4.02s (too far); third_base: 241.2ft, margin -6.71s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.26s] Ball retrieved by left_field in right outfield at 2.26s (air_catch) (ball_retrieved)
+      [ 2.31s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.31s] Ball in play at (69.8, 212.8) ft, distance 224.0 ft, peak height 22.7 ft (outfield_ball_analysis)
+      [ 2.32s] Spray angle: 18.2° from center field (trajectory_analysis)
+      [ 2.33s] Outfield interception: left_field (air_catch) travels 478.7 ft from (-135.0, 265.0) to (208.4, -68.4) at 2.26s, margin +14.62s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.31s, arrival 5.08s (margin -2.77s) -> missed
+    Runners after play: Home Heroes CF on first
+
+Home Heroes RF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 93.0->83.8 mph to (-0.21', 1.91') [0-0 -> 0-0] put in play (contact: fair, EV 73.0 mph, LA 24.3°)
+  ✓ SINGLE
+    Physics: EV=73.0 mph, LA=24.3°, Dist=215.6 ft, Hang=2.71s, Peak=30.1 ft, Contact: fair
+    Pitch: fastball 83.8 mph at zone (-0.2', 1.9')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-63.3, 206.1) ft, distance 215.6 ft, hang time 2.71s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 92.8ft, margin -0.75s (too far); center_field: 121.7ft, margin -1.80s (too far); right_field: 206.9ft, margin -4.93s (too far); first_base: 231.8ft, margin -5.73s (too far); second_base: 183.0ft, margin -4.47s (too far); third_base: 186.5ft, margin -4.32s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.38s] Ball retrieved by center_field in right outfield at 2.38s (air_catch) (ball_retrieved)
+      [ 2.71s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.71s] Ball in play at (-63.3, 206.1) ft, distance 215.6 ft, peak height 30.1 ft (outfield_ball_analysis)
+      [ 2.72s] Spray angle: -17.1° from center field (trajectory_analysis)
+      [ 2.73s] Outfield interception: center_field (air_catch) travels 313.5 ft from (0.0, 310.0) to (185.0, 56.8) at 2.38s, margin +8.83s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.71s, arrival 5.16s (margin -2.45s) -> missed
+    Runners after play: Home Heroes RF on first, Home Heroes CF on second
+
+Home Heroes DH batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 93.0->83.6 mph to (0.46', 3.20') [0-0 -> 0-1] swing and miss
+    #2: fastball 92.9->83.9 mph to (-0.23', 1.04') [0-1 -> 1-1] taken for ball
+    #3: fastball 92.9->83.7 mph to (-0.55', 1.80') [1-1 -> 1-2] fouled off (contact: weak, EV 78.2 mph, LA 21.0°)
+    #4: fastball 92.8->83.5 mph to (-0.16', 3.17') [1-2 -> 1-2] put in play (contact: fair, EV 78.3 mph, LA 22.5°)
+  ✓ SINGLE
+    Physics: EV=78.3 mph, LA=22.5°, Dist=227.9 ft, Hang=2.66s, Peak=29.4 ft, Contact: fair
+    Pitch: fastball 83.5 mph at zone (-0.2', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-43.3, 223.7) ft, distance 227.9 ft, hang time 2.66s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 100.5ft, margin -1.07s (too far); center_field: 96.6ft, margin -0.97s (too far); right_field: 183.1ft, margin -4.13s (too far); first_base: 235.6ft, margin -5.92s (too far); second_base: 188.2ft, margin -4.72s (too far); third_base: 206.2ft, margin -5.09s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.33s] Ball retrieved by right_field in right outfield at 2.33s (air_catch) (ball_retrieved)
+      [ 2.66s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.66s] Ball in play at (-43.3, 223.7) ft, distance 227.9 ft, peak height 29.4 ft (outfield_ball_analysis)
+      [ 2.67s] Spray angle: -11.0° from center field (trajectory_analysis)
+      [ 2.68s] Outfield interception: right_field (air_catch) travels 235.4 ft from (135.0, 265.0) to (200.3, 38.8) at 2.33s, margin +6.29s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.66s, arrival 4.18s (margin -1.52s) -> missed
+    🏃 Run scores!
+    Runners after play: Home Heroes DH on first, Home Heroes RF on second
+
+Home Heroes C batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 92.8->83.6 mph to (0.00', 2.40') [0-0 -> 0-1] taken for strike
+    #2: fastball 92.8->83.5 mph to (-0.64', 2.82') [0-1 -> 0-1] put in play (contact: fair, EV 76.3 mph, LA 29.2°)
+  ⚾ Fly out to outfield
+    Physics: EV=76.3 mph, LA=29.2°, Dist=243.4 ft, Hang=3.14s, Peak=41.5 ft, Contact: fair
+    Pitch: fastball 83.5 mph at zone (-0.6', 2.8')
+    Play timeline:
+      [ 0.00s] Ball hit to left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-101.5, 221.2) ft, distance 243.4 ft, hang time 3.14s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 55.1ft, margin 0.99s (can reach); center_field: 134.8ft, margin -1.84s (too far); right_field: 240.5ft, margin -5.71s (too far); first_base: 267.7ft, margin -6.58s (too far); second_base: 218.3ft, margin -5.38s (too far); third_base: 203.0ft, margin -4.50s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 3.14s] Caught by left_field at left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 3.14s, arrival 2.30s (margin +0.83s) -> made play
+    Runners after play: Home Heroes DH on first, Home Heroes RF on second
+
+============================================================
+Top 9 | 12-1 | 0 out | Runners: empty
+============================================================
+
+Road Warriors SS batting against Home Heroes Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 87.8->79.3 mph to (-0.21', 2.35') [0-0 -> 0-0] put in play (contact: fair, EV 76.2 mph, LA 24.2°)
+  ✓ SINGLE
+    Physics: EV=76.2 mph, LA=24.2°, Dist=240.1 ft, Hang=3.01s, Peak=34.5 ft, Contact: fair
+    Pitch: fastball 79.3 mph at zone (-0.2', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (78.9, 226.8) ft, distance 240.1 ft, hang time 3.01s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 217.3ft, margin -4.83s (too far); center_field: 114.7ft, margin -1.23s (too far); right_field: 67.9ft, margin 0.23s (can reach); first_base: 206.8ft, margin -4.54s (too far); second_base: 176.1ft, margin -3.80s (too far); third_base: 257.8ft, margin -6.20s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: right_field (fly_ball_assignment)
+      [ 2.96s] Ball retrieved by left_field in right outfield at 2.96s (air_catch) (ball_retrieved)
+      [ 3.01s] Ball drops in outfield, right_field couldn't reach it (ball_drops)
+      [ 3.01s] Ball in play at (78.9, 226.8) ft, distance 240.1 ft, peak height 34.5 ft (outfield_ball_analysis)
+      [ 3.02s] Spray angle: 19.2° from center field (trajectory_analysis)
+      [ 3.03s] Outfield interception: left_field (air_catch) travels 496.3 ft from (-135.0, 265.0) to (223.8, -77.9) at 2.96s, margin +14.64s (outfield_interception_analysis)
+    Fielding breakdown:
+      Right Field: ball 3.01s, arrival 2.80s (margin +0.20s) -> missed
+    Runners after play: Road Warriors SS on first
+
+Road Warriors LF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 87.8->79.1 mph to (0.73', 3.49') [0-0 -> 1-0] taken for ball
+    #2: fastball 87.8->79.4 mph to (-0.11', 1.53') [1-0 -> 1-0] put in play (contact: solid, EV 81.3 mph, LA 19.6°)
+  ✓ SINGLE
+    Physics: EV=81.3 mph, LA=19.6°, Dist=242.4 ft, Hang=2.75s, Peak=28.1 ft, Contact: solid
+    Pitch: fastball 79.4 mph at zone (-0.1', 1.5')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-20.8, 241.5) ft, distance 242.4 ft, hang time 2.75s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 116.6ft, margin -1.55s (too far); center_field: 71.6ft, margin 0.04s (can reach); right_field: 157.5ft, margin -3.39s (too far); first_base: 241.3ft, margin -6.02s (too far); second_base: 196.2ft, margin -4.81s (too far); third_base: 228.1ft, margin -5.43s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.39s] Ball retrieved by right_field in right outfield at 2.39s (air_catch) (ball_retrieved)
+      [ 2.75s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 2.75s] Ball in play at (-20.8, 241.5) ft, distance 242.4 ft, peak height 28.1 ft (outfield_ball_analysis)
+      [ 2.76s] Spray angle: -4.9° from center field (trajectory_analysis)
+      [ 2.77s] Outfield interception: right_field (air_catch) travels 259.2 ft from (135.0, 265.0) to (215.3, 18.5) at 2.39s, margin +7.52s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.75s, arrival 2.85s (margin -0.10s) -> missed
+    Runners after play: Road Warriors LF on first, Road Warriors SS on second
+
+Road Warriors CF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st_2nd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 87.8->79.3 mph to (-0.45', 1.89') [0-0 -> 0-1] swing and miss
+    #2: fastball 87.8->79.4 mph to (-0.73', 1.75') [0-1 -> 1-1] taken for ball
+    #3: fastball 87.8->79.3 mph to (-0.92', 2.11') [1-1 -> 2-1] taken for ball
+    #4: fastball 87.8->79.2 mph to (1.10', 2.98') [2-1 -> 3-1] taken for ball
+    #5: fastball 87.8->79.3 mph to (0.54', 2.44') [3-1 -> 3-2] swing and miss
+    #6: fastball 87.8->79.1 mph to (-0.15', 3.56') [3-2 -> 4-2] taken for ball
+  🚶 WALK!
+
+Road Warriors RF batting against Home Heroes Pitcher 1 (Starter)
+  Situation: loaded, 0 out(s)
+  Pitch sequence:
+    #1: fastball 87.8->79.4 mph to (-0.36', 1.35') [0-0 -> 1-0] taken for ball
+    #2: fastball 87.8->79.1 mph to (-0.46', 3.60') [1-0 -> 2-0] taken for ball
+    #3: fastball 87.8->79.2 mph to (-0.85', 2.69') [2-0 -> 2-0] put in play (contact: fair, EV 81.7 mph, LA 32.7°)
+  ⚡ DOUBLE! Extra base hit
+    Physics: EV=81.7 mph, LA=32.7°, Dist=283.0 ft, Hang=3.71s, Peak=56.5 ft, Contact: fair
+    Pitch: fastball 79.2 mph at zone (-0.8', 2.7')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-63.5, 275.8) ft, distance 283.0 ft, hang time 3.71s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 72.3ft, margin 0.98s (can reach); center_field: 72.1ft, margin 0.99s (can reach); right_field: 198.8ft, margin -3.97s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: left_field (fly_ball_assignment)
+      [ 3.48s] Ball retrieved by right_field in right outfield at 3.48s (air_catch) (ball_retrieved)
+      [ 3.71s] Ball drops in deep outfield, left_field couldn't reach it (ball_drops)
+      [ 3.71s] Ball in play at (-63.5, 275.8) ft, distance 283.0 ft, peak height 56.5 ft (outfield_ball_analysis)
+      [ 3.72s] Spray angle: -13.0° from center field (trajectory_analysis)
+      [ 3.73s] Outfield interception: right_field (air_catch) travels 241.0 ft from (135.0, 265.0) to (262.4, 60.4) at 3.48s, margin +5.74s (outfield_interception_analysis)
+    Fielding breakdown:
+      Left Field: ball 3.71s, arrival 2.77s (margin +0.94s) -> missed
+    🏃 Run scores!
+    🏃 Run scores!
+    Runners after play: Road Warriors RF on second, Road Warriors CF on third
+
+Road Warriors DH batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 2nd_3rd, 0 out(s)
+  Pitch sequence:
+    #1: fastball 87.8->79.3 mph to (-0.02', 2.19') [0-0 -> 0-0] put in play (contact: solid, EV 78.1 mph, LA 35.8°)
+  ✓ SINGLE
+    Physics: EV=78.1 mph, LA=35.8°, Dist=271.3 ft, Hang=3.83s, Peak=60.3 ft, Contact: solid
+    Pitch: fastball 79.3 mph at zone (-0.0', 2.2')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (31.1, 269.6) ft, distance 271.3 ft, hang time 3.83s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 166.1ft, margin -2.21s (too far); center_field: 51.0ft, margin 1.85s (can reach); right_field: 104.0ft, margin -0.30s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.79s] Ball retrieved by left_field in right outfield at 3.79s (air_catch) (ball_retrieved)
+      [ 3.83s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 3.83s] Ball in play at (31.1, 269.6) ft, distance 271.3 ft, peak height 60.3 ft (outfield_ball_analysis)
+      [ 3.84s] Spray angle: 6.6° from center field (trajectory_analysis)
+      [ 3.85s] Outfield interception: left_field (air_catch) travels 499.6 ft from (-135.0, 265.0) to (267.6, -30.8) at 3.79s, margin +13.92s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 3.83s, arrival 2.14s (margin +1.69s) -> missed
+    🏃 Run scores!
+    🏃 Run scores!
+    Runners after play: Road Warriors DH on first
+
+Road Warriors C batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 0 out(s)
+  Pitch sequence:
+    #1: fastball 87.8->79.3 mph to (-0.27', 2.45') [0-0 -> 0-0] put in play (contact: solid, EV 83.5 mph, LA 23.2°)
+  ⚾ Fly out to outfield
+    Physics: EV=83.5 mph, LA=23.2°, Dist=249.0 ft, Hang=2.79s, Peak=33.1 ft, Contact: solid
+    Pitch: fastball 79.3 mph at zone (-0.3', 2.4')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (5.9, 249.0) ft, distance 249.0 ft, hang time 2.79s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 141.8ft, margin -2.40s (too far); center_field: 61.3ft, margin 0.44s (can reach); right_field: 130.1ft, margin -2.32s (too far); first_base: 239.2ft, margin -5.90s (too far); second_base: 196.9ft, margin -4.80s (too far); third_base: 242.8ft, margin -5.90s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 2.79s] Caught by center_field at outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 2.79s, arrival 2.47s (margin +0.31s) -> made play
+    Runners after play: Road Warriors DH on first
+
+Road Warriors 1B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 1 out(s)
+  Pitch sequence:
+    #1: fastball 87.8->79.2 mph to (-0.12', 3.04') [0-0 -> 0-0] put in play (contact: fair, EV 90.7 mph, LA 30.8°)
+  ⚾ Fly out to outfield
+    Physics: EV=90.7 mph, LA=30.8°, Dist=308.4 ft, Hang=3.63s, Peak=56.8 ft, Contact: fair
+    Pitch: fastball 79.2 mph at zone (-0.1', 3.0')
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 0.00s] Fly ball coordinates: (81.5, 297.5) ft, distance 308.4 ft, hang time 3.63s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 218.9ft, margin -4.26s (too far); center_field: 82.5ft, margin 0.54s (can reach); right_field: 62.6ft, margin 1.06s (can reach) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.63s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 3.63s, arrival 3.12s (margin +0.51s) -> made play
+    Runners after play: Road Warriors DH on first
+
+Road Warriors 2B batting against Home Heroes Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 87.8->79.4 mph to (-0.41', 1.69') [0-0 -> 0-0] put in play (contact: solid, EV 91.8 mph, LA 12.4°)
+  ⚾ Fly out to infield
+    Physics: EV=91.8 mph, LA=12.4°, Dist=235.8 ft, Hang=2.25s, Peak=17.9 ft, Contact: solid
+    Pitch: fastball 79.4 mph at zone (-0.4', 1.7')
+    Play timeline:
+      [ 0.00s] Ball hit to left outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-94.7, 215.9) ft, distance 235.8 ft, hang time 2.25s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 63.5ft, margin -0.18s (too far); center_field: 133.5ft, margin -2.64s (too far); right_field: 234.9ft, margin -6.79s (too far); first_base: 259.2ft, margin -7.14s (too far); second_base: 209.8ft, margin -5.82s (too far); third_base: 196.9ft, margin -4.84s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 0.68s] Caught by first_base at 0.68s (55% prob) (air_catch)
+      [ 2.25s] Ball drops in left outfield, center_field couldn't reach it (ball_drops)
+      [ 2.25s] Ball in play at (-94.7, 215.9) ft, distance 235.8 ft, peak height 17.9 ft (outfield_ball_analysis)
+      [ 2.26s] Spray angle: -23.7° from center field (trajectory_analysis)
+    Fielding breakdown:
+      Center Field: ball 2.25s, arrival 4.88s (margin -2.63s) -> missed
+    Runners after play: Road Warriors DH on first
+
+============================================================
+Bot 9 | 16-1 | 0 out | Runners: empty
+============================================================
+
+Home Heroes 1B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 0 out(s)
+  Pitch sequence:
+    #1: fastball 92.7->83.5 mph to (0.13', 2.42') [0-0 -> 0-0] put in play (contact: solid, EV 71.6 mph, LA 0.4°)
+  ⚾ Ground out to infield
+    Physics: EV=71.6 mph, LA=0.4°, Dist=19.9 ft, Hang=0.31s, Peak=3.0 ft, Contact: solid
+    Pitch: fastball 83.5 mph at zone (0.1', 2.4')
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (-2.6, 19.8) ft, distance 19.9 ft from home (ground_ball_analysis)
+      [ 0.30s] Weakly hit ball near home plate (20 ft) (weak_hit)
+      [ 0.31s] Fielder distances - pitcher: 40.8 ft, catcher: 21.9 ft, first_base: 77.6 ft, third_base: 72.4 ft. Closest: catcher (weak_hit_fielder_analysis)
+      [ 1.53s] Weak ground ball fielded by catcher (weak_hit_fielded)
+      [ 1.93s] Throw to first base at 87.6 mph (release 1.93s, flight 0.74s) (throw_to_first)
+      [ 3.84s] Runner out at first base (runner 3.84s vs ball 2.67s) (play_at_first)
+
+Home Heroes 2B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 1 out(s)
+  Pitch sequence:
+    #1: fastball 92.7->83.4 mph to (-0.18', 3.29') [0-0 -> 0-1] taken for strike
+    #2: fastball 92.7->83.3 mph to (0.25', 3.63') [0-1 -> 1-1] taken for ball
+    #3: fastball 92.6->83.3 mph to (0.38', 3.46') [1-1 -> 1-2] swing and miss
+    #4: fastball 92.6->83.4 mph to (0.67', 2.05') [1-2 -> 1-3] swing and miss
+  ⚾ STRIKEOUT! 2 out(s)
+
+Home Heroes 3B batting against Road Warriors Pitcher 1 (Starter)
+  Situation: empty, 2 out(s)
+  Pitch sequence:
+    #1: fastball 92.5->83.3 mph to (0.61', 2.85') [0-0 -> 0-1] fouled off (contact: weak, EV 81.9 mph, LA 47.4°)
+    #2: fastball 92.5->83.3 mph to (-1.60', 2.76') [0-1 -> 1-1] taken for ball
+    #3: fastball 92.5->83.3 mph to (-1.22', 2.50') [1-1 -> 2-1] taken for ball
+    #4: fastball 92.4->83.2 mph to (0.15', 3.20') [2-1 -> 2-1] put in play (contact: weak, EV 74.8 mph, LA 29.3°)
+  ✓ SINGLE
+    Physics: EV=74.8 mph, LA=29.3°, Dist=251.1 ft, Hang=3.41s, Peak=44.7 ft, Contact: weak
+    Pitch: fastball 83.2 mph at zone (0.2', 3.2')
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-30.7, 249.2) ft, distance 251.1 ft, hang time 3.41s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 105.5ft, margin -0.49s (too far); center_field: 68.1ft, margin 0.79s (can reach); right_field: 166.4ft, margin -2.78s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: center_field (fly_ball_assignment)
+      [ 3.15s] Ball retrieved by right_field in right outfield at 3.15s (air_catch) (ball_retrieved)
+      [ 3.41s] Ball drops in outfield, center_field couldn't reach it (ball_drops)
+      [ 3.41s] Ball in play at (-30.7, 249.2) ft, distance 251.1 ft, peak height 44.7 ft (outfield_ball_analysis)
+      [ 3.42s] Spray angle: -7.0° from center field (trajectory_analysis)
+      [ 3.43s] Outfield interception: right_field (air_catch) travels 255.9 ft from (135.0, 265.0) to (233.4, 28.8) at 3.15s, margin +6.20s (outfield_interception_analysis)
+    Fielding breakdown:
+      Center Field: ball 3.41s, arrival 3.04s (margin +0.37s) -> missed
+    Runners after play: Home Heroes 3B on first
+
+Home Heroes SS batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st, 2 out(s)
+  Pitch sequence:
+    #1: fastball 92.4->83.4 mph to (0.16', 1.29') [0-0 -> 1-0] taken for ball
+    #2: fastball 92.4->83.3 mph to (0.83', 1.45') [1-0 -> 2-0] taken for ball
+    #3: fastball 92.3->83.0 mph to (-0.30', 3.57') [2-0 -> 3-0] taken for ball
+    #4: fastball 92.3->83.1 mph to (-0.01', 2.53') [3-0 -> 3-0] put in play (contact: fair, EV 73.4 mph, LA 14.4°)
+  ✓ SINGLE
+    Physics: EV=73.4 mph, LA=14.4°, Dist=157.2 ft, Hang=1.74s, Peak=13.4 ft, Contact: fair
+    Pitch: fastball 83.1 mph at zone (-0.0', 2.5')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (40.7, 151.8) ft, distance 157.2 ft, hang time 1.74s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 209.0ft, margin -5.78s (too far); center_field: 163.3ft, margin -4.24s (too far); right_field: 147.3ft, margin -3.77s (too far); first_base: 136.2ft, margin -3.30s (too far); second_base: 96.8ft, margin -2.18s (too far); third_base: 175.4ft, margin -4.89s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: second_base (fly_ball_assignment)
+      [ 1.09s] Ball retrieved by right_field in shallow right outfield at 1.09s (air_catch) (ball_retrieved)
+      [ 1.74s] Ball drops in shallow outfield, second_base couldn't reach it (ball_drops)
+      [ 1.74s] Ball in play at (40.7, 151.8) ft, distance 157.2 ft, peak height 13.4 ft (outfield_ball_analysis)
+      [ 1.75s] Spray angle: 15.0° from center field (trajectory_analysis)
+      [ 1.76s] Outfield interception: right_field (air_catch) travels 293.9 ft from (135.0, 265.0) to (100.2, -26.8) at 1.09s, margin +9.62s (outfield_interception_analysis)
+    Fielding breakdown:
+      Second Base: ball 1.74s, arrival 3.82s (margin -2.09s) -> missed
+    Runners after play: Home Heroes SS on first, Home Heroes 3B on second
+
+Home Heroes LF batting against Road Warriors Pitcher 1 (Starter)
+  Situation: 1st_2nd, 2 out(s)
+  Pitch sequence:
+    #1: fastball 92.2->83.2 mph to (0.18', 1.74') [0-0 -> 0-1] swing and miss
+    #2: fastball 92.2->83.1 mph to (0.78', 2.09') [0-1 -> 1-1] taken for ball
+    #3: fastball 92.2->83.2 mph to (0.52', 1.39') [1-1 -> 2-1] taken for ball
+    #4: fastball 92.1->83.1 mph to (-0.21', 1.58') [2-1 -> 2-2] swing and miss
+    #5: fastball 92.1->83.0 mph to (1.68', 2.02') [2-2 -> 3-2] taken for ball
+    #6: fastball 92.1->83.0 mph to (0.61', 2.29') [3-2 -> 3-2] put in play (contact: weak, EV 74.6 mph, LA 14.2°)
+  ⚾ Fly out to infield
+    Physics: EV=74.6 mph, LA=14.2°, Dist=173.7 ft, Hang=1.93s, Peak=14.7 ft, Contact: weak
+    Pitch: fastball 83.0 mph at zone (0.6', 2.3')
+    Play timeline:
+      [ 0.00s] Ball hit to shallow outfield (contact)
+      [ 0.00s] Fly ball coordinates: (-38.6, 169.4) ft, distance 173.7 ft, hang time 1.93s (fly_ball_analysis)
+      [ 0.05s] Fielder analysis - left_field: 135.8ft, margin -3.03s (too far); center_field: 145.8ft, margin -3.43s (too far); right_field: 198.2ft, margin -5.40s (too far); first_base: 187.6ft, margin -4.94s (too far); second_base: 138.7ft, margin -3.57s (too far); third_base: 153.7ft, margin -3.91s (too far) (fly_ball_fielder_analysis)
+      [ 0.06s] Assigned to: shortstop (fly_ball_assignment)
+      [ 0.70s] Caught by first_base at 0.70s (55% prob) (air_catch)
+      [ 1.93s] Ball drops in shallow outfield, shortstop couldn't reach it (ball_drops)
+      [ 1.93s] Ball in play at (-38.6, 169.4) ft, distance 173.7 ft, peak height 14.7 ft (outfield_ball_analysis)
+      [ 1.94s] Spray angle: -12.8° from center field (trajectory_analysis)
+    Fielding breakdown:
+      Shortstop: ball 1.93s, arrival 3.81s (margin -1.88s) -> missed
+    Runners after play: Home Heroes SS on first, Home Heroes 3B on second
+
+================================================================================
+FINAL SCORE
+================================================================================
+Road Warriors: 16
+Home Heroes: 1
+
+Game Statistics:
+  Total Pitches: 222
+  Total Hits: 47
+  Home Runs: 0
+================================================================================
+
+
+================================================================================
+DETAILED GAME SUMMARY
+================================================================================
+Final Score: Road Warriors 16 - 1 Home Heroes
+Innings Played: 10
+Total Pitches: 222
+Total Hits: 47
+Home Runs: 0
+
+PLAY-BY-PLAY HIGHLIGHTS:
+----------------------------------------
+B1: Home Heroes SS - ⚾⚾ DOUBLE PLAY!
+B4: Home Heroes CF - ⚾⚾ DOUBLE PLAY!
+B7: Home Heroes C - ⚾⚾ DOUBLE PLAY!
+T8: Road Warriors DH - ⚾⚾ DOUBLE PLAY!
+
+PHYSICS SUMMARY:
+----------------------------------------
+Average Exit Velocity: 80.8 mph
+Max Exit Velocity: 95.5 mph
+Average Hit Distance: 222.1 ft
+Longest Hit: 359.4 ft
+
+================================================================================

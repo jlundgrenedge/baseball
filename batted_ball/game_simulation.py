@@ -525,7 +525,24 @@ class GameSimulator:
             if self.verbose:
                 print(f"    🏃 Run scores!")
 
-        # Clear bases first
+        # Create reverse lookup: runner name -> hitter BEFORE clearing bases
+        # We need to figure out which hitter corresponds to each runner
+        # The play_result has BaseRunner objects, but game_state tracks Hitter objects
+        # Match by name: BaseRunner.name should equal Hitter.name
+        runner_to_hitter = {}
+        
+        # Add current batter
+        runner_to_hitter[batter.name] = batter
+        
+        # Add existing runners BEFORE clearing (so we can match them later)
+        if self.game_state.runner_on_first:
+            runner_to_hitter[self.game_state.runner_on_first.name] = self.game_state.runner_on_first
+        if self.game_state.runner_on_second:
+            runner_to_hitter[self.game_state.runner_on_second.name] = self.game_state.runner_on_second
+        if self.game_state.runner_on_third:
+            runner_to_hitter[self.game_state.runner_on_third.name] = self.game_state.runner_on_third
+
+        # NOW clear bases
         self.game_state.clear_bases()
 
         if self.verbose and play_result.final_runner_positions:
@@ -534,25 +551,6 @@ class GameSimulator:
                 runner_name = getattr(runner, 'name', 'Runner')
                 runner_descriptions.append(f"{runner_name} on {base}")
             print(f"    Runners after play: {', '.join(runner_descriptions)}")
-
-        # Update base runners from final positions
-        # We need to figure out which hitter corresponds to each runner
-        # The play_result has BaseRunner objects, but game_state tracks Hitter objects
-        # Match by name: BaseRunner.name should equal Hitter.name
-        
-        # Create reverse lookup: runner name -> hitter
-        runner_to_hitter = {}
-        
-        # Add current batter
-        runner_to_hitter[batter.name] = batter
-        
-        # Add existing runners (if they weren't changed)
-        if self.game_state.runner_on_first and self.game_state.runner_on_first.name not in runner_to_hitter:
-            runner_to_hitter[self.game_state.runner_on_first.name] = self.game_state.runner_on_first
-        if self.game_state.runner_on_second and self.game_state.runner_on_second.name not in runner_to_hitter:
-            runner_to_hitter[self.game_state.runner_on_second.name] = self.game_state.runner_on_second
-        if self.game_state.runner_on_third and self.game_state.runner_on_third.name not in runner_to_hitter:
-            runner_to_hitter[self.game_state.runner_on_third.name] = self.game_state.runner_on_third
         
         # Now update bases from final positions
         for base, runner in play_result.final_runner_positions.items():
