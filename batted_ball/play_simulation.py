@@ -1402,22 +1402,13 @@ class PlaySimulator:
 
         # Determine how far runner can go (with realistic margin)
         # FIX: Make baserunning more aggressive to increase scoring
-        # Runners should take extra bases when balls drop in the outfield
+        # If we're in _handle_ball_in_play, the ball was NOT caught
+        # (caught balls exit earlier with fly out), so always use aggressive margins
 
-        # Determine if ball was caught vs. dropped
-        ball_was_caught = (interception_result.can_be_fielded and
-                          hasattr(interception_result, 'interception_type') and
-                          interception_result.interception_type == "air_catch")
-
-        # Adjust margin based on situation:
-        # - Balls that DROP (not caught): runners are very aggressive (can accept negative margins)
-        # - Deep balls (280+ ft): extra aggressive for potential doubles/triples
-        # - Caught balls: more conservative
-        if ball_was_caught:
-            # Ball was caught cleanly - be more conservative
-            SAFE_MARGIN = 0.4
-            margin_note = "caught ball, conservative"
-        elif distance_ft >= 280:
+        # Adjust margin based on ball distance:
+        # - Deep balls (280+ ft): very aggressive (willing to risk being thrown out)
+        # - Moderate depth: still aggressive (try if close)
+        if distance_ft >= 280:
             # Deep ball that dropped - be very aggressive!
             # Allow negative margins (runner willing to risk being thrown out)
             SAFE_MARGIN = -0.5  # Willing to try even if ball might beat runner
