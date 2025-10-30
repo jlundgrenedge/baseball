@@ -216,6 +216,16 @@ class OutfieldInterceptor:
 
             ball_pos = np.array([point.x, point.y])
 
+            # ANTI-EXPLOIT: Prevent unrealistic early catches near home plate
+            # Calculate distance from home plate
+            distance_from_home = np.linalg.norm(ball_pos)
+
+            # Skip catches if ball is too close to home AND still early in flight
+            # This prevents fielders from "catching" balls at 0.15-0.5s that are still near the batter
+            # Only allow very close catches for extremely low line drives (z < 3ft) that infielders can grab
+            if distance_from_home < 100.0 and ball_time < 0.6 and point.z > 3.0:
+                continue
+
             # Only consider points where ball is catchable height (z > 2 ft and z < 12 ft)
             # Note: point.z is already in feet (converted at line 82)
             if point.z < 2.0 or point.z > 12.0:
