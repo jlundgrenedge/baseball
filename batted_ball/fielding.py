@@ -711,25 +711,26 @@ class Fielder:
         # For fly balls, this should result in a drop (ball already on ground).
         # Only allow diving/stretching catches for very small negative margins (< -0.15s).
         #
-        # Calibrated to achieve BABIP ~.300 (70% catch rate on balls in play)
+        # TUNED: Slightly increased from previous (0.90/0.67/0.38/0.12) to reduce excessive hits
+        # Target: BABIP ~.300 with new exit velocity penalties
         if time_margin >= 0.5:
             # Fielder arrives well ahead (0.5+s early) - very routine play
-            probability = 0.92  # After penalties: 0.92 * 0.92 = 0.85
+            probability = 0.91  # After penalties: 0.91 * 0.92 = 0.84
         elif time_margin >= 0.0:
             # Fielder arrives on time (0-0.5s early) - routine play but requires hustle
-            probability = 0.70  # After penalties: 0.70 * 0.92 = 0.64
+            probability = 0.68  # After penalties: 0.68 * 0.92 = 0.63
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
-            probability = 0.42  # After penalties: 0.42 * 0.92 = 0.39
+            probability = 0.40  # After penalties: 0.40 * 0.92 = 0.37
         elif time_margin > -0.35:
             # Fielder late (-0.35--0.15s) - extremely difficult diving plays
             # Requires spectacular diving effort
-            probability = 0.14  # After penalties: 0.14 * 0.92 = 0.13
+            probability = 0.13  # After penalties: 0.13 * 0.92 = 0.12
         elif time_margin > -0.60:
             # Very late (-0.60--0.35s) - nearly impossible
             # Would require fielder to be on the ground already
-            probability = 0.03  # After penalties: 0.03 * 0.92 = 0.03 (reduced from 0.06)
+            probability = 0.03  # After penalties: 0.03 * 0.92 = 0.03
         else:
             # Impossibly late (< -0.60s)
             # Ball has already landed and rolled away

@@ -465,6 +465,19 @@ class ContactModel:
 
         # Convert back to mph
         exit_velocity_mph = v_exit_ms * MS_TO_MPH
+        
+        # Apply progressive exit velocity penalty for off-center contact
+        # Test 2 formula (best balanced results): coefficient 0.15
+        # Threshold at 0.5" preserves close-to-perfect contact while reducing HR rate
+        contact_offset_total = abs(distance_from_sweet_spot_inches)
+        if contact_offset_total > 0.5:  # Start penalty at 0.5" from sweet spot
+            # Power-law penalty: offset^1.5 for smooth scaling
+            penalty_factor = (contact_offset_total - 0.5) ** 1.5 * 0.15
+            # Cap penalty at 60%
+            penalty_factor = min(penalty_factor, 0.60)
+            
+            # Apply penalty
+            exit_velocity_mph *= (1.0 - penalty_factor)
 
         return exit_velocity_mph
 
@@ -632,13 +645,15 @@ class ContactModel:
             collision_efficiency_q=collision_efficiency_q
         )
         
-        # Apply additional exit velocity reduction for extreme off-center contact
-        # Softened penalty - MLB players can still hit hard with 1-2" offsets
-        if contact_offset_total > 1.0:  # Beyond reasonable contact area
-            # Gentler exponential degradation (divisor 8 instead of 3)
-            # 1.5": 17% penalty, 2.0": 22% penalty, 2.5": 27% penalty
-            contact_efficiency = np.exp(-(contact_offset_total - 1.0) / 8.0)
-            exit_velocity *= contact_efficiency
+        # Apply additional exit velocity reduction for off-center contact
+        # TUNED: Steeper penalty to reduce HR rate while allowing singles/doubles
+        # 0.5": ~5% penalty, 1.0": ~18% penalty, 1.5": ~34% penalty, 2.0": ~50% penalty
+        if contact_offset_total > 0.4:  # Start penalty at 0.4" offset
+            offset_beyond_sweet = max(0, contact_offset_total - 0.4)
+            # Power-law penalty: scales as offset^2.0 for steeper effect
+            penalty = offset_beyond_sweet ** 2.0 * 0.35
+            penalty = min(penalty, 0.60)  # Cap at 60% penalty
+            exit_velocity *= (1.0 - penalty)
             
         # Ensure minimum exit velocity for any contact
         exit_velocity = max(exit_velocity, 15.0)  # Minimum 15 mph for any contact

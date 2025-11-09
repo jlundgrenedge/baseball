@@ -866,7 +866,8 @@ def decide_runner_advancement(
         elif current_base == "second":
             # AGGRESSIVE: Score from 2nd on single almost always
             # Only stop at third if: elite arm CF + very shallow single
-            if fielder_position == "CF" and fielder_arm_strength > 80 and distance < 150:
+            # TUNED: Relaxed threshold from 150 to 130 for more aggressive scoring
+            if fielder_position == "CF" and fielder_arm_strength > 80 and distance < 130:
                 return {
                     "target_base": "third",
                     "should_tag_up": False,
@@ -884,8 +885,8 @@ def decide_runner_advancement(
         
         elif current_base == "first":
             # AGGRESSIVE: First to third on deep outfield singles
-            # 180+ ft threshold (balls well into outfield)
-            if distance > 180:  # Deep outfield hit
+            # TUNED: Lowered threshold from 180 to 165 ft for more aggressive baserunning
+            if distance > 165:  # Deep outfield hit
                 return {
                     "target_base": "third",
                     "should_tag_up": False,

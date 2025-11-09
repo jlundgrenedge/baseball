@@ -464,7 +464,15 @@ class AtBatSimulator:
             return None  # Whiff!
 
         # Get bat speed from hitter attributes
-        bat_speed = self.hitter.get_bat_speed_mph()
+        bat_speed_max = self.hitter.get_bat_speed_mph()
+        
+        # Add bat speed variance - not every swing is max effort
+        # MLB hitters vary swing speed by ~5-10% based on pitch type, location, situation
+        # Standard deviation of 4% creates realistic variance
+        bat_speed_variance = 0.04 * bat_speed_max
+        bat_speed = np.random.normal(bat_speed_max, bat_speed_variance)
+        # Clamp to reasonable range (80-100% of max)
+        bat_speed = np.clip(bat_speed, bat_speed_max * 0.80, bat_speed_max * 1.0)
 
         # Get contact point offset
         h_offset, v_offset = self.hitter.get_contact_point_offset(pitch_location)

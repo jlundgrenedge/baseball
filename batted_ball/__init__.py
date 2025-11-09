@@ -91,6 +91,12 @@ try:
         PerformanceTracker
     )
     from .bulk_simulation import BulkAtBatSimulator, BulkSimulationSettings, BulkSimulationResult
+    from .parallel_game_simulation import (
+        ParallelGameSimulator,
+        ParallelSimulationSettings,
+        ParallelSimulationResult,
+        GameResult
+    )
     _PERFORMANCE_AVAILABLE = True
 except ImportError:
     _PERFORMANCE_AVAILABLE = False
@@ -184,5 +190,9 @@ if _PERFORMANCE_AVAILABLE:
         'PerformanceTracker',
         'BulkAtBatSimulator',
         'BulkSimulationSettings',
-        'BulkSimulationResult'
+        'BulkSimulationResult',
+        'ParallelGameSimulator',
+        'ParallelSimulationSettings',
+        'ParallelSimulationResult',
+        'GameResult'
     ])
