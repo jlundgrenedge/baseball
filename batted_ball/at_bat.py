@@ -79,6 +79,8 @@ class AtBatSimulator:
         altitude: float = 0.0,
         temperature: float = 70.0,
         humidity: float = 0.5,
+        wind_speed: float = 0.0,
+        wind_direction: float = 0.0,
         fast_mode: bool = False,
     ):
         """
@@ -96,6 +98,12 @@ class AtBatSimulator:
             Temperature in Fahrenheit (default: 70)
         humidity : float
             Relative humidity 0-1 (default: 0.5)
+        wind_speed : float
+            Wind speed in mph (default: 0 = no wind)
+            Positive = tailwind (toward outfield), negative = headwind
+        wind_direction : float
+            Wind direction in degrees (default: 0 = straight to center field)
+            0° = tailwind, 90° = left-to-right crosswind, 180° = headwind
         fast_mode : bool
             If True, uses faster simulation with larger time steps (~2x speedup)
             Recommended for bulk simulations (1000+ at-bats)
@@ -105,6 +113,8 @@ class AtBatSimulator:
         self.altitude = altitude
         self.temperature = temperature
         self.humidity = humidity
+        self.wind_speed = wind_speed
+        self.wind_direction = wind_direction
         self.fast_mode = fast_mode
 
         # Create physics simulators
@@ -497,6 +507,17 @@ class AtBatSimulator:
         # Harder locations increase effective offset (worse contact)
         adjusted_offset = total_offset * (1.0 + location_difficulty)
 
+        # Get actual pitch trajectory angle from pitch simulation
+        # Use the actual downward angle from the pitch's trajectory at the plate
+        # instead of assuming a constant 7° for all pitches (more realistic)
+        pitch_result = pitch_data.get('result')
+        if pitch_result and hasattr(pitch_result, 'plate_angle_vertical'):
+            # Use the actual trajectory angle (positive = downward approach)
+            pitch_trajectory_angle = pitch_result.plate_angle_vertical
+        else:
+            # Fallback to typical downward angle if not available
+            pitch_trajectory_angle = 7.0
+
         # Contact made - simulate with physics
         collision_result = self.contact_model.full_collision(
             bat_speed_mph=bat_speed,
@@ -505,24 +526,24 @@ class AtBatSimulator:
                 pitch_location=pitch_location,
                 pitch_type=pitch_type
             ),  # Sample swing path with realistic variance influenced by pitch
-            pitch_trajectory_angle_deg=7.0,  # Typical downward angle
+            pitch_trajectory_angle_deg=pitch_trajectory_angle,  # Use actual pitch trajectory angle
             vertical_contact_offset_inches=v_offset,
             horizontal_contact_offset_inches=total_h_offset,
             distance_from_sweet_spot_inches=adjusted_offset  # Use adjusted offset for contact quality
         )
 
-        # Generate spray angle for this at-bat
-        # MLB hitters spray the ball across the field, not straight down the line
-        # Use a normal distribution centered at 0 (straight center field)
-        # Standard deviation of ~20-25 degrees creates realistic spray patterns
-        # TODO: Add spray_tendency to HitterAttributes for pull/opposite field hitters
-        base_spray = 0.0  # Neutral spray (center field tendency)
+        # Generate spray angle for this at-bat using hitter's spray tendency
+        # MLB hitters have individual spray patterns - some pull heavily, others use all fields
+        # Get hitter's spray tendency bias (pull vs. opposite field tendency)
+        base_spray = self.hitter.attributes.get_spray_tendency_deg()
+        # Add realistic spray variance around the hitter's tendency
+        # Standard deviation of ~22° creates realistic MLB spray patterns
         spray_std_dev = 22.0  # degrees - realistic MLB spray variation
         spray_angle = np.random.normal(base_spray, spray_std_dev)
-        # Clamp to reasonable bounds (-45° to +45°, pull to opposite field)
+        # Clamp to reasonable bounds (-45° to +45°, foul lines)
         spray_angle = np.clip(spray_angle, -45.0, 45.0)
 
-        # Simulate batted ball trajectory
+        # Simulate batted ball trajectory with environmental conditions including wind
         batted_ball_result = self.batted_ball_sim.simulate(
             exit_velocity=collision_result['exit_velocity'],
             launch_angle=collision_result['launch_angle'],
@@ -530,6 +551,8 @@ class AtBatSimulator:
             backspin_rpm=collision_result['backspin_rpm'],
             altitude=self.altitude,
             temperature=self.temperature,
+            wind_speed=self.wind_speed,
+            wind_direction=self.wind_direction,
             fast_mode=self.fast_mode,
         )
 

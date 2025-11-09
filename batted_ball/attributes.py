@@ -118,7 +118,8 @@ class HitterAttributes:
         IMPACT_SPIN_GAIN: float = 50000,
         LAUNCH_OFFSET_CONTROL: float = 50000,
         SWING_DECISION_LATENCY: float = 50000,
-        ZONE_DISCERNMENT: float = 50000
+        ZONE_DISCERNMENT: float = 50000,
+        SPRAY_TENDENCY: float = 50000
     ):
         """Initialize hitter attributes (default: league average = 50,000)"""
         self.BAT_SPEED = np.clip(BAT_SPEED, 0, 100000)
@@ -131,6 +132,7 @@ class HitterAttributes:
         self.LAUNCH_OFFSET_CONTROL = np.clip(LAUNCH_OFFSET_CONTROL, 0, 100000)
         self.SWING_DECISION_LATENCY = np.clip(SWING_DECISION_LATENCY, 0, 100000)
         self.ZONE_DISCERNMENT = np.clip(ZONE_DISCERNMENT, 0, 100000)
+        self.SPRAY_TENDENCY = np.clip(SPRAY_TENDENCY, 0, 100000)
 
     def get_bat_speed_mph(self) -> float:
         """
@@ -278,6 +280,32 @@ class HitterAttributes:
             human_min=0.40,
             human_cap=0.88,
             super_cap=0.96
+        )
+
+    def get_spray_tendency_deg(self) -> float:
+        """
+        Convert SPRAY_TENDENCY to mean spray angle bias (degrees).
+
+        Determines whether a hitter pulls the ball, hits to all fields,
+        or goes opposite field. The spray angle is relative to center field:
+        - Negative = opposite field (left field for RHH, right field for LHH)
+        - 0 = center field (neutral, all fields)
+        - Positive = pull field (right field for RHH, left field for LHH)
+
+        Anchors:
+        - 0: -15° (extreme opposite field hitter)
+        - 50k: 0° (neutral spray, uses all fields)
+        - 85k: +15° (pull-heavy hitter)
+        - 100k: +25° (extreme dead-pull hitter)
+
+        Note: The actual spray angle will have variance (~22° std dev) added
+        to this mean, creating realistic spray patterns.
+        """
+        return piecewise_logistic_map(
+            self.SPRAY_TENDENCY,
+            human_min=-15.0,
+            human_cap=15.0,
+            super_cap=25.0
         )
 
 
