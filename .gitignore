@@ -46,3 +46,9 @@ htmlcov/
 
 # macOS
 .DS_Store
+
+# Exploration documentation artifacts
+ARCHITECTURE_DIAGRAM.txt
+CODEBASE_ARCHITECTURE.md
+EXPLORATION_SUMMARY.md
+QUICK_REFERENCE.md
