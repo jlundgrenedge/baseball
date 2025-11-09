@@ -270,32 +270,44 @@ class BattedBallSimulator:
         else:
             use_simplified_physics = False
 
-        # Add wind to initial velocity (if any)
-        if abs(wind_speed) > 0.1:
+        # Process wind parameters for aerodynamic calculations
+        # Wind affects the relative velocity between ball and air
+        has_wind = abs(wind_speed) > 0.1
+        if has_wind:
             wind_velocity_ms = wind_speed * MPH_TO_MS
             wind_angle_rad = np.deg2rad(wind_direction)
+            # Wind vector components in field coordinates
+            # wind_direction: 0° = toward center field (tailwind), 180° = headwind
+            # x-component: toward outfield (positive = tailwind)
+            # y-component: lateral (positive = left-to-right crosswind)
             wind_vx = wind_velocity_ms * np.cos(wind_angle_rad)
             wind_vy = wind_velocity_ms * np.sin(wind_angle_rad)
-            # Wind affects the air velocity relative to ball
-            # (not added directly to ball velocity, but affects aerodynamic forces)
-            # For simplicity in this version, we'll consider it in the force function
+            wind_vz = 0.0  # Assume horizontal wind (no updrafts/downdrafts)
+            wind_velocity = np.array([wind_vx, wind_vy, wind_vz])
+        else:
+            wind_velocity = np.array([0.0, 0.0, 0.0])
 
         # Define force function for integration
         def force_function(position, velocity):
-            """Calculate aerodynamic forces at given state."""
+            """
+            Calculate aerodynamic forces at given state.
+
+            Wind affects aerodynamic forces by changing the relative velocity
+            between the ball and the air. The Magnus force and drag are both
+            calculated based on this relative velocity.
+            """
             if use_simplified_physics:
                 # Ground ball: use minimal aerodynamics (mostly gravity + minimal drag)
+                # Wind has minimal effect on ground balls (they're on/near the ground)
                 return self._calculate_simplified_ground_ball_forces(velocity, env)
-            
-            # Regular aerodynamic physics
-            # Account for wind (subtract wind from velocity to get relative velocity)
-            if abs(wind_speed) > 0.1:
-                wind_velocity = np.array([wind_vx, wind_vy, 0.0])
-                relative_velocity = velocity - wind_velocity
-            else:
-                relative_velocity = velocity
 
-            # Calculate aerodynamic forces
+            # Regular aerodynamic physics
+            # Calculate relative velocity (ball velocity minus wind velocity)
+            # This is the velocity of the ball through the air mass
+            relative_velocity = velocity - wind_velocity
+
+            # Calculate aerodynamic forces based on relative velocity
+            # Both Magnus force (from spin) and drag depend on relative airflow
             total_force, _, _ = aero.calculate_total_aerodynamic_force(
                 relative_velocity,
                 spin_axis,

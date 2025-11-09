@@ -477,7 +477,110 @@ class FieldLayout:
     def position_from_coordinates(self, x: float, y: float, z: float = 0.0) -> FieldPosition:
         """Create a FieldPosition from coordinates."""
         return FieldPosition(x, y, z)
-    
+
+    def apply_defensive_shift(self, spray_tendency: float, shift_type: str = 'standard') -> Dict[str, FieldPosition]:
+        """
+        Apply defensive positioning strategy based on batter spray tendency.
+
+        Implements realistic defensive shifts similar to modern MLB analytics:
+        - Pull shift: Move infielders toward pull side for pull-heavy hitters
+        - No doubles defense: Outfielders deeper, no gaps
+        - Standard positioning: No special positioning
+
+        Parameters
+        ----------
+        spray_tendency : float
+            Batter's spray tendency in degrees from HitterAttributes.get_spray_tendency_deg()
+            Negative = opposite field tendency
+            0 = balanced (all fields)
+            Positive = pull tendency
+        shift_type : str
+            Type of defensive strategy:
+            - 'standard': Normal positioning (no shift)
+            - 'pull_shift': Shift infielders toward pull side
+            - 'no_doubles': Deep outfield positioning
+            - 'infield_in': Shallow infield for preventing runs
+            - 'outfield_shallow': Shallow outfield for preventing base hits
+
+        Returns
+        -------
+        dict
+            Custom positioning dictionary with adjusted fielder positions
+        """
+        adjustments = {}
+
+        # Determine if batter is pull-heavy (threshold: +10° = moderate pull tendency)
+        is_pull_hitter = spray_tendency >= 10.0
+        is_extreme_pull = spray_tendency >= 18.0
+        is_opposite_field = spray_tendency <= -10.0
+
+        if shift_type == 'pull_shift' and is_pull_hitter:
+            # Shift infield toward pull side (assume right-handed batter convention)
+            # Pull side is positive X (right field) for RHH
+            shift_magnitude = min(abs(spray_tendency) / 15.0, 1.5)  # Scale shift with tendency
+
+            # Second baseman moves toward first base line
+            adjustments['second_base'] = (15.0 * shift_magnitude, -5.0)
+
+            # Shortstop moves toward second base (or even to right side in extreme shifts)
+            if is_extreme_pull:
+                adjustments['shortstop'] = (25.0 * shift_magnitude, 0.0)
+            else:
+                adjustments['shortstop'] = (15.0 * shift_magnitude, 5.0)
+
+            # Third baseman moves toward shortstop position
+            adjustments['third_base'] = (10.0 * shift_magnitude, 10.0)
+
+            # First baseman holds position (or slightly back)
+            adjustments['first_base'] = (0.0, 5.0)
+
+            # Outfield shift: right fielder in, center fielder toward right-center gap
+            adjustments['right_field'] = (-10.0 * shift_magnitude, -10.0)
+            adjustments['center_field'] = (15.0 * shift_magnitude, 0.0)
+
+        elif shift_type == 'pull_shift' and is_opposite_field:
+            # Shift toward opposite field (negative X for LHH pulling to left)
+            shift_magnitude = min(abs(spray_tendency) / 15.0, 1.5)
+
+            # Mirror of pull shift adjustments
+            adjustments['shortstop'] = (-15.0 * shift_magnitude, -5.0)
+            adjustments['second_base'] = (-15.0 * shift_magnitude, 5.0)
+            if is_extreme_pull:
+                adjustments['second_base'] = (-25.0 * shift_magnitude, 0.0)
+
+            adjustments['first_base'] = (-10.0 * shift_magnitude, 10.0)
+            adjustments['left_field'] = (10.0 * shift_magnitude, -10.0)
+            adjustments['center_field'] = (-15.0 * shift_magnitude, 0.0)
+
+        elif shift_type == 'no_doubles':
+            # Deep outfield positioning - prevent extra base hits
+            # Move all outfielders back 20-30 feet
+            adjustments['left_field'] = (0.0, 25.0)
+            adjustments['center_field'] = (0.0, 30.0)
+            adjustments['right_field'] = (0.0, 25.0)
+
+            # Infield plays at double play depth (slightly back)
+            adjustments['second_base'] = (0.0, 5.0)
+            adjustments['shortstop'] = (0.0, 5.0)
+
+        elif shift_type == 'infield_in':
+            # Shallow infield positioning - prevent runs from scoring
+            # Move infielders toward home plate
+            adjustments['first_base'] = (0.0, -15.0)
+            adjustments['second_base'] = (0.0, -15.0)
+            adjustments['third_base'] = (0.0, -15.0)
+            adjustments['shortstop'] = (0.0, -15.0)
+
+        elif shift_type == 'outfield_shallow':
+            # Shallow outfield - prevent base hits
+            # Move outfielders in 30-40 feet
+            adjustments['left_field'] = (0.0, -35.0)
+            adjustments['center_field'] = (0.0, -40.0)
+            adjustments['right_field'] = (0.0, -35.0)
+
+        # Apply adjustments using existing method
+        return self.create_custom_positioning(adjustments)
+
     def __repr__(self):
         return "FieldLayout(MLB standard dimensions)"
 
