@@ -132,6 +132,45 @@ def calculate_aerodynamic_forces_fast(velocity, spin_axis, spin_rate_rpm, cd_bas
     return total_force, drag_force, magnus_force
 
 
+@njit(cache=True)
+def aerodynamic_force_tuple(position, velocity, spin_axis_x, spin_axis_y, spin_axis_z,
+                              spin_rate_rpm, cd_base, air_density, cross_area):
+    """
+    Aerodynamic force function compatible with JIT integrator.
+
+    Returns force components as tuple (fx, fy, fz) for use with integrate_trajectory_jit.
+
+    This is a wrapper optimized for use in the Numba-compiled integration loop.
+
+    Parameters
+    ----------
+    position : np.ndarray
+        Position vector [x, y, z] (not used for aerodynamics, but required for interface)
+    velocity : np.ndarray
+        Velocity vector [vx, vy, vz] in m/s
+    spin_axis_x, spin_axis_y, spin_axis_z : float
+        Spin axis components
+    spin_rate_rpm : float
+        Spin rate in RPM
+    cd_base : float
+        Base drag coefficient
+    air_density : float
+        Air density in kg/m³
+    cross_area : float
+        Cross-sectional area in m²
+
+    Returns
+    -------
+    tuple of (fx, fy, fz)
+        Force components in Newtons
+    """
+    spin_axis = np.array([spin_axis_x, spin_axis_y, spin_axis_z])
+    total_force, _, _ = calculate_aerodynamic_forces_fast(
+        velocity, spin_axis, spin_rate_rpm, cd_base, air_density, cross_area
+    )
+    return total_force[0], total_force[1], total_force[2]
+
+
 class AerodynamicForces:
     """
     Calculator for aerodynamic forces on a baseball.
