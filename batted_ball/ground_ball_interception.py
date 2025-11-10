@@ -191,10 +191,12 @@ class GroundBallInterceptor:
         """
         fielder_pos = np.array([fielder.current_position.x, fielder.current_position.y])
 
-        # Pitcher special handling - only field balls within 20-25 feet of mound
+        # Pitcher special handling - only field balls within 20 feet of mound
+        # This ensures pitchers only field comebackers and balls hit near the mound,
+        # while balls to the sides go to appropriate infielders (1B, 2B, 3B, SS)
         if position_name == 'pitcher':
             ball_distance_from_mound = np.linalg.norm(landing_pos - np.array([0.0, 60.5]))
-            if ball_distance_from_mound > 25.0:  # Pitcher only fields balls within 25 feet of mound
+            if ball_distance_from_mound > 20.0:  # Pitcher only fields balls within 20 feet of mound
                 return None
 
         # Special handling for catcher - they can only field very short balls
