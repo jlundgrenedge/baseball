@@ -22,7 +22,11 @@ from .constants import (
     GROUND_BALL_AIR_RESISTANCE,
 )
 from .field_layout import FieldLayout, FieldPosition
-from .fielding import Fielder, FieldingSimulator, FieldingResult, ThrowResult
+from .fielding import (
+    Fielder, FieldingSimulator, FieldingResult, ThrowResult,
+    simulate_fielder_throw, simulate_relay_throw, determine_cutoff_man,
+    RelayThrowResult, RELAY_THROW_THRESHOLD
+)
 from .baserunning import (
     BaseRunner, BaserunningSimulator, BaserunningResult, RunnerState,
     detect_force_situation, decide_runner_advancement
@@ -1449,27 +1453,47 @@ class PlaySimulator:
         ))
 
         # Calculate fielder throw times to each base (with transfer time)
+        # Use relay-aware throws for long distances (>200 ft)
         first_base_pos = self.field_layout.get_base_position("first")
         second_base_pos = self.field_layout.get_base_position("second")
         third_base_pos = self.field_layout.get_base_position("third")
         home_pos = self.field_layout.get_base_position("home")
 
-        throw_to_first_result = fielder.throw_ball(first_base_pos)
-        throw_to_second_result = fielder.throw_ball(second_base_pos)
-        throw_to_third_result = fielder.throw_ball(third_base_pos)
-        throw_to_home_result = fielder.throw_ball(home_pos)
-        
-        # Log throw analysis
+        # Determine cut-off men for potential relays
+        cutoff_for_home = determine_cutoff_man(responsible_position, 'home')
+        cutoff_for_third = determine_cutoff_man(responsible_position, 'third')
+        cutoff_for_second = determine_cutoff_man(responsible_position, 'second')
+        cutoff_for_first = determine_cutoff_man(responsible_position, 'first')
+
+        # Get cut-off men fielders
+        cutoff_home_fielder = self.fielding_simulator.fielders.get(cutoff_for_home, fielder)
+        cutoff_third_fielder = self.fielding_simulator.fielders.get(cutoff_for_third, fielder)
+        cutoff_second_fielder = self.fielding_simulator.fielders.get(cutoff_for_second, fielder)
+        cutoff_first_fielder = self.fielding_simulator.fielders.get(cutoff_for_first, fielder)
+
+        # Calculate throws using relay logic (automatically uses relay if distance > 200 ft)
+        relay_to_first = simulate_relay_throw(fielder, cutoff_first_fielder, ball_position, 'first', self.field_layout)
+        relay_to_second = simulate_relay_throw(fielder, cutoff_second_fielder, ball_position, 'second', self.field_layout)
+        relay_to_third = simulate_relay_throw(fielder, cutoff_third_fielder, ball_position, 'third', self.field_layout)
+        relay_to_home = simulate_relay_throw(fielder, cutoff_home_fielder, ball_position, 'home', self.field_layout)
+
+        # Log throw analysis with relay information
+        relay_info = ""
+        if relay_to_home.is_relay:
+            relay_info += f" (home via {relay_to_home.cutoff_position})"
+        if relay_to_third.is_relay:
+            relay_info += f" (3rd via {relay_to_third.cutoff_position})"
+
         result.add_event(PlayEvent(
             ball_retrieved_time + 0.02, "throw_analysis",
-            f"Throw times from {responsible_position} - 1st: {throw_to_first_result.arrival_time:.2f}s, 2nd: {throw_to_second_result.arrival_time:.2f}s, 3rd: {throw_to_third_result.arrival_time:.2f}s, home: {throw_to_home_result.arrival_time:.2f}s"
+            f"Throw times from {responsible_position} - 1st: {relay_to_first.total_arrival_time:.2f}s, 2nd: {relay_to_second.total_arrival_time:.2f}s, 3rd: {relay_to_third.total_arrival_time:.2f}s, home: {relay_to_home.total_arrival_time:.2f}s{relay_info}"
         ))
 
-        # Ball arrival times at each base (retrieval + transfer + flight)
-        ball_at_first = ball_retrieved_time + throw_to_first_result.release_time + throw_to_first_result.flight_time
-        ball_at_second = ball_retrieved_time + throw_to_second_result.release_time + throw_to_second_result.flight_time
-        ball_at_third = ball_retrieved_time + throw_to_third_result.release_time + throw_to_third_result.flight_time
-        ball_at_home = ball_retrieved_time + throw_to_home_result.release_time + throw_to_home_result.flight_time
+        # Ball arrival times at each base (retrieval + throw time)
+        ball_at_first = ball_retrieved_time + relay_to_first.total_arrival_time
+        ball_at_second = ball_retrieved_time + relay_to_second.total_arrival_time
+        ball_at_third = ball_retrieved_time + relay_to_third.total_arrival_time
+        ball_at_home = ball_retrieved_time + relay_to_home.total_arrival_time
 
         # ENHANCED LOGGING: Add detailed race comparison
         result.add_event(PlayEvent(
