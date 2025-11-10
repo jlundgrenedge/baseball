@@ -137,20 +137,21 @@ class OutfieldInterceptor:
             
             # Find best option for this fielder
             for ball_time_opt, fielder_time_opt, ball_pos_opt, distance_opt, interception_type in interception_options:
-                time_margin = fielder_time_opt - ball_time_opt
-                
-                # Only consider realistic plays (margin >= -0.2 for outfield)
+                # Time margin: positive = fielder arrives early, negative = fielder arrives late
+                time_margin = ball_time_opt - fielder_time_opt
+
+                # Only consider realistic plays (allow fielders up to 0.2s late for diving catches)
                 if time_margin >= -0.2:
                     # Determine if this is better than current best
                     is_better = False
-                    
+
                     if best_fielder is None:
                         is_better = True
                     else:
                         # Priority 1: Outfielders over infielders for outfield balls
                         current_is_outfielder = position_name in ['left_field', 'center_field', 'right_field']
                         best_is_outfielder = best_position in ['left_field', 'center_field', 'right_field']
-                        
+
                         if current_is_outfielder and not best_is_outfielder:
                             is_better = True
                         elif current_is_outfielder == best_is_outfielder:
@@ -158,7 +159,7 @@ class OutfieldInterceptor:
                             if ball_time_opt < best_interception_time:
                                 is_better = True
                             elif abs(ball_time_opt - best_interception_time) < 0.1:
-                                # Priority 3: Better time margin
+                                # Priority 3: Better time margin (prefer earlier arrival)
                                 if time_margin > best_margin:
                                     is_better = True
                     
@@ -226,6 +227,12 @@ class OutfieldInterceptor:
             if distance_from_home < 100.0 and ball_time < 0.6 and point.z > 3.0:
                 continue
 
+            # INFIELDER DEEP BALL RESTRICTION: Prevent infielders from attempting catches on deep fly balls
+            # Infielders should not be considered for catches beyond 180 ft (outfielder territory)
+            is_infielder = position_name in ['first_base', 'second_base', 'third_base', 'shortstop']
+            if is_infielder and distance_from_home > 180.0:
+                continue
+
             # Only consider points where ball is catchable height (z > 2 ft and z < 12 ft)
             # Note: point.z is already in feet (converted at line 82)
             if point.z < 2.0 or point.z > 12.0:
@@ -236,10 +243,13 @@ class OutfieldInterceptor:
             
             # Calculate fielder arrival time
             fielder_time = reaction_time + distance_to_ball / fielder_speed_fps
-            
-            time_margin = fielder_time - ball_time
-            
-            # Track best option
+
+            # Time margin: positive = fielder arrives early, negative = fielder arrives late
+            # We want to maximize this (prefer fielders who arrive earliest/most on-time)
+            time_margin = ball_time - fielder_time
+
+            # Track best option (fielder must not be impossibly late)
+            # Allow up to -0.2s late for diving/stretching catches
             if time_margin > best_margin and time_margin >= -0.2:
                 best_margin = time_margin
                 best_option = (ball_time, fielder_time, ball_pos, distance_to_ball)
@@ -314,9 +324,11 @@ class OutfieldInterceptor:
             distance_to_ball = np.linalg.norm(ball_pos - fielder_pos)
             fielder_time = reaction_time + distance_to_ball / fielder_speed_fps
             ball_time = ball_landing_time + test_time
-            
-            time_margin = fielder_time - ball_time
-            
+
+            # Time margin: positive = fielder arrives early, negative = fielder arrives late
+            # We want to maximize this (prefer fielders who arrive earliest)
+            time_margin = ball_time - fielder_time
+
             if time_margin > best_margin and time_margin >= -0.3:
                 best_margin = time_margin
                 best_option = (ball_time, fielder_time, ball_pos, distance_to_ball)

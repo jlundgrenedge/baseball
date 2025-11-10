@@ -703,6 +703,11 @@ class Fielder:
         # Time margin is the key factor
         time_margin = ball_arrival_time - fielder_time
 
+        # SAFETY CHECK: Impossible catches for fielders arriving extremely late
+        # If fielder is more than 1 second late, catch is impossible (ball already dropped/rolled)
+        if time_margin < -1.0:
+            return 0.0
+
         # Time-based catch probability bands (adjusted for MLB BABIP of ~.300)
         # MLB fielders convert ~70% of balls in play into outs
         # These base probabilities get multiplied by secure_prob (~0.92) and other penalties
