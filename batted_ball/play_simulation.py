@@ -1660,13 +1660,23 @@ class PlaySimulator:
                 0.3, "weak_hit",
                 f"Weakly hit ball near home plate ({distance_from_home:.0f} ft)"
             ))
-            
+
             # Find closest fielder among pitcher, catcher, corner infielders
+            # IMPORTANT: Catcher can only field balls hit behind or very near home plate
+            # since they're positioned behind the plate facing forward
             potential_fielders = ['pitcher', 'catcher', 'first_base', 'third_base']
+
+            # Check if ball is in front of home plate (going away from catcher)
+            ball_is_in_front = ball_position.y > 5.0  # More than 5 ft in front of home plate
+
+            # If ball is clearly in front of home plate, exclude catcher
+            if ball_is_in_front:
+                potential_fielders = ['pitcher', 'first_base', 'third_base']
+
             closest_fielder = None
             closest_position = None
             min_distance = float('inf')
-            
+
             # ENHANCED LOGGING: Show all fielder distances for weak hits
             fielder_distances = []
             for pos_name in potential_fielders:
