@@ -191,14 +191,6 @@ class GroundBallInterceptor:
         """
         fielder_pos = np.array([fielder.current_position.x, fielder.current_position.y])
 
-        # Pitcher special handling - only field balls within 20 feet of mound
-        # This ensures pitchers only field comebackers and balls hit near the mound,
-        # while balls to the sides go to appropriate infielders (1B, 2B, 3B, SS)
-        if position_name == 'pitcher':
-            ball_distance_from_mound = np.linalg.norm(landing_pos - np.array([0.0, 60.5]))
-            if ball_distance_from_mound > 20.0:  # Pitcher only fields balls within 20 feet of mound
-                return None
-
         # Special handling for catcher - they can only field very short balls
         # since they're positioned behind home plate facing forward
         if position_name == 'catcher':
@@ -240,6 +232,24 @@ class GroundBallInterceptor:
             # Calculate ball position at this time
             ball_pos = self._get_ball_position_at_time(landing_pos, ball_direction,
                                                      ball_speed_fps, decel_fps2, test_time)
+
+            # Pitcher special handling - only field balls at positions within 10 feet of mound
+            # AND only field balls that are in front of or behind the mound (comebackers),
+            # not balls rolling laterally past the mound
+            if position_name == 'pitcher':
+                mound_pos = np.array([0.0, 60.5])
+                interception_distance_from_mound = np.linalg.norm(ball_pos - mound_pos)
+
+                # Restrict to 10 feet from mound (tighter restriction)
+                if interception_distance_from_mound > 10.0:
+                    test_time += time_step
+                    continue
+
+                # Also check lateral distance - pitcher shouldn't field balls > 8 ft to the side
+                lateral_distance = abs(ball_pos[0])  # X-coordinate distance from center line
+                if lateral_distance > 8.0:
+                    test_time += time_step
+                    continue
 
             # Calculate ball speed at this time (for collision timing)
             ball_speed_at_time = max(ball_speed_fps - decel_fps2 * test_time, 1.0)
