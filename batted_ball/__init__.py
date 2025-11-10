@@ -46,10 +46,16 @@ from .fielding import (
     Fielder,
     FieldingResult,
     ThrowResult,
+    DetailedThrowResult,
+    RelayThrowResult,
     FieldingSimulator,
+    simulate_fielder_throw,
+    simulate_relay_throw,
+    determine_cutoff_man,
     create_elite_fielder,
     create_average_fielder,
     create_poor_fielder,
+    RELAY_THROW_THRESHOLD,
 )
 from .baserunning import (
     BaseRunner,
@@ -147,10 +153,16 @@ __all__ = [
     'Fielder',
     'FieldingResult',
     'ThrowResult',
+    'DetailedThrowResult',
+    'RelayThrowResult',
     'FieldingSimulator',
+    'simulate_fielder_throw',
+    'simulate_relay_throw',
+    'determine_cutoff_man',
     'create_elite_fielder',
     'create_average_fielder',
     'create_poor_fielder',
+    'RELAY_THROW_THRESHOLD',
     
     # Baserunning mechanics
     'BaseRunner',

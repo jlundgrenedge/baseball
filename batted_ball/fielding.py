@@ -1010,6 +1010,268 @@ def simulate_fielder_throw(fielder: 'Fielder',
     )
 
 
+# =============================================================================
+# RELAY THROW MECHANICS
+# =============================================================================
+
+class RelayThrowResult:
+    """
+    Result of a relay throw involving a cut-off man.
+
+    Contains timing for both legs of the relay: fielder → cutoff → target.
+    """
+    def __init__(self,
+                 from_position: FieldPosition,
+                 cutoff_position: str,
+                 to_base: str,
+                 first_throw: DetailedThrowResult,
+                 second_throw: DetailedThrowResult,
+                 relay_handling_time: float,
+                 total_arrival_time: float,
+                 is_relay: bool = True):
+        """
+        Initialize relay throw result.
+
+        Parameters
+        ----------
+        from_position : FieldPosition
+            Original fielder's throwing position
+        cutoff_position : str
+            Position name of cut-off man (e.g., 'shortstop', 'second_base')
+        to_base : str
+            Target base name
+        first_throw : DetailedThrowResult
+            Throw from fielder to cut-off man
+        second_throw : DetailedThrowResult
+            Throw from cut-off man to target base
+        relay_handling_time : float
+            Time for cut-off man to receive, turn, and release (seconds)
+        total_arrival_time : float
+            Total time from initial throw to ball arrival at target
+        is_relay : bool
+            True if relay was used, False if direct throw
+        """
+        self.from_position = from_position
+        self.cutoff_position = cutoff_position
+        self.to_base = to_base
+        self.first_throw = first_throw
+        self.second_throw = second_throw
+        self.relay_handling_time = relay_handling_time
+        self.total_arrival_time = total_arrival_time
+        self.is_relay = is_relay
+
+
+# Relay throw distance threshold (feet)
+RELAY_THROW_THRESHOLD = 200.0
+
+
+def determine_cutoff_man(fielder_position: str, target_base: str) -> str:
+    """
+    Determine the appropriate cut-off man for a throw.
+
+    Cut-off man selection follows baseball convention:
+    - Left field to home/third: Shortstop (left side alignment)
+    - Center field to home: Shortstop (typically plays deeper)
+    - Right field to home: Second baseman (right side alignment)
+    - Right field to third: Shortstop (cuts across diamond)
+    - Deep throws to second: Shortstop or pitcher
+
+    Parameters
+    ----------
+    fielder_position : str
+        Position of fielder making initial throw (e.g., 'left_field', 'center_field')
+    target_base : str
+        Target base ('home', 'third', 'second', 'first')
+
+    Returns
+    -------
+    str
+        Position name of cut-off man
+
+    Examples
+    --------
+    >>> determine_cutoff_man('left_field', 'home')
+    'shortstop'
+    >>> determine_cutoff_man('right_field', 'home')
+    'second_base'
+    """
+    # Normalize position names (handle variations)
+    fielder = fielder_position.lower().replace('_', ' ').replace(' ', '_')
+    target = target_base.lower()
+
+    # Outfield positions
+    is_left_field = 'left' in fielder or fielder == 'lf'
+    is_center_field = 'center' in fielder or fielder == 'cf'
+    is_right_field = 'right' in fielder or fielder == 'rf'
+
+    # Throws to home plate
+    if target == 'home':
+        if is_left_field:
+            return 'shortstop'
+        elif is_center_field:
+            return 'shortstop'  # SS typically deeper than 2B
+        elif is_right_field:
+            return 'second_base'
+        else:
+            # Infield throws to home - use nearest infielder
+            return 'shortstop'
+
+    # Throws to third base
+    elif target == 'third':
+        return 'shortstop'  # SS is primary cutoff for third
+
+    # Throws to second base (rare relay situation)
+    elif target == 'second':
+        if is_center_field:
+            return 'shortstop'  # SS plays deeper
+        else:
+            return 'shortstop'  # Default to SS for deep hits
+
+    # Throws to first (very rare relay)
+    elif target == 'first':
+        return 'second_base'
+
+    # Default to shortstop (most versatile cut-off position)
+    return 'shortstop'
+
+
+def simulate_relay_throw(fielder: 'Fielder',
+                        cutoff_man: 'Fielder',
+                        from_position: FieldPosition,
+                        target_base: str,
+                        field_layout: FieldLayout,
+                        force_relay: bool = False) -> RelayThrowResult:
+    """
+    Simulate a throw that may require a relay through a cut-off man.
+
+    Automatically determines if a relay is needed based on throw distance.
+    If distance > RELAY_THROW_THRESHOLD (200 ft), uses two-stage relay.
+    Otherwise, performs direct throw.
+
+    Parameters
+    ----------
+    fielder : Fielder
+        Fielder making the initial throw
+    cutoff_man : Fielder
+        Cut-off man who will relay the throw
+    from_position : FieldPosition
+        Position where fielder is throwing from
+    target_base : str
+        Target base name ('home', 'third', 'second', 'first')
+    field_layout : FieldLayout
+        Field layout for base positions
+    force_relay : bool, optional
+        Force use of relay regardless of distance (default: False)
+
+    Returns
+    -------
+    RelayThrowResult
+        Complete relay throw result with timing for each stage
+
+    Examples
+    --------
+    >>> # Deep center field throw to home
+    >>> cf_position = FieldPosition(0, 380, 0)  # Deep center
+    >>> result = simulate_relay_throw(cf, shortstop, cf_position, 'home', field_layout)
+    >>> print(f"Relay time: {result.total_arrival_time:.2f}s via {result.cutoff_position}")
+    Relay time: 3.45s via shortstop
+
+    Notes
+    -----
+    - Relay throws add handling time (~0.2-0.4s) for cut-off man to receive and release
+    - Total time may be longer than direct throw, but represents realistic play
+    - Cut-off men have better arm accuracy and positioning for second throw
+    """
+    # Get target base position
+    target_position = field_layout.get_base_position(target_base)
+
+    # Calculate direct throw distance
+    direct_distance = from_position.horizontal_distance_to(target_position)
+
+    # Determine if relay is needed
+    needs_relay = force_relay or direct_distance > RELAY_THROW_THRESHOLD
+
+    if not needs_relay:
+        # Direct throw - no relay needed
+        direct_throw = simulate_fielder_throw(fielder, from_position, target_base, field_layout)
+
+        return RelayThrowResult(
+            from_position=from_position,
+            cutoff_position="none",
+            to_base=target_base,
+            first_throw=direct_throw,
+            second_throw=direct_throw,  # Same as first for direct throws
+            relay_handling_time=0.0,
+            total_arrival_time=direct_throw.arrival_time,
+            is_relay=False
+        )
+
+    # RELAY THROW - Two stage throw
+
+    # Position cut-off man optimally between fielder and target
+    # Cut-off man typically positioned ~2/3 of the way to target or at standard position
+    cutoff_standard_pos = field_layout.get_defensive_position(cutoff_man.position)
+
+    # Use cut-off man's standard position (realistic - they run to cutoff position)
+    cutoff_position = cutoff_standard_pos
+
+    # Stage 1: Fielder to cut-off man
+    # Calculate throw manually since we're throwing to a position, not a base
+    first_throw_distance = from_position.horizontal_distance_to(cutoff_position)
+
+    # Get fielder's throwing attributes
+    fielder_arm_mph = fielder.attributes.get_arm_strength_mph()
+    fielder_transfer = fielder.attributes.get_transfer_time_s()
+    fielder_accuracy = fielder.attributes.get_arm_accuracy_sigma_ft()
+
+    # Calculate flight time
+    first_throw_velocity_fps = fielder_arm_mph * 1.467  # mph to ft/s
+    first_throw_flight_time = (first_throw_distance / first_throw_velocity_fps) * 1.07
+
+    # Determine accuracy
+    on_target_prob_1 = np.clip(1.0 - (fielder_accuracy - 2.0) / 15.0, 0.70, 0.98)
+    first_on_target = np.random.random() < on_target_prob_1
+
+    # Create first throw result
+    first_throw = DetailedThrowResult(
+        from_position=from_position,
+        to_base=f"{cutoff_man.position}_cutoff",
+        throw_velocity_mph=fielder_arm_mph,
+        transfer_time=fielder_transfer,
+        flight_time=first_throw_flight_time,
+        arrival_time=fielder_transfer + first_throw_flight_time,
+        accuracy_sigma_ft=fielder_accuracy,
+        on_target=first_on_target
+    )
+
+    # Relay handling time: cut-off man receives, turns, and releases
+    # Faster than full transfer (already positioned, anticipating throw)
+    # Typical range: 0.2-0.4 seconds for skilled middle infielders
+    relay_handling_time = np.random.uniform(0.2, 0.4)
+
+    # Stage 2: Cut-off man to target base
+    second_throw = simulate_fielder_throw(
+        cutoff_man,
+        cutoff_position,
+        target_base,
+        field_layout
+    )
+
+    # Total time: first throw + relay handling + second throw
+    total_time = first_throw.arrival_time + relay_handling_time + second_throw.arrival_time
+
+    return RelayThrowResult(
+        from_position=from_position,
+        cutoff_position=cutoff_man.position,
+        to_base=target_base,
+        first_throw=first_throw,
+        second_throw=second_throw,
+        relay_handling_time=relay_handling_time,
+        total_arrival_time=total_time,
+        is_relay=True
+    )
+
+
 class FieldingSimulator:
     """
     Manages fielding simulation for multiple fielders and ball in play.
