@@ -559,6 +559,14 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
     if attack_angle_min >= attack_angle_max:
         attack_angle_max = attack_angle_min + 5000
     
+    # Power hitters tend to pull the ball
+    # NOTE: Physics has left field positive, so NEGATIVE spray = pull right for RHH
+    # Range: 15k-40k → -15° to -5° strong pull tendency (right field for RHH)
+    spray_min = max(15000, min_r - 35000)
+    spray_max = min(40000, spray_min + 25000)
+    if spray_min >= spray_max:
+        spray_max = spray_min + 10000
+
     return HitterAttributes(
         BAT_SPEED=np.random.randint(bat_speed_min, bat_speed_max),  # Elite bat speed
         ATTACK_ANGLE_CONTROL=np.random.randint(attack_angle_min, attack_angle_max),  # BOOSTED for HRs
@@ -567,7 +575,8 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
         TIMING_PRECISION=np.random.randint(min_r, max_r),
         PITCH_PLANE_MATCH=np.random.randint(min_r, max_r),
         SWING_DECISION_LATENCY=np.random.randint(min_r, max_r),
-        ZONE_DISCERNMENT=np.random.randint(min_r, max_r)
+        ZONE_DISCERNMENT=np.random.randint(min_r, max_r),
+        SPRAY_TENDENCY=np.random.randint(spray_min, spray_max)  # Pull tendency
     )
 
 
@@ -604,7 +613,15 @@ def create_balanced_hitter(quality: str = "average") -> HitterAttributes:
     # Ensure barrel range is valid
     if barrel_min >= barrel_max:
         barrel_max = barrel_min + 5000
-    
+
+    # Balanced hitters use all fields (wide spray distribution)
+    # Range: 25k-75k → -14° to +12° (wide left field to right field)
+    # This creates realistic all-fields spray pattern
+    spray_min = max(20000, min_r - 30000)
+    spray_max = min(75000, max_r + 15000)
+    if spray_min >= spray_max:
+        spray_max = spray_min + 20000
+
     return HitterAttributes(
         BAT_SPEED=np.random.randint(min_r, max_r + 5000),
         ATTACK_ANGLE_CONTROL=np.random.randint(attack_angle_min, attack_angle_max),  # Moderate launch angle
@@ -613,7 +630,8 @@ def create_balanced_hitter(quality: str = "average") -> HitterAttributes:
         TIMING_PRECISION=np.random.randint(min_r + 5000, max_r + 10000),
         PITCH_PLANE_MATCH=np.random.randint(min_r, max_r),
         SWING_DECISION_LATENCY=np.random.randint(min_r, max_r),
-        ZONE_DISCERNMENT=np.random.randint(min_r + 5000, max_r + 10000)
+        ZONE_DISCERNMENT=np.random.randint(min_r + 5000, max_r + 10000),
+        SPRAY_TENDENCY=np.random.randint(spray_min, spray_max)  # All fields
     )
 
 
@@ -628,6 +646,14 @@ def create_groundball_hitter(quality: str = "average") -> HitterAttributes:
 
     min_r, max_r = quality_ranges.get(quality, (45000, 65000))
 
+    # Ground ball hitters tend to pull slightly to moderately
+    # NOTE: Physics has left field positive, so NEGATIVE spray = pull right for RHH
+    # Range: 25k-50k → -14° to 0° moderate pull tendency
+    spray_min = max(20000, min_r - 25000)
+    spray_max = min(50000, spray_min + 30000)
+    if spray_min >= spray_max:
+        spray_max = spray_min + 10000
+
     # Ground ball: LOW attack angle (downward or flat swing)
     return HitterAttributes(
         BAT_SPEED=np.random.randint(min_r, max_r),
@@ -637,7 +663,8 @@ def create_groundball_hitter(quality: str = "average") -> HitterAttributes:
         TIMING_PRECISION=np.random.randint(min_r + 5000, max_r + 5000),
         PITCH_PLANE_MATCH=np.random.randint(min_r, max_r),
         SWING_DECISION_LATENCY=np.random.randint(min_r, max_r),
-        ZONE_DISCERNMENT=np.random.randint(min_r, max_r)
+        ZONE_DISCERNMENT=np.random.randint(min_r, max_r),
+        SPRAY_TENDENCY=np.random.randint(spray_min, spray_max)  # Slight pull
     )
 
 

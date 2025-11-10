@@ -1655,10 +1655,16 @@ class PlaySimulator:
         ))
         
         # Special handling for very weak hits near home plate (bunts, etc.)
-        if distance_from_home < 25.0:
+        # Only treat as weak hit if BOTH conditions are met:
+        # 1. Very close to home plate (< 15 ft)
+        # 2. Low exit velocity (< 65 mph) - this distinguishes bunts/topped balls from hard grounders
+        exit_velocity_mph = batted_ball.exit_velocity * 3.6 * 0.621371  # m/s to mph
+        is_weak_hit = distance_from_home < 15.0 and exit_velocity_mph < 65.0
+
+        if is_weak_hit:
             result.add_event(PlayEvent(
                 0.3, "weak_hit",
-                f"Weakly hit ball near home plate ({distance_from_home:.0f} ft)"
+                f"Weakly hit ball near home plate ({distance_from_home:.0f} ft, EV {exit_velocity_mph:.1f} mph)"
             ))
 
             # Find closest fielder among pitcher, catcher, corner infielders
