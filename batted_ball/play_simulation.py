@@ -2100,34 +2100,34 @@ class PlaySimulator:
 def create_standard_defense() -> Dict[str, Fielder]:
     """Create a standard defensive alignment with average fielders."""
     from .fielding import create_average_fielder
-    
+
     return {
-        'pitcher': create_average_fielder('Pitcher', 'infield'),
-        'catcher': create_average_fielder('Catcher', 'infield'),
-        'first_base': create_average_fielder('First Base', 'infield'),
-        'second_base': create_average_fielder('Second Base', 'infield'),
-        'third_base': create_average_fielder('Third Base', 'infield'),
-        'shortstop': create_average_fielder('Shortstop', 'infield'),
-        'left_field': create_average_fielder('Left Field', 'outfield'),
-        'center_field': create_average_fielder('Center Field', 'outfield'),
-        'right_field': create_average_fielder('Right Field', 'outfield'),
+        'pitcher': create_average_fielder('Pitcher', 'pitcher'),
+        'catcher': create_average_fielder('Catcher', 'catcher'),
+        'first_base': create_average_fielder('First Base', 'first_base'),
+        'second_base': create_average_fielder('Second Base', 'second_base'),
+        'third_base': create_average_fielder('Third Base', 'third_base'),
+        'shortstop': create_average_fielder('Shortstop', 'shortstop'),
+        'left_field': create_average_fielder('Left Field', 'left_field'),
+        'center_field': create_average_fielder('Center Field', 'center_field'),
+        'right_field': create_average_fielder('Right Field', 'right_field'),
     }
 
 
 def create_elite_defense() -> Dict[str, Fielder]:
     """Create an elite defensive alignment."""
     from .fielding import create_elite_fielder
-    
+
     return {
-        'pitcher': create_elite_fielder('Elite Pitcher', 'infield'),
-        'catcher': create_elite_fielder('Elite Catcher', 'infield'),
-        'first_base': create_elite_fielder('Elite First Base', 'infield'),
-        'second_base': create_elite_fielder('Elite Second Base', 'infield'),
-        'third_base': create_elite_fielder('Elite Third Base', 'infield'),
-        'shortstop': create_elite_fielder('Elite Shortstop', 'infield'),
-        'left_field': create_elite_fielder('Elite Left Field', 'outfield'),
-        'center_field': create_elite_fielder('Elite Center Field', 'outfield'),
-        'right_field': create_elite_fielder('Elite Right Field', 'outfield'),
+        'pitcher': create_elite_fielder('Elite Pitcher', 'pitcher'),
+        'catcher': create_elite_fielder('Elite Catcher', 'catcher'),
+        'first_base': create_elite_fielder('Elite First Base', 'first_base'),
+        'second_base': create_elite_fielder('Elite Second Base', 'second_base'),
+        'third_base': create_elite_fielder('Elite Third Base', 'third_base'),
+        'shortstop': create_elite_fielder('Elite Shortstop', 'shortstop'),
+        'left_field': create_elite_fielder('Elite Left Field', 'left_field'),
+        'center_field': create_elite_fielder('Elite Center Field', 'center_field'),
+        'right_field': create_elite_fielder('Elite Right Field', 'right_field'),
     }
 
 
