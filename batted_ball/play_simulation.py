@@ -582,6 +582,16 @@ class PlaySimulator:
                             print(f"    {position_name} skipped - ball too close to home ({distance_from_home:.0f}ft) at t={t:.2f}s, z={ball_pos_t.z:.1f}ft")
                         continue
 
+                    # ANTI-EXPLOIT: Prevent infielders from catching deep fly balls
+                    # Infielders should only catch pop-ups and shallow flies (< 250 ft)
+                    # Deep fly balls should be caught by outfielders only
+                    infielders = ['first_base', 'second_base', 'third_base', 'shortstop', 'pitcher', 'catcher']
+                    final_landing_distance = batted_ball_result.distance
+                    if position_name in infielders and final_landing_distance >= 250.0:
+                        if debug:
+                            print(f"    {position_name} skipped - deep fly ball (landing at {final_landing_distance:.0f}ft, infielders only catch < 250ft)")
+                        continue
+
                     # Calculate catch probability using the fielder's model
                     catch_prob = fielder.calculate_catch_probability(ground_position, t)
 
