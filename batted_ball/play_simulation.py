@@ -87,6 +87,7 @@ class PlayResult:
         self.events = []
         self.runs_scored = 0
         self.outs_made = 0
+        self.initial_runner_positions = {}
         self.final_runner_positions = {}
         self.batted_ball_result = None
         self.fielding_results = []
@@ -185,7 +186,10 @@ class PlaySimulator:
         result.batted_ball_result = batted_ball_result
         self.current_time = 0.0
         self.current_outs = current_outs  # Store for use in baserunning decisions
-        
+
+        # Capture initial runner positions before play starts
+        result.initial_runner_positions = dict(self.baserunning_simulator.runners)
+
         # Add batter-runner to bases
         self.baserunning_simulator.add_runner("home", batter_runner)
         
