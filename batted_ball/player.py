@@ -214,6 +214,125 @@ class Pitcher:
         )
 
 
+def generate_pitch_arsenal(
+    pitcher_attributes: PitcherAttributes,
+    role: str = "starter",
+    arsenal_size: Optional[int] = None
+) -> Dict[str, Dict]:
+    """
+    Generate a realistic pitch arsenal for a pitcher based on their attributes and role.
+
+    MLB pitchers typically have:
+    - Starters: 4-5 pitches (need variety to face batters multiple times)
+    - Relievers: 2-3 pitches (can rely on best stuff for shorter outings)
+
+    Common pitch combinations:
+    - Power pitchers: 4-seam fastball + slider + changeup (+ curveball)
+    - Finesse pitchers: 2-seam fastball + changeup + curveball + cutter
+    - Groundball pitchers: 2-seam fastball + sinker tendencies + slider
+
+    Parameters
+    ----------
+    pitcher_attributes : PitcherAttributes
+        The pitcher's attributes to determine arsenal composition
+    role : str
+        "starter" or "reliever" - affects number of pitches
+    arsenal_size : int, optional
+        Override the number of pitches (otherwise determined by role)
+
+    Returns
+    -------
+    Dict[str, Dict]
+        Dictionary of pitch types (keys: pitch names, values: empty dicts for now)
+    """
+    import random
+
+    # Get pitcher characteristics
+    velocity = pitcher_attributes.get_raw_velocity_mph()
+    spin_rate = pitcher_attributes.get_spin_rate_rpm()
+
+    # Determine pitcher type based on velocity
+    # High velocity (95+ mph) = power pitcher
+    # Medium velocity (90-94 mph) = balanced
+    # Low velocity (<90 mph) = finesse pitcher
+    is_power_pitcher = velocity >= 95.0
+    is_finesse_pitcher = velocity < 90.0
+
+    # Determine arsenal size
+    if arsenal_size is None:
+        if role == "starter":
+            # Starters: 4-5 pitches
+            arsenal_size = random.choices([4, 5], weights=[0.4, 0.6])[0]
+        else:
+            # Relievers: 2-3 pitches
+            arsenal_size = random.choices([2, 3], weights=[0.3, 0.7])[0]
+
+    arsenal = {}
+
+    # All pitchers have a fastball as their primary pitch
+    # Power pitchers favor 4-seam, finesse pitchers can have 2-seam or 4-seam
+    if is_power_pitcher or random.random() < 0.7:
+        arsenal['fastball'] = {}  # 4-seam fastball
+    else:
+        arsenal['2-seam'] = {}  # 2-seam fastball
+
+    # Build list of available secondary pitches
+    # Pitch selection is influenced by pitcher type
+    if is_power_pitcher:
+        # Power pitchers: slider, changeup, curveball, cutter
+        # Slider is most common for high-velo pitchers
+        secondary_pitches = [
+            ('slider', 0.90),      # Very common for power arms
+            ('changeup', 0.75),    # Common
+            ('curveball', 0.50),   # Less common
+            ('cutter', 0.40),      # Less common
+        ]
+    elif is_finesse_pitcher:
+        # Finesse pitchers: changeup, curveball, cutter, slider, splitter
+        secondary_pitches = [
+            ('changeup', 0.85),    # Very common for finesse
+            ('curveball', 0.70),   # Common
+            ('cutter', 0.60),      # Common
+            ('slider', 0.50),      # Less common
+            ('splitter', 0.30),    # Uncommon
+        ]
+    else:
+        # Balanced pitchers: mix of everything
+        secondary_pitches = [
+            ('slider', 0.75),
+            ('changeup', 0.75),
+            ('curveball', 0.60),
+            ('cutter', 0.45),
+            ('splitter', 0.25),
+        ]
+
+    # Shuffle to randomize selection order
+    random.shuffle(secondary_pitches)
+
+    # Select pitches based on arsenal size
+    pitches_needed = arsenal_size - 1  # -1 for fastball already added
+
+    for pitch_name, probability in secondary_pitches:
+        if pitches_needed <= 0:
+            break
+
+        # Add pitch based on probability
+        if random.random() < probability:
+            arsenal[pitch_name] = {}
+            pitches_needed -= 1
+
+    # If we still need more pitches (rare), add from remaining options
+    if pitches_needed > 0:
+        remaining_pitches = [
+            p for p, _ in secondary_pitches
+            if p not in arsenal
+        ]
+        for pitch_name in remaining_pitches[:pitches_needed]:
+            arsenal[pitch_name] = {}
+
+    return arsenal
+
+
 class Hitter:
     """
     Represents a hitter with physics-first attributes (0-100,000 scale).
