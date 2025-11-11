@@ -27,6 +27,28 @@ from batted_ball.parallel_game_simulation import (
 )
 
 
+def simulate_single_game(away_team, home_team, away_name, home_name):
+    """
+    Simulate a single game and return the result with team names.
+
+    This is a module-level function to allow pickling for multiprocessing.
+    """
+    from batted_ball.parallel_game_simulation import ParallelGameSimulator, ParallelSimulationSettings
+
+    # Create simulator for this process
+    settings = ParallelSimulationSettings(
+        num_workers=1,  # Single worker for single game
+        chunk_size=1,
+        verbose=False,
+        show_progress=False,
+        log_games=False
+    )
+    sim = ParallelGameSimulator(settings)
+
+    result = sim.simulate_games(away_team, home_team, num_games=1, num_innings=9)
+    return (away_name, home_name, result)
+
+
 @dataclass
 class TeamStats:
     """Track comprehensive statistics for a team throughout the season."""
@@ -405,24 +427,6 @@ class LeagueSimulation:
 
         # Define game day names for a realistic schedule
         day_names = ["Thursday", "Sunday"]
-
-        # Helper function to simulate a single game (for parallel execution)
-        def simulate_single_game(away_team, home_team, away_name, home_name):
-            """Simulate a single game and return the result with team names."""
-            from batted_ball.parallel_game_simulation import ParallelGameSimulator, ParallelSimulationSettings
-
-            # Create simulator for this process
-            settings = ParallelSimulationSettings(
-                num_workers=1,  # Single worker for single game
-                chunk_size=1,
-                verbose=False,
-                show_progress=False,
-                log_games=False
-            )
-            sim = ParallelGameSimulator(settings)
-
-            result = sim.simulate_games(away_team, home_team, num_games=1, num_innings=9)
-            return (away_name, home_name, result)
 
         for day_num, day_matchups in enumerate(self.game_days, 1):
             day_name = day_names[(day_num - 1) % len(day_names)]
