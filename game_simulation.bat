@@ -5,7 +5,7 @@ echo ========================================
 echo.
 echo Choose simulation type:
 echo   1. Single Game Demo (quick, interactive)
-echo   2. Quick League Season (8 teams, 12 games each)
+echo   2. Quick League Season (Thu/Sun league, 14 games each)
 echo   3. Full League Season (8 teams, 60 games each)
 echo   4. Performance Test Suite
 echo.
@@ -44,9 +44,10 @@ echo Running Quick League Simulation
 echo ========================================
 echo.
 echo This simulates a quick 8-team league season:
+echo - Thursday/Sunday league format
 echo - 8 teams with varying skill levels
-echo - 12 games per team
-echo - Complete season statistics
+echo - 14 games per team (2 complete rounds)
+echo - 4 games per day simulated in parallel
 echo - Optimized for quick testing (2-5 minutes)
 echo.
 pause
