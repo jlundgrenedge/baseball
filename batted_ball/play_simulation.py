@@ -582,15 +582,26 @@ class PlaySimulator:
                             print(f"    {position_name} skipped - ball too close to home ({distance_from_home:.0f}ft) at t={t:.2f}s, z={ball_pos_t.z:.1f}ft")
                         continue
 
-                    # ANTI-EXPLOIT: Prevent infielders from catching balls that are too high to reach
-                    # Infielders can catch line drives and low fly balls, but not balls passing overhead
-                    # Maximum realistic catch height for infielders: ~10 ft (player height + jumping reach)
+                    # ANTI-EXPLOIT: Prevent infielders from catching balls they shouldn't
+                    # Infielders can catch pop-ups and shallow hits, but not:
+                    # 1. Balls passing overhead too high to reach (> 10 ft)
+                    # 2. Line drives/fly balls destined for outfield (landing > 250 ft)
                     infielders = ['first_base', 'second_base', 'third_base', 'shortstop', 'pitcher', 'catcher']
-                    max_infielder_reach_height = 10.0  # feet
-                    if position_name in infielders and ball_pos_t.z > max_infielder_reach_height:
-                        if debug:
-                            print(f"    {position_name} skipped - ball too high to reach (height {ball_pos_t.z:.1f}ft > max reach {max_infielder_reach_height:.1f}ft)")
-                        continue
+                    if position_name in infielders:
+                        max_infielder_reach_height = 10.0  # feet (player height + jumping reach)
+                        final_landing_distance = batted_ball_result.distance
+
+                        # Check if ball is too high to reach at this moment
+                        if ball_pos_t.z > max_infielder_reach_height:
+                            if debug:
+                                print(f"    {position_name} skipped - ball too high to reach (height {ball_pos_t.z:.1f}ft > max reach {max_infielder_reach_height:.1f}ft)")
+                            continue
+
+                        # Check if ball is destined for outfield (even if currently at catchable height)
+                        if final_landing_distance >= 250.0:
+                            if debug:
+                                print(f"    {position_name} skipped - ball destined for outfield (landing at {final_landing_distance:.0f}ft, infielders only catch < 250ft)")
+                            continue
 
                     # Calculate catch probability using the fielder's model
                     catch_prob = fielder.calculate_catch_probability(ground_position, t)
