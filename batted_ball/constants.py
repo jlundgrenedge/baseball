@@ -225,11 +225,13 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # Collision Efficiency (q) - Master formula parameter
 # BBS = q * v_pitch + (1 + q) * v_bat
 # REDUCED 2025-11-11: Previous value (0.16) produced too many 100+ mph exit velocities
+# REDUCED 2025-11-11 (second pass): 0.10 still produced 4.5x too many HRs
 # With typical bat speed 78 mph and pitch speed 83 mph:
 # - Old q=0.16: EV = 0.16*83 + 1.16*78 = 104 mph (way too high!)
-# - New q=0.10: EV = 0.10*83 + 1.10*78 = 94 mph (realistic)
+# - Mid q=0.10: EV = 0.10*83 + 1.10*78 = 94 mph (still too high for HR rate)
+# - New q=0.08: EV = 0.08*83 + 1.08*78 = 91 mph (more realistic for HR ~2.2/9)
 # Target: Average MLB EV ~88-89 mph, power hitters 92-95 mph, max ~110 mph
-COLLISION_EFFICIENCY_WOOD = 0.10        # Wood bats (maple, ash, birch) - calibrated for realistic EV distribution
+COLLISION_EFFICIENCY_WOOD = 0.08        # Wood bats (maple, ash, birch) - calibrated for ~2.2 HRs/9 innings
 COLLISION_EFFICIENCY_ALUMINUM = 0.11    # Aluminum bats (BBCOR regulated) - reduced from 0.24
 COLLISION_EFFICIENCY_COMPOSITE = 0.12   # Composite bats (BBCOR regulated) - reduced from 0.25
 
