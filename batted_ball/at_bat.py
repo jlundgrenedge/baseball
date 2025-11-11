@@ -782,8 +782,9 @@ class AtBatSimulator:
                     if abs(spray_angle) > 45:
                         is_foul = True
 
-                    # Weak contact more likely to foul
-                    if contact_quality == 'weak' and np.random.random() < 0.4:
+                    # Weak contact more likely to foul (reduced from 0.4 to 0.22 to increase balls in play)
+                    # Previous 40% rate was causing too many fouls and reducing offensive production
+                    if contact_quality == 'weak' and np.random.random() < 0.22:
                         is_foul = True
 
                     if is_foul:
