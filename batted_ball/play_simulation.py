@@ -194,12 +194,52 @@ class PlaySimulator:
         
         # Add contact event
         result.add_event(PlayEvent(
-            0.0, "contact", 
+            0.0, "contact",
             f"Ball hit to {self._describe_field_location(ball_landing_pos)}"
         ))
-        
+
         if is_air_ball:
-            # Simulate catch attempt at landing position first (primary defensive check)
+            # Check for home run FIRST before attempting catch
+            distance_ft = np.sqrt(ball_landing_pos.x**2 + ball_landing_pos.y**2)
+            spray_angle = np.arctan2(ball_landing_pos.x, ball_landing_pos.y) * 180.0 / np.pi
+            peak_height = batted_ball_result.peak_height if batted_ball_result else 0
+
+            # Determine fence distance based on spray angle
+            abs_angle = abs(spray_angle)
+            if abs_angle < 10:  # Dead center
+                fence_distance = 400.0
+            elif abs_angle < 25:  # Center-left/right gaps
+                fence_distance = 380.0
+            elif abs_angle < 40:  # Deeper alleys
+                fence_distance = 360.0
+            else:  # Down the lines
+                fence_distance = 330.0
+
+            # Check if ball cleared fence
+            is_home_run = False
+            if distance_ft >= fence_distance:
+                if peak_height >= 30.0:  # Reasonable minimum for clearing fence
+                    is_home_run = True
+                elif distance_ft >= fence_distance + 15:  # 15 ft past fence = definite HR
+                    is_home_run = True
+
+            if is_home_run:
+                # Ball cleared fence - it's a home run!
+                result.outcome = PlayOutcome.HOME_RUN
+                result.runs_scored = 1 + len([r for r in result.initial_runner_positions.values() if r is not None])
+                result.add_event(PlayEvent(
+                    0.0, "fly_ball_analysis",
+                    f"Fly ball coordinates: ({ball_landing_pos.x:.1f}, {ball_landing_pos.y:.1f}) ft, distance {distance_ft:.1f} ft, hang time {hang_time:.2f}s"
+                ))
+                result.add_event(PlayEvent(
+                    hang_time, "home_run",
+                    f"HOME RUN! Ball travels {distance_ft:.0f} feet over the {fence_distance:.0f}-foot fence"
+                ))
+                # Finalize and return - no catch attempt needed
+                result.play_description = result.generate_description()
+                return result
+
+            # Not a home run - attempt catch at landing position
             catch_result = self._simulate_catch_attempt(ball_landing_pos, hang_time, result)
 
             if catch_result.success:
