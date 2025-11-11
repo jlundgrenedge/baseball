@@ -582,6 +582,16 @@ class PlaySimulator:
                             print(f"    {position_name} skipped - ball too close to home ({distance_from_home:.0f}ft) at t={t:.2f}s, z={ball_pos_t.z:.1f}ft")
                         continue
 
+                    # ANTI-EXPLOIT: Prevent infielders from catching balls that are too high to reach
+                    # Infielders can catch line drives and low fly balls, but not balls passing overhead
+                    # Maximum realistic catch height for infielders: ~10 ft (player height + jumping reach)
+                    infielders = ['first_base', 'second_base', 'third_base', 'shortstop', 'pitcher', 'catcher']
+                    max_infielder_reach_height = 10.0  # feet
+                    if position_name in infielders and ball_pos_t.z > max_infielder_reach_height:
+                        if debug:
+                            print(f"    {position_name} skipped - ball too high to reach (height {ball_pos_t.z:.1f}ft > max reach {max_infielder_reach_height:.1f}ft)")
+                        continue
+
                     # Calculate catch probability using the fielder's model
                     catch_prob = fielder.calculate_catch_probability(ground_position, t)
 
