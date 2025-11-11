@@ -716,23 +716,23 @@ class Fielder:
         # For fly balls, this should result in a drop (ball already on ground).
         # Only allow diving/stretching catches for very small negative margins (< -0.15s).
         #
-        # TUNED: Reduced to increase offensive production and match MLB hit rates
-        # Target: ~9 runs/9 innings and ~17 hits/9 innings (doubled from previous ~4.5 runs/9)
-        # Previous values were causing hits/runs to be roughly HALF of MLB averages
+        # NOTE: Previous tuning (bf67d6f) reduced these to compensate for slow fielders (26.5 ft/s).
+        # Now that fielder speeds are fixed (33 ft/s), probabilities are restored to higher values.
+        # Target: ~9 runs/9 innings and ~17 hits/9 innings
         if time_margin >= 0.5:
             # Fielder arrives well ahead (0.5+s early) - very routine play
-            probability = 0.73  # After penalties: 0.73 * 0.92 = 0.67 (reduced from 0.91)
+            probability = 0.93  # After penalties: 0.93 * 0.92 = 0.86 (restored near original 0.91)
         elif time_margin >= 0.0:
             # Fielder arrives on time (0-0.5s early) - routine play but requires hustle
-            probability = 0.52  # After penalties: 0.52 * 0.92 = 0.48 (reduced from 0.68)
+            probability = 0.72  # After penalties: 0.72 * 0.92 = 0.66 (restored near original 0.68)
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
-            probability = 0.30  # After penalties: 0.30 * 0.92 = 0.28 (reduced from 0.40)
+            probability = 0.42  # After penalties: 0.42 * 0.92 = 0.39 (restored near original 0.40)
         elif time_margin > -0.35:
             # Fielder late (-0.35--0.15s) - extremely difficult diving plays
             # Requires spectacular diving effort
-            probability = 0.10  # After penalties: 0.10 * 0.92 = 0.09 (reduced from 0.13)
+            probability = 0.10  # After penalties: 0.10 * 0.92 = 0.09 (unchanged)
         elif time_margin > -0.60:
             # Very late (-0.60--0.35s) - nearly impossible
             # Would require fielder to be on the ground already
