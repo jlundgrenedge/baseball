@@ -208,23 +208,33 @@ class PlaySimulator:
             spray_angle = np.arctan2(ball_landing_pos.x, ball_landing_pos.y) * 180.0 / np.pi
             peak_height = batted_ball_result.peak_height if batted_ball_result else 0
 
-            # Determine fence distance based on spray angle
+            # Determine fence distance and height based on spray angle
             abs_angle = abs(spray_angle)
             if abs_angle < 10:  # Dead center
                 fence_distance = 400.0
+                fence_height = 10.0
             elif abs_angle < 25:  # Center-left/right gaps
                 fence_distance = 380.0
+                fence_height = 10.0
             elif abs_angle < 40:  # Deeper alleys
                 fence_distance = 360.0
+                fence_height = 10.0
             else:  # Down the lines
                 fence_distance = 330.0
+                fence_height = 10.0
 
             # Check if ball cleared fence
+            # CRITICAL: Must check height AT THE FENCE, not peak height!
             is_home_run = False
             if distance_ft >= fence_distance:
-                if peak_height >= 30.0:  # Reasonable minimum for clearing fence
+                # Get the ball's height when it crosses the fence distance
+                height_at_fence = batted_ball_result.get_height_at_distance(fence_distance) if batted_ball_result else None
+
+                if height_at_fence is not None and height_at_fence > fence_height:
+                    # Ball was above fence height when it crossed the fence distance
                     is_home_run = True
-                elif distance_ft >= fence_distance + 15:  # 15 ft past fence = definite HR
+                elif distance_ft >= fence_distance + 30:  # 30+ ft past fence = definite HR
+                    # Ball landed well beyond fence (even if low trajectory)
                     is_home_run = True
 
             if is_home_run:

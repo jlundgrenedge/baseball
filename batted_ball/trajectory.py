@@ -136,6 +136,57 @@ class BattedBallResult:
             'time': self.time,
         }
 
+    def get_height_at_distance(self, distance_ft):
+        """
+        Calculate the ball's height at a specific horizontal distance from home plate.
+
+        This is crucial for home run detection - we need to know if the ball is above
+        the fence when it crosses the fence distance, not just if it ever got high enough.
+
+        Parameters
+        ----------
+        distance_ft : float
+            Horizontal distance from home plate in feet
+
+        Returns
+        -------
+        float
+            Height in feet at that distance, or None if ball never reached that distance
+        """
+        # Calculate horizontal distance at each point in trajectory
+        horizontal_distances = np.sqrt(
+            self.position[:, 0]**2 + self.position[:, 1]**2
+        ) * METERS_TO_FEET
+
+        # Find if ball reached this distance
+        if horizontal_distances[-1] < distance_ft:
+            # Ball landed before reaching this distance
+            return None
+
+        # Find the point where ball crosses this distance
+        # Use interpolation for accuracy
+        idx = np.where(horizontal_distances >= distance_ft)[0]
+        if len(idx) == 0:
+            return None
+
+        first_idx = idx[0]
+
+        if first_idx == 0:
+            # Ball starts at or past this distance (shouldn't happen)
+            return self.position[0, 2] * METERS_TO_FEET
+
+        # Interpolate between the point before and after crossing
+        d1 = horizontal_distances[first_idx - 1]
+        d2 = horizontal_distances[first_idx]
+        h1 = self.position[first_idx - 1, 2] * METERS_TO_FEET
+        h2 = self.position[first_idx, 2] * METERS_TO_FEET
+
+        # Linear interpolation
+        fraction = (distance_ft - d1) / (d2 - d1)
+        height = h1 + fraction * (h2 - h1)
+
+        return height
+
 
 class BattedBallSimulator:
     """
