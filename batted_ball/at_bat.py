@@ -640,16 +640,18 @@ class AtBatSimulator:
         str
             Contact quality: 'solid', 'fair', or 'weak'
         """
-        # Base thresholds
-        solid_threshold = 0.75
-        weak_threshold = 1.8
-        
+        # Base thresholds (REDUCED from 0.75/1.8 to make solid contact rarer)
+        # Solid contact should occur ~10-15% of balls in play (MLB "barrel" rate ~8-10%)
+        # With avg hitter error of 0.51", solid threshold of 0.35" gives ~20% solid contact
+        solid_threshold = 0.35  # Reduced from 0.75 (much more selective)
+        weak_threshold = 1.2    # Reduced from 1.8 (less fair contact)
+
         # Adjust thresholds based on pitch location
         if not is_strike:
             # Swings at balls are much more likely to be weak
             solid_threshold *= 0.5  # Much harder to get solid contact
             weak_threshold *= 0.7   # More likely to be weak
-            
+
         # Hitter ability affects thresholds
         # Derive contact ability from barrel accuracy in mm
         # Elite: ~5mm error, Average: ~15mm error, Poor: ~30mm error
