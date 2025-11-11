@@ -468,17 +468,20 @@ class FielderAttributes:
 
         Probability of securing ball when in position
 
+        TUNED: Reduced from previous values (0.60/0.85/0.96/0.99) to increase offensive production
+        More fielding errors = more hits = closer to MLB offensive averages
+
         Anchors:
-        - 0: 0.60 (poor hands)
-        - 50k: 0.85 (average)
-        - 85k: 0.96 (elite)
-        - 100k: 0.99 (superhuman)
+        - 0: 0.50 (poor hands)
+        - 50k: 0.75 (average)
+        - 85k: 0.88 (elite)
+        - 100k: 0.93 (superhuman)
         """
         return piecewise_logistic_map(
             self.FIELDING_SECURE,
-            human_min=0.60,
-            human_cap=0.96,
-            super_cap=0.99
+            human_min=0.50,
+            human_cap=0.88,
+            super_cap=0.93
         )
 
     def get_arm_accuracy_sigma_ft(self) -> float:

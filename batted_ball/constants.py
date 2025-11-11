@@ -841,8 +841,8 @@ GROUND_BALL_LAUNCH_ANGLE_MAX = 15.0  # degrees
 
 # Close play timing tolerances (seconds)
 # "Tie goes to runner" implementation
-CLOSE_PLAY_TOLERANCE = 0.05        # s - within 0.05s considered tie
-SAFE_RUNNER_BIAS = 0.02            # s - slight bias toward runner
+CLOSE_PLAY_TOLERANCE = 0.08        # s - within 0.08s considered tie (increased from 0.05)
+SAFE_RUNNER_BIAS = 0.05            # s - slight bias toward runner (increased from 0.02 to allow more infield hits)
 
 # Tag play timing
 TAG_APPLICATION_TIME = 0.10        # s - time to apply tag after catch

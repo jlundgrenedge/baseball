@@ -716,22 +716,23 @@ class Fielder:
         # For fly balls, this should result in a drop (ball already on ground).
         # Only allow diving/stretching catches for very small negative margins (< -0.15s).
         #
-        # TUNED: Slightly increased from previous (0.90/0.67/0.38/0.12) to reduce excessive hits
-        # Target: BABIP ~.300 with new exit velocity penalties
+        # TUNED: Reduced to increase offensive production and match MLB hit rates
+        # Target: ~9 runs/9 innings and ~17 hits/9 innings (doubled from previous ~4.5 runs/9)
+        # Previous values were causing hits/runs to be roughly HALF of MLB averages
         if time_margin >= 0.5:
             # Fielder arrives well ahead (0.5+s early) - very routine play
-            probability = 0.91  # After penalties: 0.91 * 0.92 = 0.84
+            probability = 0.73  # After penalties: 0.73 * 0.92 = 0.67 (reduced from 0.91)
         elif time_margin >= 0.0:
             # Fielder arrives on time (0-0.5s early) - routine play but requires hustle
-            probability = 0.68  # After penalties: 0.68 * 0.92 = 0.63
+            probability = 0.52  # After penalties: 0.52 * 0.92 = 0.48 (reduced from 0.68)
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
-            probability = 0.40  # After penalties: 0.40 * 0.92 = 0.37
+            probability = 0.30  # After penalties: 0.30 * 0.92 = 0.28 (reduced from 0.40)
         elif time_margin > -0.35:
             # Fielder late (-0.35--0.15s) - extremely difficult diving plays
             # Requires spectacular diving effort
-            probability = 0.13  # After penalties: 0.13 * 0.92 = 0.12
+            probability = 0.10  # After penalties: 0.10 * 0.92 = 0.09 (reduced from 0.13)
         elif time_margin > -0.60:
             # Very late (-0.60--0.35s) - nearly impossible
             # Would require fielder to be on the ground already
@@ -746,12 +747,13 @@ class Fielder:
 
         # Distance penalty for long running catches
         # Graduated penalty based on distance to encourage more hits on deep balls
+        # Further increased penalties to allow more gap hits and deep fly balls to drop
         if distance > 120:
-            probability *= 0.82  # 18% penalty for 120+ ft plays (increased from 12%)
+            probability *= 0.75  # 25% penalty for 120+ ft plays (increased from 18%)
         elif distance > 100:
-            probability *= 0.88  # 12% penalty for 100-120 ft plays
+            probability *= 0.82  # 18% penalty for 100-120 ft plays (increased from 12%)
         elif distance > 80:
-            probability *= 0.93  # 7% penalty for 80-100 ft plays
+            probability *= 0.90  # 10% penalty for 80-100 ft plays (increased from 7%)
 
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY
