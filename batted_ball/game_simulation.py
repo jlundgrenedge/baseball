@@ -14,7 +14,9 @@ import random
 from .player import Pitcher, Hitter, generate_pitch_arsenal
 from .fielding import Fielder
 from .baserunning import BaseRunner, create_average_runner, create_speed_runner, create_slow_runner
-from .play_simulation import PlaySimulator, PlayResult, PlayOutcome, create_standard_defense
+from .play_simulation import PlaySimulator
+from .play_outcome import PlayResult, PlayOutcome
+from .defense_factory import create_standard_defense
 from .at_bat import AtBatSimulator
 from .attributes import (
     create_power_hitter,

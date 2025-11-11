@@ -67,13 +67,17 @@ from .baserunning import (
     create_average_runner,
     create_slow_runner,
 )
-from .play_simulation import (
-    PlaySimulator,
+from .play_outcome import (
     PlayResult,
     PlayEvent,
     PlayOutcome,
+)
+from .defense_factory import (
     create_standard_defense,
     create_elite_defense,
+)
+from .play_simulation import (
+    PlaySimulator,
     simulate_play_from_trajectory,
 )
 from .game_simulation import (
