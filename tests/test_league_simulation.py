@@ -115,6 +115,9 @@ class LeagueScheduler:
         - Total games in schedule: 240 (60 * 8 / 2)
         - Each team plays approximately 8-9 games against each opponent
 
+        Games are generated in series format (multiple consecutive games with same away/home)
+        to enable efficient parallel processing while maintaining a realistic schedule structure.
+
         Args:
             games_per_team: Number of games each team should play
 
@@ -127,9 +130,10 @@ class LeagueScheduler:
         games_per_opponent = games_per_team // (self.num_teams - 1)
         extra_games = games_per_team % (self.num_teams - 1)
 
-        matchups = []
+        # Generate series (groups of games with same away/home configuration)
+        series = []
 
-        # Generate round-robin matchups
+        # Generate round-robin matchups as series
         for i, team1 in enumerate(self.team_names):
             for j, team2 in enumerate(self.team_names):
                 if i >= j:  # Skip self-matchups and duplicates
@@ -144,16 +148,21 @@ class LeagueScheduler:
                 home_games_team1 = num_games // 2
                 home_games_team2 = num_games - home_games_team1
 
-                # Add matchups with team1 at home
-                for _ in range(home_games_team1):
-                    matchups.append((team2, team1))  # (away, home)
+                # Create series with team1 at home (all games together)
+                if home_games_team1 > 0:
+                    series.append([(team2, team1)] * home_games_team1)  # (away, home)
 
-                # Add matchups with team2 at home
-                for _ in range(home_games_team2):
-                    matchups.append((team1, team2))  # (away, home)
+                # Create series with team2 at home (all games together)
+                if home_games_team2 > 0:
+                    series.append([(team1, team2)] * home_games_team2)  # (away, home)
 
-        # Shuffle for realistic schedule
-        random.shuffle(matchups)
+        # Shuffle series order for realistic schedule, but keep games within each series together
+        random.shuffle(series)
+
+        # Flatten series into matchup list
+        matchups = []
+        for series_games in series:
+            matchups.extend(series_games)
 
         return matchups
 
@@ -240,22 +249,29 @@ class LeagueSimulation:
         print(f"Total games to simulate: {len(self.schedule)}")
         print(f"Using parallel processing...")
 
-        # Group games by matchup to use parallel simulator efficiently
-        matchup_groups = defaultdict(list)
+        # Group games by exact matchup (away, home) for parallel processing
+        # The parallel simulator requires all games in a batch to have the same away/home configuration
+        matchup_groups = defaultdict(int)
         for away, home in self.schedule:
-            matchup_groups[(away, home)].append((away, home))
+            matchup_groups[(away, home)] += 1
+
+        # Print batching summary
+        batch_sizes = list(matchup_groups.values())
+        print(f"\nBatching Summary:")
+        print(f"  Total unique matchups: {len(matchup_groups)}")
+        print(f"  Games per batch: min={min(batch_sizes)}, max={max(batch_sizes)}, avg={sum(batch_sizes)/len(batch_sizes):.1f}")
+        multi_game_batches = sum(1 for size in batch_sizes if size > 1)
+        print(f"  Batches with multiple games: {multi_game_batches}/{len(matchup_groups)}")
 
         total_games_simulated = 0
 
         # Simulate each unique matchup group
-        for (away_name, home_name), games in matchup_groups.items():
-            num_games = len(games)
-
+        for (away_name, home_name), num_games in matchup_groups.items():
             # Get teams
             away_team = self.teams[away_name]
             home_team = self.teams[home_name]
 
-            # Simulate games
+            # Simulate all games for this matchup in parallel
             result = self.simulator.simulate_games(
                 away_team,
                 home_team,
