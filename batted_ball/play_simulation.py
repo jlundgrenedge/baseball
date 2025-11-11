@@ -199,9 +199,15 @@ class PlaySimulator:
         ))
         
         if is_air_ball:
-            # Use trajectory interception for air balls - more accurate than landing spot analysis
-            # This will handle both catches during flight and balls that drop for hits
-            self._handle_ball_in_play(ball_landing_pos, hang_time, result)
+            # Simulate catch attempt at landing position first (primary defensive check)
+            catch_result = self._simulate_catch_attempt(ball_landing_pos, hang_time, result)
+
+            if catch_result.success:
+                # Ball caught - determine outcome
+                self._handle_fly_ball_caught(catch_result, result)
+            else:
+                # Ball dropped - becomes hit (trajectory interception already ran in _handle_ball_in_play)
+                self._handle_ball_in_play(ball_landing_pos, hang_time, result)
         else:
             # Ground ball
             self._handle_ground_ball(ball_landing_pos, result)
@@ -1396,16 +1402,14 @@ class PlaySimulator:
                 ball_time, "deep_fly_ball",
                 f"Ball too deep ({distance_ft:.1f} ft) - skipping outfield interception"
             ))
-        
+
         # ENHANCED LOGGING: Add detailed outfield interception analysis
         self._log_outfield_interception_details(interception_result, ball_position, ball_time, result)
-        
-        # CRITICAL FIX: If ball was not caught in the air during trajectory interception,
-        # it's a HIT. The outfield interception system should ONLY be used for timing
-        # how long it takes to retrieve the ball, NOT for making outs/force plays.
-        # The ball has already dropped - it's a hit!
-        
-        # Determine hit type first (this is a hit since trajectory interception failed)
+
+        # Note: Landing position catch check happens BEFORE this method is called
+        # If we reach here, ball was not caught and will be a hit
+
+        # Determine hit type first (this is a hit since landing position catch failed)
         self._determine_hit_type(ball_position, distance_ft, result)
         
         # Now calculate ball retrieval time for baserunning decisions
