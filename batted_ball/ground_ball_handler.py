@@ -148,6 +148,14 @@ class GroundBallHandler:
             batter_runner = self.baserunning_simulator.get_runner_at_base("home")
             if batter_runner and self.throwing_logic:
                 self.throwing_logic.simulate_throw_to_first(closest_fielder, fielding_time, batter_runner, result)
+            else:
+                # Fallback: if no batter runner or throwing logic, default to single
+                result.outcome = PlayOutcome.SINGLE
+                if batter_runner:
+                    batter_runner.current_base = "first"
+                    self.baserunning_simulator.remove_runner("home")
+                    self.baserunning_simulator.add_runner("first", batter_runner)
+                    result.final_runner_positions["first"] = batter_runner
 
             return
 
@@ -187,6 +195,14 @@ class GroundBallHandler:
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
         if batter_runner and self.throwing_logic:
             self.throwing_logic.simulate_throw_to_first(fielder, fielding_time, batter_runner, result)
+        else:
+            # Fallback: if no batter runner or throwing logic, default to single
+            result.outcome = PlayOutcome.SINGLE
+            if batter_runner:
+                batter_runner.current_base = "first"
+                self.baserunning_simulator.remove_runner("home")
+                self.baserunning_simulator.add_runner("first", batter_runner)
+                result.final_runner_positions["first"] = batter_runner
 
     def simulate_ground_ball_fielding(self, fielder, ball_position: FieldPosition,
                                       ball_time: float, result,
