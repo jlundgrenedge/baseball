@@ -199,15 +199,9 @@ class PlaySimulator:
         ))
         
         if is_air_ball:
-            # Simulate catch attempt
-            catch_result = self._simulate_catch_attempt(ball_landing_pos, hang_time, result)
-            
-            if catch_result.success:
-                # Ball caught - determine outcome
-                self._handle_fly_ball_caught(catch_result, result)
-            else:
-                # Ball dropped - becomes hit
-                self._handle_ball_in_play(ball_landing_pos, hang_time, result)
+            # Use trajectory interception for air balls - more accurate than landing spot analysis
+            # This will handle both catches during flight and balls that drop for hits
+            self._handle_ball_in_play(ball_landing_pos, hang_time, result)
         else:
             # Ground ball
             self._handle_ground_ball(ball_landing_pos, result)
@@ -570,9 +564,20 @@ class PlaySimulator:
                         print(f"    {position_name} fielding at t={t:.2f}s, z={ball_pos_t.z:.1f}ft (margin: {best_candidate['time_margin']:.2f}s)")
                     return self._attempt_ground_ball_out(fielder, ball_pos_t, t, result, position_name)
 
-        # No interception possible
+        # No interception possible - ball will drop for a hit
         if debug:
             print("    No fielders can intercept")
+
+        # Add event to clarify that ball was not caught during flight
+        landing_pos = FieldPosition(
+            batted_ball_result.landing_x,
+            batted_ball_result.landing_y,
+            0.0
+        )
+        result.add_event(PlayEvent(
+            flight_time, "ball_not_caught",
+            f"Ball lands uncaught at {self._describe_field_location(landing_pos)} - no fielder could intercept"
+        ))
         return False
     
     def _calculate_ball_position_at_time(self, batted_ball_result: BattedBallResult, t: float) -> FieldPosition:
