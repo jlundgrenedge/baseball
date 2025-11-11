@@ -107,6 +107,58 @@ class LeagueScheduler:
         self.team_names = team_names
         self.num_teams = len(team_names)
 
+    def generate_game_day_schedule(self, rounds: int = 2) -> List[List[Tuple[str, str]]]:
+        """
+        Generate a schedule organized by game days (like Thursday/Sunday league format).
+
+        With 8 teams, each game day has 4 simultaneous games. Each round is a complete
+        round-robin where every team plays every other team once.
+
+        Args:
+            rounds: Number of complete round-robins (default 2 = 14 games per team)
+
+        Returns:
+            List of game days, where each game day is a list of (away, home) matchups
+        """
+        if self.num_teams % 2 != 0:
+            raise ValueError("Game day scheduling requires an even number of teams")
+
+        game_days = []
+        teams = self.team_names.copy()
+
+        for round_num in range(rounds):
+            # Use round-robin algorithm (rotation method)
+            # Fix one team, rotate others
+            fixed_team = teams[0]
+            rotating_teams = teams[1:].copy()
+
+            # Generate matchups for this round
+            for week in range(self.num_teams - 1):
+                # Create matchups for this game day
+                day_matchups = []
+
+                # Pair up teams
+                current_teams = [fixed_team] + rotating_teams
+
+                # Create pairs - first half vs second half (reversed)
+                half = self.num_teams // 2
+                for i in range(half):
+                    home_team = current_teams[i]
+                    away_team = current_teams[self.num_teams - 1 - i]
+
+                    # Alternate home/away based on round and week
+                    if (round_num + week + i) % 2 == 0:
+                        day_matchups.append((away_team, home_team))
+                    else:
+                        day_matchups.append((home_team, away_team))
+
+                game_days.append(day_matchups)
+
+                # Rotate teams (keep first team fixed, rotate others)
+                rotating_teams = [rotating_teams[-1]] + rotating_teams[:-1]
+
+        return game_days
+
     def generate_season_schedule(self, games_per_team: int = 60) -> List[Tuple[str, str]]:
         """
         Generate a balanced schedule where each team plays games_per_team games.
@@ -114,6 +166,9 @@ class LeagueScheduler:
         For an 8-team league with 60 games per team:
         - Total games in schedule: 240 (60 * 8 / 2)
         - Each team plays approximately 8-9 games against each opponent
+
+        Games are generated in series format (multiple consecutive games with same away/home)
+        to enable efficient parallel processing while maintaining a realistic schedule structure.
 
         Args:
             games_per_team: Number of games each team should play
@@ -127,9 +182,10 @@ class LeagueScheduler:
         games_per_opponent = games_per_team // (self.num_teams - 1)
         extra_games = games_per_team % (self.num_teams - 1)
 
-        matchups = []
+        # Generate series (groups of games with same away/home configuration)
+        series = []
 
-        # Generate round-robin matchups
+        # Generate round-robin matchups as series
         for i, team1 in enumerate(self.team_names):
             for j, team2 in enumerate(self.team_names):
                 if i >= j:  # Skip self-matchups and duplicates
@@ -144,18 +200,50 @@ class LeagueScheduler:
                 home_games_team1 = num_games // 2
                 home_games_team2 = num_games - home_games_team1
 
-                # Add matchups with team1 at home
-                for _ in range(home_games_team1):
-                    matchups.append((team2, team1))  # (away, home)
+                # Create series with team1 at home (all games together)
+                if home_games_team1 > 0:
+                    series.append([(team2, team1)] * home_games_team1)  # (away, home)
 
-                # Add matchups with team2 at home
-                for _ in range(home_games_team2):
-                    matchups.append((team1, team2))  # (away, home)
+                # Create series with team2 at home (all games together)
+                if home_games_team2 > 0:
+                    series.append([(team1, team2)] * home_games_team2)  # (away, home)
 
-        # Shuffle for realistic schedule
-        random.shuffle(matchups)
+        # Shuffle series order for realistic schedule, but keep games within each series together
+        random.shuffle(series)
+
+        # Flatten series into matchup list
+        matchups = []
+        for series_games in series:
+            matchups.extend(series_games)
 
         return matchups
+
+    def print_game_day_schedule_summary(self, game_days: List[List[Tuple[str, str]]]):
+        """Print a summary of a game day schedule."""
+        # Count games per team
+        game_counts = defaultdict(int)
+        home_counts = defaultdict(int)
+        away_counts = defaultdict(int)
+
+        total_games = 0
+        for day_matchups in game_days:
+            for away, home in day_matchups:
+                game_counts[away] += 1
+                game_counts[home] += 1
+                away_counts[away] += 1
+                home_counts[home] += 1
+                total_games += 1
+
+        print(f"\n{'='*80}")
+        print(f"GAME DAY SCHEDULE SUMMARY")
+        print(f"{'='*80}")
+        print(f"Total Game Days: {len(game_days)}")
+        print(f"Games per Day: {len(game_days[0]) if game_days else 0}")
+        print(f"Total Games: {total_games}")
+        print(f"\nGames per Team:")
+        for team in sorted(self.team_names):
+            print(f"  {team:20s}: {game_counts[team]:3d} games "
+                  f"({home_counts[team]} home, {away_counts[team]} away)")
 
     def print_schedule_summary(self, schedule: List[Tuple[str, str]]):
         """Print a summary of the generated schedule."""
@@ -240,22 +328,29 @@ class LeagueSimulation:
         print(f"Total games to simulate: {len(self.schedule)}")
         print(f"Using parallel processing...")
 
-        # Group games by matchup to use parallel simulator efficiently
-        matchup_groups = defaultdict(list)
+        # Group games by exact matchup (away, home) for parallel processing
+        # The parallel simulator requires all games in a batch to have the same away/home configuration
+        matchup_groups = defaultdict(int)
         for away, home in self.schedule:
-            matchup_groups[(away, home)].append((away, home))
+            matchup_groups[(away, home)] += 1
+
+        # Print batching summary
+        batch_sizes = list(matchup_groups.values())
+        print(f"\nBatching Summary:")
+        print(f"  Total unique matchups: {len(matchup_groups)}")
+        print(f"  Games per batch: min={min(batch_sizes)}, max={max(batch_sizes)}, avg={sum(batch_sizes)/len(batch_sizes):.1f}")
+        multi_game_batches = sum(1 for size in batch_sizes if size > 1)
+        print(f"  Batches with multiple games: {multi_game_batches}/{len(matchup_groups)}")
 
         total_games_simulated = 0
 
         # Simulate each unique matchup group
-        for (away_name, home_name), games in matchup_groups.items():
-            num_games = len(games)
-
+        for (away_name, home_name), num_games in matchup_groups.items():
             # Get teams
             away_team = self.teams[away_name]
             home_team = self.teams[home_name]
 
-            # Simulate games
+            # Simulate all games for this matchup in parallel
             result = self.simulator.simulate_games(
                 away_team,
                 home_team,
@@ -268,6 +363,116 @@ class LeagueSimulation:
             total_games_simulated += num_games
 
         print(f"\n✓ Simulation complete! {total_games_simulated} games simulated")
+
+    def generate_game_day_schedule(self, rounds: int = 2):
+        """
+        Generate a game day schedule (like Thursday/Sunday league format).
+
+        Args:
+            rounds: Number of complete round-robins (default 2 = 14 games per team)
+        """
+        print(f"\n{'='*80}")
+        print(f"GENERATING GAME DAY SCHEDULE")
+        print(f"{'='*80}")
+        print(f"Format: Weekly league with game days")
+        print(f"Rounds: {rounds} (each team plays every other team {rounds} times)")
+
+        self.game_days = self.scheduler.generate_game_day_schedule(rounds)
+        self.scheduler.print_game_day_schedule_summary(self.game_days)
+
+    def simulate_season_by_game_day(self):
+        """
+        Simulate the entire season organized by game days.
+
+        All games on the same day are simulated in parallel for maximum performance.
+        """
+        if not hasattr(self, 'game_days'):
+            raise ValueError("Must call generate_game_day_schedule() first")
+
+        print(f"\n{'='*80}")
+        print(f"SIMULATING SEASON BY GAME DAY")
+        print(f"{'='*80}")
+        print(f"Total game days: {len(self.game_days)}")
+        print(f"Games per day: {len(self.game_days[0]) if self.game_days else 0}")
+        print(f"Total games: {sum(len(day) for day in self.game_days)}")
+        print(f"\nSimulating each game day in parallel...")
+
+        import time
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        from multiprocessing import cpu_count
+
+        total_start = time.time()
+
+        # Define game day names for a realistic schedule
+        day_names = ["Thursday", "Sunday"]
+
+        # Helper function to simulate a single game (for parallel execution)
+        def simulate_single_game(away_team, home_team, away_name, home_name):
+            """Simulate a single game and return the result with team names."""
+            from batted_ball.parallel_game_simulation import ParallelGameSimulator, ParallelSimulationSettings
+
+            # Create simulator for this process
+            settings = ParallelSimulationSettings(
+                num_workers=1,  # Single worker for single game
+                chunk_size=1,
+                verbose=False,
+                show_progress=False,
+                log_games=False
+            )
+            sim = ParallelGameSimulator(settings)
+
+            result = sim.simulate_games(away_team, home_team, num_games=1, num_innings=9)
+            return (away_name, home_name, result)
+
+        for day_num, day_matchups in enumerate(self.game_days, 1):
+            day_name = day_names[(day_num - 1) % len(day_names)]
+            week_num = ((day_num - 1) // len(day_names)) + 1
+
+            print(f"\n{'='*80}")
+            print(f"Week {week_num} - {day_name} (Game Day {day_num}/{len(self.game_days)})")
+            print(f"{'='*80}")
+
+            for away, home in day_matchups:
+                print(f"  {away} @ {home}")
+
+            day_start = time.time()
+
+            # Simulate all games on this day in parallel
+            num_workers = min(len(day_matchups), cpu_count())
+
+            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                # Submit all games for this day
+                futures = []
+                for away_name, home_name in day_matchups:
+                    away_team = self.teams[away_name]
+                    home_team = self.teams[home_name]
+
+                    future = executor.submit(
+                        simulate_single_game,
+                        away_team,
+                        home_team,
+                        away_name,
+                        home_name
+                    )
+                    futures.append(future)
+
+                # Collect results as they complete
+                for future in as_completed(futures):
+                    away_name, home_name, result = future.result()
+                    self._update_stats_from_result(away_name, home_name, result)
+
+            day_time = time.time() - day_start
+            print(f"\n✓ {day_name} games complete ({day_time:.1f}s, {len(day_matchups)} games in parallel)")
+
+        total_time = time.time() - total_start
+        total_games = sum(len(day) for day in self.game_days)
+
+        print(f"\n{'='*80}")
+        print(f"SEASON SIMULATION COMPLETE")
+        print(f"{'='*80}")
+        print(f"Total time: {total_time:.1f}s")
+        print(f"Total games: {total_games}")
+        print(f"Average: {total_time/len(self.game_days):.1f}s per game day")
 
     def _update_stats_from_result(self, away_name: str, home_name: str, result):
         """Update team statistics from a simulation result."""
