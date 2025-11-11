@@ -1083,13 +1083,10 @@ class PlaySimulator:
                 result.outcome = PlayOutcome.SINGLE
 
         # Fair contact (80-95 mph EV) can produce singles and doubles, rare triples
+        # BUT NOT HOME RUNS - need solid contact for HRs (realistic baseball)
         elif contact_quality == 'fair' or exit_velocity < 95:
-            # FIX: Remove peak height restriction - already checked in main HR logic
-            # Allow fair contact (85-95 mph) to be HRs if distance is sufficient
-            if distance_ft >= fence_distance - 5:  # 5 ft cushion for measurement variance
-                result.outcome = PlayOutcome.HOME_RUN
-                result.runs_scored = 1
-            elif distance_ft > 300 and 10 < abs_angle < 50 and exit_velocity >= 88:
+            # Fair contact maxes out at triples - no home runs without solid contact
+            if distance_ft > 300 and 10 < abs_angle < 50 and exit_velocity >= 88:
                 # Fair contact can produce triples with decent EV in gaps
                 result.outcome = PlayOutcome.TRIPLE
             elif distance_ft > 230:
