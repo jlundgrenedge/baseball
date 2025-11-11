@@ -11,7 +11,7 @@ from typing import List, Dict, Optional, Tuple
 from enum import Enum
 import random
 
-from .player import Pitcher, Hitter
+from .player import Pitcher, Hitter, generate_pitch_arsenal
 from .fielding import Fielder
 from .baserunning import BaseRunner, create_average_runner, create_speed_runner, create_slow_runner
 from .play_simulation import PlaySimulator, PlayResult, PlayOutcome, create_standard_defense
@@ -721,10 +721,17 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
         else:
             attributes = create_reliever_pitcher(team_quality)
 
+        # Generate realistic pitch arsenal based on pitcher attributes and role
+        pitch_arsenal = generate_pitch_arsenal(
+            attributes,
+            role="starter" if i == 0 else "reliever"
+        )
+
         # Create pitcher with unified attribute system
         pitcher = Pitcher(
             name=f"{name} Pitcher {i+1} ({role})",
-            attributes=attributes
+            attributes=attributes,
+            pitch_arsenal=pitch_arsenal
         )
         pitchers.append(pitcher)
 
@@ -733,7 +740,9 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
             velo = attributes.get_raw_velocity_mph()
             spin = attributes.get_spin_rate_rpm()
             stamina = attributes.get_stamina_pitches()
+            arsenal_str = ", ".join(pitch_arsenal.keys())
             print(f"    {role}: {velo:.1f} mph, {spin:.0f} rpm, {stamina:.0f} pitch stamina")
+            print(f"      Arsenal: {arsenal_str}")
 
     if not hasattr(create_test_team, 'pitchers_debug_shown'):
         create_test_team.pitchers_debug_shown = True
