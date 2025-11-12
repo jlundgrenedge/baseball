@@ -716,21 +716,24 @@ class Fielder:
         # For fly balls, this should result in a drop (ball already on ground).
         # Only allow diving/stretching catches for very small negative margins (< -0.15s).
         #
-        # TUNING: Increased probabilities for routine plays (time_margin >= 0.0)
-        # to reduce excessive hits from fielders missing catchable balls.
-        # Target: ~9 runs/9 innings and ~17 hits/9 innings (not 46 hits!)
+        # TUNING: High base probabilities to account for compounding penalties
+        # Penalties: hands (~0.92) * distance (0.85-0.96) * backward (0.93 if applicable)
+        # Worst case: 0.92 * 0.85 * 0.93 = 0.727x multiplier
+        # Best case (short distance, moving in): 0.92 = 0.92x multiplier
+        # Target: ~9 runs/9 innings and ~15-18 hits/9 innings (not 57 hits!)
         if time_margin >= 0.5:
             # Fielder arrives well ahead (0.5+s early) - very routine play
             # Should be caught >95% of the time after all penalties
-            probability = 0.98  # After penalties: 0.98 * 0.92 * 0.82 = 0.74 (good)
+            # With worst penalties: 1.00 * 0.727 = 0.727, need higher base
+            probability = 1.00  # Perfect base, penalties bring it to realistic 73-92%
         elif time_margin >= 0.2:
             # Fielder arrives comfortably (0.2-0.5s early) - routine play
-            # Should be caught ~90% of the time after penalties
-            probability = 0.95  # After penalties: 0.95 * 0.92 * 0.82 = 0.72 (good)
+            # Should be caught ~85-90% of the time after penalties
+            probability = 0.98  # After worst penalties: 0.98 * 0.727 = 0.712 (71%)
         elif time_margin >= 0.0:
             # Fielder arrives on time (0-0.2s early) - routine but requires hustle
-            # Should be caught ~85% of the time after penalties
-            probability = 0.90  # After penalties: 0.90 * 0.92 * 0.82 = 0.68 (good)
+            # Should be caught ~75-85% of the time after penalties
+            probability = 0.95  # After worst penalties: 0.95 * 0.727 = 0.691 (69%)
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
