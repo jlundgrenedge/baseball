@@ -108,6 +108,12 @@ class HitHandler:
 
         # Get batter runner - they might already be on first, second, or third base
         # Check in order: home (original position) -> first -> second -> third
+        if DEBUG_BASERUNNING:
+            print(f"  [BR] Looking for batter runner...")
+            print(f"  [BR] Runners in simulator: {list(self.baserunning_simulator.runners.keys())}")
+            for base, runner in self.baserunning_simulator.runners.items():
+                print(f"  [BR]   {base}: {runner.name}")
+
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
         if not batter_runner:
             batter_runner = self.baserunning_simulator.get_runner_at_base("first")
