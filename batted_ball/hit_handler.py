@@ -252,64 +252,10 @@ class HitHandler:
                     f"Runner advances from {base} to {target_base} (safe)"
                 ))
 
-        # DETERMINE AND LOG THROW DESTINATION
-        # Fielder throws to the most advanced runner (lead runner)
-        # Priority: home > third > second > first
-        base_priority = {"home": 4, "third": 3, "second": 2, "first": 1}
-
-        # Find the most advanced target base from runner decisions
-        throw_target = batter_base  # Default to first (batter)
-        throw_target_priority = base_priority.get(batter_base, 0)
-
-        for from_base, to_base in runner_targets.items():
-            priority = base_priority.get(to_base, 0)
-            if priority > throw_target_priority:
-                throw_target = to_base
-                throw_target_priority = priority
-
-        # Get ball retrieval time for logging
-        ball_retrieval_time = 0.0
-        for event in result.events:
-            if event.event_type == "ball_retrieved":
-                ball_retrieval_time = event.time
-                break
-
-        # Get fielder info from result
-        fielder_name = result.primary_fielder.position if result.primary_fielder else "OF"
-
-        # Log the throw destination
-        result.add_event(PlayEvent(
-            ball_retrieval_time + 0.08,
-            "throw_destination",
-            f"Throw from {fielder_name} to {throw_target}"
-        ))
-
-        # Get throw timing from earlier analysis (if available)
-        # Look for throw_analysis event
-        throw_time_to_target = None
-        for event in result.events:
-            if event.event_type == "throw_analysis":
-                # Parse throw times from the event description
-                # Format: "Throw times from XF - 1st: X.XXs, 2nd: X.XXs, 3rd: X.XXs, home: X.XXs"
-                desc = event.description
-                target_label = {"first": "1st", "second": "2nd", "third": "3rd", "home": "home"}
-                if throw_target in target_label:
-                    label = target_label[throw_target]
-                    import re
-                    pattern = f"{label}: ([0-9.]+)s"
-                    match = re.search(pattern, desc)
-                    if match:
-                        throw_time_to_target = float(match.group(1))
-                break
-
-        # Log throw outcome (if we have timing data)
-        if throw_time_to_target:
-            ball_arrival = ball_retrieval_time + throw_time_to_target
-            result.add_event(PlayEvent(
-                ball_retrieval_time + 0.09,
-                "throw_outcome",
-                f"Ball arrives at {throw_target} at {ball_arrival:.2f}s (no play attempted - runners advance safely)"
-            ))
+        # Store runner targets for later throw destination logic
+        # This will be used by the caller to determine where to throw
+        result.runner_targets = runner_targets
+        result.batter_target_base = batter_base
 
         # Apply all runner movements
         for base in runners_to_remove:

@@ -390,6 +390,76 @@ class FlyBallHandler:
         if self.hit_handler:
             self.hit_handler.handle_hit_baserunning(result, self.current_outs)
 
+        # DETERMINE AND LOG THROW DESTINATION (after ball retrieval and baserunning decisions)
+        # Only for hits (not outs or home runs)
+        if result.outcome in [PlayOutcome.SINGLE, PlayOutcome.DOUBLE, PlayOutcome.TRIPLE]:
+            # Fielder throws to the most advanced runner (lead runner)
+            # Priority: home > third > second > first
+            base_priority = {"home": 4, "third": 3, "second": 2, "first": 1}
+
+            # Get runner targets from baserunning decisions
+            runner_targets = getattr(result, 'runner_targets', {})
+            batter_base = getattr(result, 'batter_target_base', 'first')
+
+            # Find the most advanced target base from runner decisions
+            throw_target = batter_base  # Default to batter's base
+            throw_target_priority = base_priority.get(batter_base, 0)
+
+            for from_base, to_base in runner_targets.items():
+                priority = base_priority.get(to_base, 0)
+                if priority > throw_target_priority:
+                    throw_target = to_base
+                    throw_target_priority = priority
+
+            # SMART THROW LOGIC: On clear singles with no force plays, throw to second to keep runner from advancing
+            # Don't throw to first when there's no play - throw ahead of the runner
+            if result.outcome == PlayOutcome.SINGLE and len(runner_targets) == 0 and throw_target == "first":
+                # Clear single, no runners on base - throw to second to keep batter from advancing
+                throw_target = "second"
+
+            # Get fielder info - use the responsible position from earlier in the method
+            # or fall back to primary fielder from result
+            if interception_result and interception_result.can_be_fielded:
+                fielder_name = interception_result.fielding_position
+            elif result.primary_fielder:
+                fielder_name = result.primary_fielder.position
+            else:
+                fielder_name = responsible_position if responsible_position else "OF"
+
+            # Log the throw destination
+            result.add_event(PlayEvent(
+                ball_retrieved_time + 0.08,
+                "throw_destination",
+                f"Throw from {fielder_name} to {throw_target}"
+            ))
+
+            # Get throw timing from earlier analysis (if available)
+            # Look for throw_analysis event
+            throw_time_to_target = None
+            for event in result.events:
+                if event.event_type == "throw_analysis":
+                    # Parse throw times from the event description
+                    # Format: "Throw times from XF - 1st: X.XXs, 2nd: X.XXs, 3rd: X.XXs, home: X.XXs"
+                    desc = event.description
+                    target_label = {"first": "1st", "second": "2nd", "third": "3rd", "home": "home"}
+                    if throw_target in target_label:
+                        label = target_label[throw_target]
+                        import re
+                        pattern = f"{label}: ([0-9.]+)s"
+                        match = re.search(pattern, desc)
+                        if match:
+                            throw_time_to_target = float(match.group(1))
+                    break
+
+            # Log throw outcome (if we have timing data)
+            if throw_time_to_target:
+                ball_arrival = ball_retrieved_time + throw_time_to_target
+                result.add_event(PlayEvent(
+                    ball_retrieved_time + 0.09,
+                    "throw_outcome",
+                    f"Ball arrives at {throw_target} at {ball_arrival:.2f}s (no play attempted - runners advance safely)"
+                ))
+
     def log_outfield_interception_details(self, interception_result, ball_position: FieldPosition,
                                          ball_time: float, result: PlayResult):
         """Log detailed information about outfield interception analysis."""
@@ -774,16 +844,10 @@ class FlyBallHandler:
             print(f"\n[FORCE DEBUG] Ground ball fielded by {position_name}")
             print(f"  Runners on base: {runners}")
 
-        # Delegate to throwing_logic if available, otherwise use fallback
-        if self.throwing_logic:
-            return self.throwing_logic.attempt_ground_ball_throw(
-                fielder, ball_position, fielding_time, result, position_name
-            )
-        else:
-            # Fallback: Simple throw to first
-            return self._attempt_simple_throw_to_first(
-                fielder, ball_position, fielding_time, result, position_name
-            )
+        # Use simple throw to first (throwing_logic is for more complex scenarios)
+        return self._attempt_simple_throw_to_first(
+            fielder, ball_position, fielding_time, result, position_name
+        )
 
     def _attempt_simple_throw_to_first(self, fielder, ball_position: FieldPosition,
                                        fielding_time: float, result: PlayResult,
