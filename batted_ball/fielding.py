@@ -752,14 +752,15 @@ class Fielder:
         probability *= base_secure_prob
 
         # Distance penalty for long running catches
-        # Graduated penalty based on distance to encourage more hits on deep balls
-        # Further increased penalties to allow more gap hits and deep fly balls to drop
+        # Graduated penalty based on distance to allow gap hits while not over-penalizing
+        # TUNING: Reduced penalties - fielders who arrive on time should make the play
+        # regardless of distance. Distance mainly matters when fielder is cutting it close.
         if distance > 120:
-            probability *= 0.75  # 25% penalty for 120+ ft plays (increased from 18%)
+            probability *= 0.85  # 15% penalty for 120+ ft plays (reduced from 25%)
         elif distance > 100:
-            probability *= 0.82  # 18% penalty for 100-120 ft plays (increased from 12%)
+            probability *= 0.92  # 8% penalty for 100-120 ft plays (reduced from 18%)
         elif distance > 80:
-            probability *= 0.90  # 10% penalty for 80-100 ft plays (increased from 7%)
+            probability *= 0.96  # 4% penalty for 80-100 ft plays (reduced from 10%)
 
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY
