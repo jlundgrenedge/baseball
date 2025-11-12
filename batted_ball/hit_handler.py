@@ -106,15 +106,25 @@ class HitHandler:
         # DEBUG FLAG - set to True to see baserunning decisions
         DEBUG_BASERUNNING = False
 
-        # Get batter runner - they might already be on first base
+        # Get batter runner - they might already be on first, second, or third base
+        # Check in order: home (original position) -> first -> second -> third
+        if DEBUG_BASERUNNING:
+            print(f"  [BR] Looking for batter runner...")
+            print(f"  [BR] Runners in simulator: {list(self.baserunning_simulator.runners.keys())}")
+            for base, runner in self.baserunning_simulator.runners.items():
+                print(f"  [BR]   {base}: {runner.name}")
+
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
         if not batter_runner:
-            # Batter might already have been moved to first - check there
             batter_runner = self.baserunning_simulator.get_runner_at_base("first")
+        if not batter_runner:
+            batter_runner = self.baserunning_simulator.get_runner_at_base("second")
+        if not batter_runner:
+            batter_runner = self.baserunning_simulator.get_runner_at_base("third")
 
         if not batter_runner:
             if DEBUG_BASERUNNING:
-                print(f"  [BR] No batter runner found at home or first!")
+                print(f"  [BR] No batter runner found at any base!")
             return
 
         # Map outcome to hit type for decision logic

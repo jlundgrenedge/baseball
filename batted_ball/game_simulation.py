@@ -480,10 +480,12 @@ class GameSimulator:
         self.update_game_state_from_play(play_result, batter)
 
         # Log play by play
+        # Handle both enum and string outcomes
+        outcome_str = outcome.value if hasattr(outcome, 'value') else str(outcome)
         self.log_play_by_play(
             batter_name=batter.name,
             pitcher_name=pitcher.name,
-            outcome=outcome.value,
+            outcome=outcome_str,
             description=description,
             physics_data=physics_data
         )
@@ -511,7 +513,9 @@ class GameSimulator:
         elif outcome == PlayOutcome.DOUBLE_PLAY:
             return f"⚾⚾ DOUBLE PLAY!"
         else:
-            return f"{outcome.value}"
+            # Handle both enum and string outcomes
+            outcome_str = outcome.value if hasattr(outcome, 'value') else str(outcome)
+            return f"{outcome_str}"
 
     def update_game_state_from_play(self, play_result: PlayResult, batter: Hitter):
         """Update game state based on play result"""

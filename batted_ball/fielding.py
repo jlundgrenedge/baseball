@@ -708,7 +708,7 @@ class Fielder:
         if time_margin < -1.0:
             return 0.0
 
-        # Time-based catch probability bands (adjusted for MLB BABIP of ~.300)
+        # Time-based catch probability bands (tuned for MLB BABIP of ~.300)
         # MLB fielders convert ~70% of balls in play into outs
         # These base probabilities get multiplied by secure_prob (~0.92) and other penalties
         #
@@ -716,19 +716,28 @@ class Fielder:
         # For fly balls, this should result in a drop (ball already on ground).
         # Only allow diving/stretching catches for very small negative margins (< -0.15s).
         #
-        # NOTE: Previous tuning (bf67d6f) reduced these to compensate for slow fielders (26.5 ft/s).
-        # Now that fielder speeds are fixed (33 ft/s), probabilities are restored to higher values.
-        # Target: ~9 runs/9 innings and ~17 hits/9 innings
+        # TUNING: High base probabilities to account for compounding penalties
+        # Penalties: hands (~0.92) * distance (0.85-0.96) * backward (0.93 if applicable)
+        # Worst case: 0.92 * 0.85 * 0.93 = 0.727x multiplier
+        # Best case (short distance, moving in): 0.92 = 0.92x multiplier
+        # Target: ~9 runs/9 innings and ~15-18 hits/9 innings (not 57 hits!)
         if time_margin >= 0.5:
             # Fielder arrives well ahead (0.5+s early) - very routine play
-            probability = 0.93  # After penalties: 0.93 * 0.92 = 0.86 (restored near original 0.91)
+            # Should be caught >95% of the time after all penalties
+            # With worst penalties: 1.00 * 0.727 = 0.727, need higher base
+            probability = 1.00  # Perfect base, penalties bring it to realistic 73-92%
+        elif time_margin >= 0.2:
+            # Fielder arrives comfortably (0.2-0.5s early) - routine play
+            # Should be caught ~85-90% of the time after penalties
+            probability = 0.98  # After worst penalties: 0.98 * 0.727 = 0.712 (71%)
         elif time_margin >= 0.0:
-            # Fielder arrives on time (0-0.5s early) - routine play but requires hustle
-            probability = 0.72  # After penalties: 0.72 * 0.92 = 0.66 (restored near original 0.68)
+            # Fielder arrives on time (0-0.2s early) - routine but requires hustle
+            # Should be caught ~75-85% of the time after penalties
+            probability = 0.95  # After worst penalties: 0.95 * 0.727 = 0.691 (69%)
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
-            probability = 0.42  # After penalties: 0.42 * 0.92 = 0.39 (restored near original 0.40)
+            probability = 0.42  # After penalties: 0.42 * 0.92 = 0.39 (unchanged)
         elif time_margin > -0.35:
             # Fielder late (-0.35--0.15s) - extremely difficult diving plays
             # Requires spectacular diving effort
@@ -746,14 +755,15 @@ class Fielder:
         probability *= base_secure_prob
 
         # Distance penalty for long running catches
-        # Graduated penalty based on distance to encourage more hits on deep balls
-        # Further increased penalties to allow more gap hits and deep fly balls to drop
+        # Graduated penalty based on distance to allow gap hits while not over-penalizing
+        # TUNING: Reduced penalties - fielders who arrive on time should make the play
+        # regardless of distance. Distance mainly matters when fielder is cutting it close.
         if distance > 120:
-            probability *= 0.75  # 25% penalty for 120+ ft plays (increased from 18%)
+            probability *= 0.85  # 15% penalty for 120+ ft plays (reduced from 25%)
         elif distance > 100:
-            probability *= 0.82  # 18% penalty for 100-120 ft plays (increased from 12%)
+            probability *= 0.92  # 8% penalty for 100-120 ft plays (reduced from 18%)
         elif distance > 80:
-            probability *= 0.90  # 10% penalty for 80-100 ft plays (increased from 7%)
+            probability *= 0.96  # 4% penalty for 80-100 ft plays (reduced from 10%)
 
         # Backward movement penalty
         from .constants import BACKWARD_MOVEMENT_PENALTY

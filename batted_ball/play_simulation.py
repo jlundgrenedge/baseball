@@ -223,6 +223,13 @@ class PlaySimulator:
         self.current_time = 0.0
         self.baserunning_simulator = BaserunningSimulator(self.field_layout)
 
+        # CRITICAL: Update all handlers to use the new baserunning simulator
+        # Otherwise they'll reference the old (empty) simulator
+        self.hit_handler.baserunning_simulator = self.baserunning_simulator
+        self.fly_ball_handler.baserunning_simulator = self.baserunning_simulator
+        self.ground_ball_handler.baserunning_simulator = self.baserunning_simulator
+        self.throwing_logic.baserunning_simulator = self.baserunning_simulator
+
 
 # Convenience function for setting up simulations
 def simulate_play_from_trajectory(batted_ball_result: BattedBallResult,
