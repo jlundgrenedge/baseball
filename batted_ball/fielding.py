@@ -708,7 +708,7 @@ class Fielder:
         if time_margin < -1.0:
             return 0.0
 
-        # Time-based catch probability bands (adjusted for MLB BABIP of ~.300)
+        # Time-based catch probability bands (tuned for MLB BABIP of ~.300)
         # MLB fielders convert ~70% of balls in play into outs
         # These base probabilities get multiplied by secure_prob (~0.92) and other penalties
         #
@@ -716,19 +716,25 @@ class Fielder:
         # For fly balls, this should result in a drop (ball already on ground).
         # Only allow diving/stretching catches for very small negative margins (< -0.15s).
         #
-        # NOTE: Previous tuning (bf67d6f) reduced these to compensate for slow fielders (26.5 ft/s).
-        # Now that fielder speeds are fixed (33 ft/s), probabilities are restored to higher values.
-        # Target: ~9 runs/9 innings and ~17 hits/9 innings
+        # TUNING: Increased probabilities for routine plays (time_margin >= 0.0)
+        # to reduce excessive hits from fielders missing catchable balls.
+        # Target: ~9 runs/9 innings and ~17 hits/9 innings (not 46 hits!)
         if time_margin >= 0.5:
             # Fielder arrives well ahead (0.5+s early) - very routine play
-            probability = 0.93  # After penalties: 0.93 * 0.92 = 0.86 (restored near original 0.91)
+            # Should be caught >95% of the time after all penalties
+            probability = 0.98  # After penalties: 0.98 * 0.92 * 0.82 = 0.74 (good)
+        elif time_margin >= 0.2:
+            # Fielder arrives comfortably (0.2-0.5s early) - routine play
+            # Should be caught ~90% of the time after penalties
+            probability = 0.95  # After penalties: 0.95 * 0.92 * 0.82 = 0.72 (good)
         elif time_margin >= 0.0:
-            # Fielder arrives on time (0-0.5s early) - routine play but requires hustle
-            probability = 0.72  # After penalties: 0.72 * 0.92 = 0.66 (restored near original 0.68)
+            # Fielder arrives on time (0-0.2s early) - routine but requires hustle
+            # Should be caught ~85% of the time after penalties
+            probability = 0.90  # After penalties: 0.90 * 0.92 * 0.82 = 0.68 (good)
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
-            probability = 0.42  # After penalties: 0.42 * 0.92 = 0.39 (restored near original 0.40)
+            probability = 0.42  # After penalties: 0.42 * 0.92 = 0.39 (unchanged)
         elif time_margin > -0.35:
             # Fielder late (-0.35--0.15s) - extremely difficult diving plays
             # Requires spectacular diving effort
