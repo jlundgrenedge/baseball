@@ -285,7 +285,7 @@ class OutfieldInterceptor:
                                       fielder: Fielder, ball_landing_time: float) -> Optional[Tuple[float, float, np.ndarray, float]]:
         """
         Calculate if fielder can intercept ball while it's rolling.
-        
+
         Returns
         -------
         tuple or None
@@ -294,12 +294,24 @@ class OutfieldInterceptor:
         fielder_pos = np.array([fielder.current_position.x, fielder.current_position.y])
         fielder_speed_fps = self._get_fielder_speed_fps(fielder)
         reaction_time = fielder.get_reaction_time_seconds()
-        
+
+        # INFIELDER DEEP BALL RESTRICTION: Prevent infielders from fielding deep outfield balls
+        # Calculate distance from home plate to landing spot
+        distance_from_home = np.linalg.norm(landing_pos)
+
+        # Get fielder position name - need to check if this is an infielder
+        position_name = fielder.position if hasattr(fielder, 'position') else None
+        is_infielder = position_name in ['first_base', 'second_base', 'third_base', 'shortstop']
+
+        # Infielders should not field balls beyond 180 ft (outfielder territory)
+        if is_infielder and distance_from_home > 180.0:
+            return None
+
         # Ball rolling parameters
         initial_speed_fps = np.linalg.norm(initial_velocity)
         if initial_speed_fps < 5.0:  # Ball too slow to intercept while rolling
             return None
-            
+
         direction = initial_velocity / initial_speed_fps
         decel_fps2 = self.ground_ball_decel
         
