@@ -128,13 +128,17 @@ class GroundBallHandler:
 
             if closest_fielder is None:
                 result.outcome = PlayOutcome.SINGLE
-                # Place batter on first
-                batter_runner = self.baserunning_simulator.get_runner_at_base("home")
-                if batter_runner:
-                    batter_runner.current_base = "first"
-                    self.baserunning_simulator.remove_runner("home")
-                    self.baserunning_simulator.add_runner("first", batter_runner)
-                    result.final_runner_positions["first"] = batter_runner
+                # Let handle_hit_baserunning place the batter and advance all runners
+                if self.hit_handler:
+                    self.hit_handler.handle_hit_baserunning(result, self.current_outs)
+                else:
+                    # Fallback if no hit handler
+                    batter_runner = self.baserunning_simulator.get_runner_at_base("home")
+                    if batter_runner:
+                        batter_runner.current_base = "first"
+                        self.baserunning_simulator.remove_runner("home")
+                        self.baserunning_simulator.add_runner("first", batter_runner)
+                        result.final_runner_positions["first"] = batter_runner
                 return
 
             # Simple fielding for weak hits (quick pickup)
@@ -151,7 +155,11 @@ class GroundBallHandler:
             else:
                 # Fallback: if no batter runner or throwing logic, default to single
                 result.outcome = PlayOutcome.SINGLE
-                if batter_runner:
+                # Let handle_hit_baserunning place the batter and advance all runners
+                if self.hit_handler:
+                    self.hit_handler.handle_hit_baserunning(result, self.current_outs)
+                elif batter_runner:
+                    # Last resort fallback if no hit_handler
                     batter_runner.current_base = "first"
                     self.baserunning_simulator.remove_runner("home")
                     self.baserunning_simulator.add_runner("first", batter_runner)
@@ -198,7 +206,11 @@ class GroundBallHandler:
         else:
             # Fallback: if no batter runner or throwing logic, default to single
             result.outcome = PlayOutcome.SINGLE
-            if batter_runner:
+            # Let handle_hit_baserunning place the batter and advance all runners
+            if self.hit_handler:
+                self.hit_handler.handle_hit_baserunning(result, self.current_outs)
+            elif batter_runner:
+                # Last resort fallback if no hit_handler exists
                 batter_runner.current_base = "first"
                 self.baserunning_simulator.remove_runner("home")
                 self.baserunning_simulator.add_runner("first", batter_runner)
@@ -429,16 +441,19 @@ class GroundBallHandler:
         if time_difference <= -CLOSE_PLAY_TOLERANCE:
             # Runner beats throw easily
             result.outcome = PlayOutcome.SINGLE
-            batter_runner.current_base = "first"
-            self.baserunning_simulator.remove_runner("home")
-            self.baserunning_simulator.add_runner("first", batter_runner)
-            result.final_runner_positions["first"] = batter_runner
             result.add_event(PlayEvent(
                 runner_time_to_first, "safe_at_first",
                 f"Safe at first, beats throw by {abs(time_difference):.2f}s"
             ))
+            # Let handle_hit_baserunning place the batter and advance all runners
             if self.hit_handler:
                 self.hit_handler.handle_hit_baserunning(result, self.current_outs)
+            else:
+                # Fallback if no hit handler
+                batter_runner.current_base = "first"
+                self.baserunning_simulator.remove_runner("home")
+                self.baserunning_simulator.add_runner("first", batter_runner)
+                result.final_runner_positions["first"] = batter_runner
             if debug:
                 print(f"      SAFE AT FIRST (fielded by {position_name})")
             return True
@@ -449,8 +464,15 @@ class GroundBallHandler:
                 runner_time_to_first, "safe_at_first",
                 f"Safe at first on close play ({runner_time_to_first:.2f}s vs {ball_arrival_at_first:.2f}s)"
             ))
+            # Let handle_hit_baserunning place the batter and advance all runners
             if self.hit_handler:
                 self.hit_handler.handle_hit_baserunning(result, self.current_outs)
+            else:
+                # Fallback if no hit handler
+                batter_runner.current_base = "first"
+                self.baserunning_simulator.remove_runner("home")
+                self.baserunning_simulator.add_runner("first", batter_runner)
+                result.final_runner_positions["first"] = batter_runner
             if debug:
                 print(f"      SAFE AT FIRST on close play (fielded by {position_name})")
             return True
