@@ -104,9 +104,13 @@ class FlyBallHandler:
         else:
             # Use failure reason to provide accurate description
             if catch_result.failure_reason == 'TOO_SLOW':
+                # FIX FOR BALL RETRIEVAL LOGIC BUG: Don't specify which fielder couldn't reach it
+                # The retrieval logic will recalculate the closest fielder to pick up the ball
+                # This prevents confusing narratives like "first_base couldn't reach it" followed
+                # by "Ball retrieved by right_field"
                 result.add_event(PlayEvent(
                     hang_time, "ball_drops",
-                    f"Ball drops in {self.describe_field_location(ball_position)}, {responsible_position} couldn't reach it"
+                    f"Ball drops in {self.describe_field_location(ball_position)}"
                 ))
             elif catch_result.failure_reason == 'DROP_ERROR':
                 # Calculate time margin for context
@@ -131,9 +135,10 @@ class FlyBallHandler:
                     ))
             else:
                 # Fallback for unknown failure reason
+                # FIX FOR BALL RETRIEVAL LOGIC BUG: Don't specify fielder, let retrieval logic assign
                 result.add_event(PlayEvent(
                     hang_time, "ball_drops",
-                    f"Ball drops in {self.describe_field_location(ball_position)}, missed by {responsible_position}"
+                    f"Ball drops in {self.describe_field_location(ball_position)}"
                 ))
 
         return catch_result
@@ -364,7 +369,8 @@ class FlyBallHandler:
                     ))
 
     def handle_ball_in_play(self, ball_position: FieldPosition,
-                            ball_time: float, result: PlayResult):
+                            ball_time: float, result: PlayResult,
+                            skip_trajectory_interception: bool = False):
         """Handle ball in play using trajectory interception logic instead of landing spot racing."""
         import numpy as np
 
@@ -429,8 +435,10 @@ class FlyBallHandler:
 
         # Try trajectory interception instead of landing spot racing
         # Allow trajectory interception for all balls - let the individual checks handle fence distance
-        if self.attempt_trajectory_interception(batted_ball, result):
-            return  # Ball was caught/fielded
+        # FIX FOR "SCHRÖDINGER'S CATCH" BUG: Skip if already attempted in play_simulation.py
+        if not skip_trajectory_interception:
+            if self.attempt_trajectory_interception(batted_ball, result):
+                return  # Ball was caught/fielded
 
         # Try outfield ball interception instead of final position racing
         # BUT: Skip for very deep fly balls (375+ ft) - those are likely HRs or warning track catches
