@@ -104,9 +104,13 @@ class FlyBallHandler:
         else:
             # Use failure reason to provide accurate description
             if catch_result.failure_reason == 'TOO_SLOW':
+                # FIX FOR BALL RETRIEVAL LOGIC BUG: Don't specify which fielder couldn't reach it
+                # The retrieval logic will recalculate the closest fielder to pick up the ball
+                # This prevents confusing narratives like "first_base couldn't reach it" followed
+                # by "Ball retrieved by right_field"
                 result.add_event(PlayEvent(
                     hang_time, "ball_drops",
-                    f"Ball drops in {self.describe_field_location(ball_position)}, {responsible_position} couldn't reach it"
+                    f"Ball drops in {self.describe_field_location(ball_position)}"
                 ))
             elif catch_result.failure_reason == 'DROP_ERROR':
                 # Calculate time margin for context
@@ -131,9 +135,10 @@ class FlyBallHandler:
                     ))
             else:
                 # Fallback for unknown failure reason
+                # FIX FOR BALL RETRIEVAL LOGIC BUG: Don't specify fielder, let retrieval logic assign
                 result.add_event(PlayEvent(
                     hang_time, "ball_drops",
-                    f"Ball drops in {self.describe_field_location(ball_position)}, missed by {responsible_position}"
+                    f"Ball drops in {self.describe_field_location(ball_position)}"
                 ))
 
         return catch_result
