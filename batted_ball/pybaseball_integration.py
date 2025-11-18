@@ -431,15 +431,10 @@ def create_hitter_from_mlb_stats(
     """
     hitter_attrs = map_hitter_stats_to_attributes(stats)
 
-    # Zone discipline and aggressiveness from stats
-    zone_discipline = int(hitter_attrs.ZONE_DISCERNMENT / 1000)  # 0-100 scale
-    swing_aggressiveness = 50  # Default to average
-
+    # Zone discipline and aggressiveness are already part of HitterAttributes
     return Hitter(
         name=name,
-        attributes=hitter_attrs,
-        zone_discipline=zone_discipline,
-        swing_decision_aggressiveness=swing_aggressiveness
+        attributes=hitter_attrs
     )
 
 
