@@ -128,11 +128,28 @@ class FlyBallHandler:
                     # We'll handle this in handle_fly_ball_caught with special error logic
                     catch_result.is_error = True
                 else:
-                    # Fielder barely missed (arrived slightly late but within diving range)
-                    result.add_event(PlayEvent(
-                        hang_time, "ball_drops",
-                        f"Ball dropped by {responsible_position} in {self.describe_field_location(ball_position)} (diving attempt)"
-                    ))
+                    # FIX FOR "DIVING ATTEMPT VS ROUTINE DROP" BUG (Priority 3):
+                    # Fielder arrived slightly late (within diving range, -0.15s to 0.0s margin)
+                    # This is a diving attempt - most of these should be HITS, not errors
+                    # Only mark as error if ball actually hit the glove and was dropped
+
+                    # Small chance ball hits glove during diving attempt (20%)
+                    # This represents cases where fielder gets a glove on it but can't hold on
+                    ball_hit_glove = np.random.random() < 0.20
+
+                    if ball_hit_glove:
+                        # Ball touched glove but couldn't hold on - this is an error
+                        result.add_event(PlayEvent(
+                            hang_time, "fielding_error",
+                            f"ERROR! Diving attempt by {responsible_position}, ball hit glove but dropped in {self.describe_field_location(ball_position)} (E{self._get_error_number(responsible_position)})"
+                        ))
+                        catch_result.is_error = True
+                    else:
+                        # Diving attempt, ball never reached glove - this is a HIT (trapped/just missed)
+                        result.add_event(PlayEvent(
+                            hang_time, "ball_drops",
+                            f"Diving attempt by {responsible_position} in {self.describe_field_location(ball_position)}... just missed!"
+                        ))
             else:
                 # Fallback for unknown failure reason
                 # FIX FOR BALL RETRIEVAL LOGIC BUG: Don't specify fielder, let retrieval logic assign
@@ -889,20 +906,14 @@ class FlyBallHandler:
                         print(f"    {position_name} fielding at t={t:.2f}s, z={ball_pos_t.z:.1f}ft (margin: {best_candidate['time_margin']:.2f}s)")
                     return self.attempt_ground_ball_out(fielder, ball_pos_t, t, result, position_name)
 
-        # No interception possible - ball will drop for a hit
+        # No interception possible during trajectory - ball will continue to landing position
+        # where a catch attempt will be made
         if debug:
-            print("    No fielders can intercept")
+            print("    No fielders can intercept during flight")
 
-        # Add event to clarify that ball was not caught during flight
-        landing_pos = FieldPosition(
-            batted_ball_result.landing_x,
-            batted_ball_result.landing_y,
-            0.0
-        )
-        result.add_event(PlayEvent(
-            flight_time, "ball_not_caught",
-            f"Ball lands uncaught at {self.describe_field_location(landing_pos)} - no fielder could intercept"
-        ))
+        # DON'T log "Ball lands uncaught" here - we haven't tried the landing position catch yet!
+        # The landing position catch attempt happens in play_simulation.py after this returns False.
+        # Only log "uncaught" after BOTH trajectory interception AND landing catch have been attempted.
         return False
 
     def calculate_ball_position_at_time(self, batted_ball_result: BattedBallResult, t: float) -> FieldPosition:
