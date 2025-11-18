@@ -105,10 +105,25 @@ class FlyBallHandler:
                 f"Caught by {responsible_position} at {self.describe_field_location(ball_position)}"
             ))
         else:
-            result.add_event(PlayEvent(
-                hang_time, "ball_drops",
-                f"Ball drops in {self.describe_field_location(ball_position)}, {responsible_position} couldn't reach it"
-            ))
+            # Use failure reason to provide accurate description
+            if catch_result.failure_reason == 'TOO_SLOW':
+                result.add_event(PlayEvent(
+                    hang_time, "ball_drops",
+                    f"Ball drops in {self.describe_field_location(ball_position)}, {responsible_position} couldn't reach it"
+                ))
+            elif catch_result.failure_reason == 'DROP_ERROR':
+                # Calculate time margin for context
+                time_margin = catch_result.ball_arrival_time - catch_result.fielder_arrival_time
+                result.add_event(PlayEvent(
+                    hang_time, "ball_drops",
+                    f"Ball dropped by {responsible_position} in {self.describe_field_location(ball_position)} (arrived {time_margin:.2f}s early)"
+                ))
+            else:
+                # Fallback for unknown failure reason
+                result.add_event(PlayEvent(
+                    hang_time, "ball_drops",
+                    f"Ball drops in {self.describe_field_location(ball_position)}, missed by {responsible_position}"
+                ))
 
         return catch_result
 

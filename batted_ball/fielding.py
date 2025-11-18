@@ -56,7 +56,8 @@ class FieldingResult:
                  ball_arrival_time: float,
                  catch_position: FieldPosition,
                  fielder_name: str,
-                 fielder_position: str = None):
+                 fielder_position: str = None,
+                 failure_reason: str = None):
         """
         Initialize fielding result.
 
@@ -74,6 +75,11 @@ class FieldingResult:
             Name of the fielder
         fielder_position : str, optional
             Position key of the fielder (e.g., 'shortstop', 'left_field')
+        failure_reason : str, optional
+            Reason for fielding failure if not successful:
+            - None: success=True (no failure)
+            - 'TOO_SLOW': fielder arrived after ball landed
+            - 'DROP_ERROR': fielder arrived in time but failed to catch
         """
         self.success = success
         self.fielder_arrival_time = fielder_arrival_time
@@ -81,6 +87,7 @@ class FieldingResult:
         self.catch_position = catch_position
         self.fielder_name = fielder_name
         self.fielder_position = fielder_position
+        self.failure_reason = failure_reason
         self.margin = fielder_arrival_time - ball_arrival_time  # Negative = made it
 
 
@@ -780,28 +787,44 @@ class Fielder:
 
         return probability
 
-    def attempt_fielding(self, ball_position: FieldPosition, 
+    def attempt_fielding(self, ball_position: FieldPosition,
                         ball_arrival_time: float) -> FieldingResult:
         """
         Attempt to field a ball at given position and time using research-based model.
-        
+
         Parameters
         ----------
         ball_position : FieldPosition
             Position where ball arrives
         ball_arrival_time : float
             Time when ball arrives
-            
+
         Returns
         -------
         FieldingResult
             Result of fielding attempt
         """
         effective_fielder_time = self.calculate_effective_time_to_position(ball_position)
-        
+
+        # Determine if fielder can reach the ball in time
+        # Positive time margin = fielder arrives before ball
+        time_margin = ball_arrival_time - effective_fielder_time
+
         # Use research-based catch probability
         catch_probability = self.calculate_catch_probability(ball_position, ball_arrival_time)
-        success = np.random.random() < catch_probability
+        catch_roll = np.random.random()
+        success = catch_roll < catch_probability
+
+        # Determine failure reason if not successful
+        failure_reason = None
+        if not success:
+            # Check if fielder arrives too late (more than 0.15s after ball)
+            # Allow small negative margins for diving/stretching catches
+            if time_margin < -0.15:
+                failure_reason = 'TOO_SLOW'
+            else:
+                # Fielder arrived in time (or close enough) but failed the catch roll
+                failure_reason = 'DROP_ERROR'
 
         return FieldingResult(
             success=success,
@@ -809,7 +832,8 @@ class Fielder:
             ball_arrival_time=ball_arrival_time,
             catch_position=ball_position,
             fielder_name=self.name,
-            fielder_position=self.position
+            fielder_position=self.position,
+            failure_reason=failure_reason
         )
     
     def throw_ball(self, target_position: FieldPosition, 
