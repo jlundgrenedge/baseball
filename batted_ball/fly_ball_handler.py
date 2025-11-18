@@ -72,6 +72,22 @@ class FlyBallHandler:
     def simulate_catch_attempt(self, ball_position: FieldPosition,
                                hang_time: float, result: PlayResult) -> FieldingResult:
         """Simulate fielder attempting to catch a fly ball."""
+        # FIX FOR "CONSOLIDATE BALL DROPS" BUG (Priority 3):
+        # If play outcome is already set (e.g., FLY_OUT from trajectory interception),
+        # don't proceed with landing catch attempt - would create duplicate messages
+        if result.outcome is not None:
+            # Play already resolved (ball was caught during trajectory interception)
+            # Return a success result to indicate no further processing needed
+            return FieldingResult(
+                success=True,
+                fielder_arrival_time=hang_time,
+                ball_arrival_time=hang_time,
+                catch_position=ball_position,
+                fielder_name="",
+                fielder_position="",
+                failure_reason=None
+            )
+
         # ENHANCED LOGGING: Add detailed spatial and fielder analysis (only if debug enabled)
         if self.DEBUG_FIELDING_ASSIGNMENT:
             distance_from_home = np.sqrt(ball_position.x**2 + ball_position.y**2)
