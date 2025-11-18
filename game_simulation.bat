@@ -8,13 +8,19 @@ echo   1. Single Game Demo (quick, interactive)
 echo   2. Quick League Season (Thu/Sun league, 14 games each)
 echo   3. Full League Season (8 teams, 60 games each)
 echo   4. Performance Test Suite
+echo   5. MLB Teams: Yankees vs Dodgers (Real rosters)
+echo   6. MLB Players: Individual Demo (Ohtani vs Judge)
+echo   7. MLB Quick Demo (Players only)
 echo.
-set /p choice="Enter your choice (1-4): "
+set /p choice="Enter your choice (1-7): "
 
 if "%choice%"=="1" goto single_game
 if "%choice%"=="2" goto quick_league
 if "%choice%"=="3" goto full_league
 if "%choice%"=="4" goto performance
+if "%choice%"=="5" goto mlb_yankees_dodgers
+if "%choice%"=="6" goto mlb_player_demo
+if "%choice%"=="7" goto mlb_quick_demo
 goto invalid
 
 :single_game
@@ -89,8 +95,70 @@ echo.
 python -m batted_ball.performance_test_suite
 goto end
 
+:mlb_yankees_dodgers
+echo.
+echo ========================================
+echo MLB: Yankees vs Dodgers Simulation
+echo ========================================
+echo.
+echo This will simulate a complete 9-inning game between:
+echo   - New York Yankees (Away)
+echo   - Los Angeles Dodgers (Home)
+echo.
+echo Using REAL 2024 MLB player statistics:
+echo - Fetches player data from Baseball Savant/FanGraphs
+echo - Creates teams with actual roster attributes
+echo - Physics-based simulation with play-by-play
+echo.
+echo Requirements:
+echo   pip install pybaseball pandas
+echo.
+echo NOTE: First run may be slow due to data fetching.
+echo.
+pause
+echo.
+python examples\simulate_mlb_teams.py
+goto end
+
+:mlb_player_demo
+echo.
+echo ========================================
+echo MLB: Individual Player Demo
+echo ========================================
+echo.
+echo Simulating at-bats with real MLB players:
+echo   Pitcher: Shohei Ohtani (2024 stats)
+echo   Hitter:  Aaron Judge (2024 stats)
+echo.
+echo Will simulate 10 at-bats with physics-based outcomes.
+echo.
+echo Requirements:
+echo   pip install pybaseball pandas
+echo.
+pause
+echo.
+python -c "import sys; sys.path.insert(0, '.'); from examples.simulate_mlb_teams import simulate_single_player_at_bats; simulate_single_player_at_bats()"
+goto end
+
+:mlb_quick_demo
+echo.
+echo ========================================
+echo MLB: Quick Demo Mode
+echo ========================================
+echo.
+echo Running quick demonstration with individual players only.
+echo Skips full game simulation for faster testing.
+echo.
+echo Requirements:
+echo   pip install pybaseball pandas
+echo.
+pause
+echo.
+python examples\simulate_mlb_teams.py --quick
+goto end
+
 :invalid
-echo Invalid choice. Please run the script again and select 1-4.
+echo Invalid choice. Please run the script again and select 1-7.
 pause
 exit /b
 
@@ -111,6 +179,7 @@ echo - Realistic hit distributions and distances
 echo - Fielding success based on hang time vs range
 echo - Baserunning advancement based on timing
 echo - Team quality differences affecting outcomes
+echo - REAL MLB player integration (options 5-7)
 echo.
 echo You can modify team attributes in the code to test different
 echo scenarios or use this as a foundation for more complex
@@ -120,10 +189,16 @@ echo ========================================
 echo NEXT STEPS:
 echo ========================================
 echo.
+echo For MLB team simulations:
+echo   - Options 5-7 use real MLB player data
+echo   - Requires: pip install pybaseball pandas
+echo   - Edit examples\simulate_mlb_teams.py for custom matchups
+echo.
 echo For high-performance simulations, run:
 echo   performance_test_suite.bat
 echo.
 echo For documentation, see:
 echo   docs\PERFORMANCE_GUIDE.md
+echo   docs\PYBASEBALL_INTEGRATION.md
 echo.
 pause
