@@ -432,29 +432,29 @@ ARM_ANGLE_SUBMARINE = 120.0   # degrees (below sidearm)
 # PITCHER ATTRIBUTE SYSTEM
 # ============================================================================
 
-# Velocity rating scale (0-100)
-VELOCITY_RATING_MIN = 20      # Position player pitching
-VELOCITY_RATING_AVG = 50      # Average MLB pitcher
-VELOCITY_RATING_ELITE = 80    # Elite fastball
-VELOCITY_RATING_MAX = 100     # Aroldis Chapman, Jordan Hicks level
+# Velocity rating scale (0-100,000)
+VELOCITY_RATING_MIN = 20000      # Position player pitching
+VELOCITY_RATING_AVG = 50000      # Average MLB pitcher
+VELOCITY_RATING_ELITE = 80000    # Elite fastball
+VELOCITY_RATING_MAX = 100000     # Aroldis Chapman, Jordan Hicks level
 
-# Movement rating scale (0-100)
-MOVEMENT_RATING_MIN = 20      # Minimal break
-MOVEMENT_RATING_AVG = 50      # Average MLB break
-MOVEMENT_RATING_ELITE = 80    # Elite movement
-MOVEMENT_RATING_MAX = 100     # Exceptional break
+# Movement rating scale (0-100,000)
+MOVEMENT_RATING_MIN = 20000      # Minimal break
+MOVEMENT_RATING_AVG = 50000      # Average MLB break
+MOVEMENT_RATING_ELITE = 80000    # Elite movement
+MOVEMENT_RATING_MAX = 100000     # Exceptional break
 
-# Command rating scale (0-100)
-COMMAND_RATING_MIN = 20       # Poor control
-COMMAND_RATING_AVG = 50       # Average control
-COMMAND_RATING_ELITE = 80     # Excellent command
-COMMAND_RATING_MAX = 100      # Greg Maddux level
+# Command rating scale (0-100,000)
+COMMAND_RATING_MIN = 20000       # Poor control
+COMMAND_RATING_AVG = 50000       # Average control
+COMMAND_RATING_ELITE = 80000     # Excellent command
+COMMAND_RATING_MAX = 100000      # Greg Maddux level
 
-# Deception rating scale (0-100)
-DECEPTION_RATING_MIN = 20     # Easy to read
-DECEPTION_RATING_AVG = 50     # Average deception
-DECEPTION_RATING_ELITE = 80   # Very deceptive
-DECEPTION_RATING_MAX = 100    # Extreme deception
+# Deception rating scale (0-100,000)
+DECEPTION_RATING_MIN = 20000     # Easy to read
+DECEPTION_RATING_AVG = 50000     # Average deception
+DECEPTION_RATING_ELITE = 80000   # Very deceptive
+DECEPTION_RATING_MAX = 100000    # Extreme deception
 
 # ============================================================================
 # ENVIRONMENTAL EFFECTS ON PITCHES
@@ -753,45 +753,45 @@ LEADOFF_THIRD_BASE_AVG = 20.0      # ft
 LEADOFF_THIRD_BASE_MAX = 28.0      # ft
 
 # ============================================================================
-# ATTRIBUTE RATING SCALES (0-100) FOR FIELDING/BASERUNNING
+# ATTRIBUTE RATING SCALES (0-100,000) FOR FIELDING/BASERUNNING
 # ============================================================================
 
 # Fielding attribute scales
-FIELDING_SPEED_RATING_MIN = 20     # 23 ft/s sprint speed
-FIELDING_SPEED_RATING_AVG = 50     # 27 ft/s sprint speed  
-FIELDING_SPEED_RATING_ELITE = 80   # 30 ft/s sprint speed
-FIELDING_SPEED_RATING_MAX = 100    # 32 ft/s sprint speed
+FIELDING_SPEED_RATING_MIN = 20000     # 23 ft/s sprint speed
+FIELDING_SPEED_RATING_AVG = 50000     # 27 ft/s sprint speed
+FIELDING_SPEED_RATING_ELITE = 80000   # 30 ft/s sprint speed
+FIELDING_SPEED_RATING_MAX = 100000    # 32 ft/s sprint speed
 
-FIELDING_REACTION_RATING_MIN = 20   # 0.5s reaction time
-FIELDING_REACTION_RATING_AVG = 50   # 0.15s reaction time
-FIELDING_REACTION_RATING_ELITE = 80 # 0.05s reaction time
-FIELDING_REACTION_RATING_MAX = 100  # 0.0s reaction time
+FIELDING_REACTION_RATING_MIN = 20000   # 0.5s reaction time
+FIELDING_REACTION_RATING_AVG = 50000   # 0.15s reaction time
+FIELDING_REACTION_RATING_ELITE = 80000 # 0.05s reaction time
+FIELDING_REACTION_RATING_MAX = 100000  # 0.0s reaction time
 
-FIELDING_ARM_RATING_MIN = 20       # 70 mph (inf), 75 mph (of)
-FIELDING_ARM_RATING_AVG = 50       # 82 mph (inf), 85 mph (of)
-FIELDING_ARM_RATING_ELITE = 80     # 90 mph (inf), 95 mph (of)
-FIELDING_ARM_RATING_MAX = 100      # 95 mph (inf), 105 mph (of)
+FIELDING_ARM_RATING_MIN = 20000       # 70 mph (inf), 75 mph (of)
+FIELDING_ARM_RATING_AVG = 50000       # 82 mph (inf), 85 mph (of)
+FIELDING_ARM_RATING_ELITE = 80000     # 90 mph (inf), 95 mph (of)
+FIELDING_ARM_RATING_MAX = 100000      # 95 mph (inf), 105 mph (of)
 
-FIELDING_ACCURACY_RATING_MIN = 20   # 8° standard deviation
-FIELDING_ACCURACY_RATING_AVG = 50   # 2° standard deviation
-FIELDING_ACCURACY_RATING_ELITE = 80 # 1° standard deviation
-FIELDING_ACCURACY_RATING_MAX = 100  # 0.5° standard deviation
+FIELDING_ACCURACY_RATING_MIN = 20000   # 8° standard deviation
+FIELDING_ACCURACY_RATING_AVG = 50000   # 2° standard deviation
+FIELDING_ACCURACY_RATING_ELITE = 80000 # 1° standard deviation
+FIELDING_ACCURACY_RATING_MAX = 100000  # 0.5° standard deviation
 
 # Baserunning attribute scales
-BASERUNNING_SPEED_RATING_MIN = 20   # 22 ft/s sprint speed
-BASERUNNING_SPEED_RATING_AVG = 50   # 27 ft/s sprint speed
-BASERUNNING_SPEED_RATING_ELITE = 80 # 30 ft/s sprint speed
-BASERUNNING_SPEED_RATING_MAX = 100  # 32 ft/s sprint speed
+BASERUNNING_SPEED_RATING_MIN = 20000   # 22 ft/s sprint speed
+BASERUNNING_SPEED_RATING_AVG = 50000   # 27 ft/s sprint speed
+BASERUNNING_SPEED_RATING_ELITE = 80000 # 30 ft/s sprint speed
+BASERUNNING_SPEED_RATING_MAX = 100000  # 32 ft/s sprint speed
 
-BASERUNNING_ACCELERATION_RATING_MIN = 20    # 10 ft/s² acceleration
-BASERUNNING_ACCELERATION_RATING_AVG = 50    # 14 ft/s² acceleration
-BASERUNNING_ACCELERATION_RATING_ELITE = 80  # 18 ft/s² acceleration
-BASERUNNING_ACCELERATION_RATING_MAX = 100   # 22 ft/s² acceleration
+BASERUNNING_ACCELERATION_RATING_MIN = 20000    # 10 ft/s² acceleration
+BASERUNNING_ACCELERATION_RATING_AVG = 50000    # 14 ft/s² acceleration
+BASERUNNING_ACCELERATION_RATING_ELITE = 80000  # 18 ft/s² acceleration
+BASERUNNING_ACCELERATION_RATING_MAX = 100000   # 22 ft/s² acceleration
 
-BASERUNNING_BASERUNNING_RATING_MIN = 20     # Poor base running IQ
-BASERUNNING_BASERUNNING_RATING_AVG = 50     # Average base running
-BASERUNNING_BASERUNNING_RATING_ELITE = 80   # Elite base running IQ
-BASERUNNING_BASERUNNING_RATING_MAX = 100    # Perfect base running
+BASERUNNING_BASERUNNING_RATING_MIN = 20000     # Poor base running IQ
+BASERUNNING_BASERUNNING_RATING_AVG = 50000     # Average base running
+BASERUNNING_BASERUNNING_RATING_ELITE = 80000   # Elite base running IQ
+BASERUNNING_BASERUNNING_RATING_MAX = 100000    # Perfect base running
 
 # ============================================================================
 # GROUND BALL PHYSICS

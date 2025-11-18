@@ -308,6 +308,44 @@ class HitterAttributes:
             super_cap=25.0
         )
 
+    def get_impact_spin_gain_factor(self) -> float:
+        """
+        Convert IMPACT_SPIN_GAIN to spin imparted on contact (0-1 scale).
+
+        Higher = more spin on contact (affects backspin/sidespin)
+
+        Anchors:
+        - 0: 0.50 (low spin generation)
+        - 50k: 0.75 (average)
+        - 85k: 0.90 (elite spin)
+        - 100k: 0.98 (superhuman)
+        """
+        return piecewise_logistic_map(
+            self.IMPACT_SPIN_GAIN,
+            human_min=0.50,
+            human_cap=0.90,
+            super_cap=0.98
+        )
+
+    def get_launch_offset_control_factor(self) -> float:
+        """
+        Convert LAUNCH_OFFSET_CONTROL to launch angle offset control (0-1 scale).
+
+        Higher = better control over launch angle adjustments
+
+        Anchors:
+        - 0: 0.40 (poor control)
+        - 50k: 0.70 (average)
+        - 85k: 0.88 (elite)
+        - 100k: 0.96 (superhuman)
+        """
+        return piecewise_logistic_map(
+            self.LAUNCH_OFFSET_CONTROL,
+            human_min=0.40,
+            human_cap=0.88,
+            super_cap=0.96
+        )
+
 
 # =============================================================================
 # FIELDING ATTRIBUTES

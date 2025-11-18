@@ -9,6 +9,7 @@ baserunning simulation.
 import numpy as np
 from typing import Dict, List, Tuple, Optional, Union
 from enum import Enum
+from .attributes import piecewise_logistic_map, piecewise_logistic_map_inverse
 from .constants import (
     # Baserunning attributes
     RUNNER_SPRINT_SPEED_MIN, RUNNER_SPRINT_SPEED_AVG,
@@ -96,56 +97,56 @@ class BaserunningResult:
 class BaseRunner:
     """
     Represents a baserunner with physical attributes and running mechanics.
-    
-    Core Physical Attributes:
-    - sprint_speed: Maximum running speed (0-100 rating)
-    - acceleration: Rate of acceleration to top speed (0-100 rating)
-    - base_running_iq: Baserunning intelligence and decision making (0-100 rating)
-    - sliding_ability: Sliding technique and timing (0-100 rating)
-    - turn_efficiency: Ability to maintain speed through turns (0-100 rating)
+
+    Core Physical Attributes (0-100,000 scale):
+    - sprint_speed: Maximum running speed (0-100,000 rating)
+    - acceleration: Rate of acceleration to top speed (0-100,000 rating)
+    - base_running_iq: Baserunning intelligence and decision making (0-100,000 rating)
+    - sliding_ability: Sliding technique and timing (0-100,000 rating)
+    - turn_efficiency: Ability to maintain speed through turns (0-100,000 rating)
     """
-    
+
     def __init__(self,
                  name: str = "Runner",
-                 # Physical attributes (0-100 scale)
-                 sprint_speed: int = 50,
-                 acceleration: int = 50,
-                 base_running_iq: int = 50,
-                 sliding_ability: int = 50,
-                 turn_efficiency: int = 50,
+                 # Physical attributes (0-100,000 scale)
+                 sprint_speed: int = 50000,
+                 acceleration: int = 50000,
+                 base_running_iq: int = 50000,
+                 sliding_ability: int = 50000,
+                 turn_efficiency: int = 50000,
                  # Current state
                  current_base: str = "home",
                  leadoff_distance: float = 0.0):
         """
         Initialize baserunner with attribute ratings.
-        
+
         Parameters
         ----------
         name : str
             Runner's name/identifier
-        sprint_speed : int (0-100)
-            Sprint speed rating (50=avg MLB ~27 ft/s, 80=elite ~30 ft/s)
-        acceleration : int (0-100)
-            Acceleration rating (50=avg ~14 ft/s², 80=elite ~18 ft/s²)
-        base_running_iq : int (0-100)
+        sprint_speed : int (0-100,000)
+            Sprint speed rating (50k=avg MLB ~27 ft/s, 85k=elite ~30 ft/s)
+        acceleration : int (0-100,000)
+            Acceleration rating (50k=avg ~14 ft/s², 85k=elite ~18 ft/s²)
+        base_running_iq : int (0-100,000)
             Baserunning intelligence (affects leads, jumps, decisions)
-        sliding_ability : int (0-100)
+        sliding_ability : int (0-100,000)
             Sliding technique and timing
-        turn_efficiency : int (0-100)
-            Ability to maintain speed through turns (50=avg, 80=elite)
+        turn_efficiency : int (0-100,000)
+            Ability to maintain speed through turns (50k=avg, 85k=elite)
         current_base : str
             Current base ('home', 'first', 'second', 'third')
         leadoff_distance : float
             Current leadoff distance in feet
         """
         self.name = name
-        
-        # Clip all ratings to 0-100 scale
-        self.sprint_speed = np.clip(sprint_speed, 0, 100)
-        self.acceleration = np.clip(acceleration, 0, 100)
-        self.base_running_iq = np.clip(base_running_iq, 0, 100)
-        self.sliding_ability = np.clip(sliding_ability, 0, 100)
-        self.turn_efficiency = np.clip(turn_efficiency, 0, 100)
+
+        # Clip all ratings to 0-100,000 scale
+        self.sprint_speed = np.clip(sprint_speed, 0, 100000)
+        self.acceleration = np.clip(acceleration, 0, 100000)
+        self.base_running_iq = np.clip(base_running_iq, 0, 100000)
+        self.sliding_ability = np.clip(sliding_ability, 0, 100000)
+        self.turn_efficiency = np.clip(turn_efficiency, 0, 100000)
         
         # Current state
         self.current_base = current_base
@@ -161,64 +162,81 @@ class BaseRunner:
         self.slide_start_distance = 0.0
     
     def get_sprint_speed_fps(self) -> float:
-        """Convert sprint speed rating to feet per second."""
-        min_speed = RUNNER_SPRINT_SPEED_MIN
-        max_speed = RUNNER_SPRINT_SPEED_MAX
-        avg_speed = RUNNER_SPRINT_SPEED_AVG
-        
-        if self.sprint_speed <= 50:
-            factor = (self.sprint_speed - 20) / 30.0
-            speed = min_speed + factor * (avg_speed - min_speed)
-        else:
-            factor = (self.sprint_speed - 50) / 50.0
-            speed = avg_speed + factor * (max_speed - avg_speed)
-        
-        return speed
+        """
+        Convert sprint speed rating to feet per second.
+
+        Uses piecewise logistic mapping (0-100,000 scale):
+        - 0: 22 ft/s (slow ~15 mph)
+        - 50k: 27 ft/s (average MLB ~18.4 mph)
+        - 85k: 30 ft/s (elite ~20.5 mph)
+        - 100k: 32 ft/s (superhuman ~21.8 mph)
+        """
+        return piecewise_logistic_map(
+            self.sprint_speed,
+            human_min=RUNNER_SPRINT_SPEED_MIN,
+            human_cap=RUNNER_SPRINT_SPEED_ELITE,
+            super_cap=RUNNER_SPRINT_SPEED_MAX
+        )
     
     def get_acceleration_fps2(self) -> float:
-        """Convert acceleration rating to feet per second squared."""
-        min_accel = RUNNER_ACCELERATION_MIN
-        max_accel = RUNNER_ACCELERATION_MAX
-        avg_accel = RUNNER_ACCELERATION_AVG
-        
-        if self.acceleration <= 50:
-            factor = (self.acceleration - 20) / 30.0
-            accel = min_accel + factor * (avg_accel - min_accel)
-        else:
-            factor = (self.acceleration - 50) / 50.0
-            accel = avg_accel + factor * (max_accel - avg_accel)
-        
-        return accel
+        """
+        Convert acceleration rating to feet per second squared.
+
+        Uses piecewise logistic mapping (0-100,000 scale):
+        - 0: 10 ft/s² (slow acceleration)
+        - 50k: 14 ft/s² (average MLB)
+        - 85k: 18 ft/s² (elite burst)
+        - 100k: 22 ft/s² (superhuman)
+        """
+        return piecewise_logistic_map(
+            self.acceleration,
+            human_min=RUNNER_ACCELERATION_MIN,
+            human_cap=RUNNER_ACCELERATION_ELITE,
+            super_cap=RUNNER_ACCELERATION_MAX
+        )
     
     def get_reaction_time_seconds(self) -> float:
-        """Get reaction time based on baserunning IQ."""
-        min_time = RUNNER_REACTION_TIME_MAX  # Worst reaction
-        max_time = RUNNER_REACTION_TIME_MIN  # Best reaction
-        avg_time = RUNNER_REACTION_TIME_AVG
-        
-        # Higher IQ = faster reaction
-        if self.base_running_iq <= 50:
-            factor = (self.base_running_iq - 20) / 30.0
-            time = min_time - factor * (min_time - avg_time)
-        else:
-            factor = (self.base_running_iq - 50) / 50.0
-            time = avg_time - factor * (avg_time - max_time)
-        
-        return max(time, 0.0)
+        """
+        Get reaction time based on baserunning IQ.
+
+        Uses inverse piecewise logistic mapping (0-100,000 scale):
+        Lower rating = slower reaction (higher time)
+        - 0: 0.40 s (very slow reaction)
+        - 50k: 0.18 s (average MLB)
+        - 85k: 0.08 s (elite anticipation)
+        - 100k: 0.02 s (superhuman)
+        """
+        return piecewise_logistic_map_inverse(
+            self.base_running_iq,
+            human_min=RUNNER_REACTION_TIME_MIN,
+            human_cap=RUNNER_REACTION_TIME_MAX,
+            super_cap=0.02
+        )
     
     def get_turn_speed_retention(self) -> float:
-        """Get speed retention factor during turns."""
-        if self.turn_efficiency <= 50:
-            factor = (self.turn_efficiency - 20) / 30.0
-            retention = TURN_SPEED_RETENTION_POOR + factor * (TURN_SPEED_RETENTION_AVG - TURN_SPEED_RETENTION_POOR)
-        else:
-            factor = (self.turn_efficiency - 50) / 50.0
-            retention = TURN_SPEED_RETENTION_AVG + factor * (TURN_SPEED_RETENTION_ELITE - TURN_SPEED_RETENTION_AVG)
-        
-        return retention
+        """
+        Get speed retention factor during turns.
+
+        Uses piecewise logistic mapping (0-100,000 scale):
+        - 0: 0.65 (poor turn efficiency, 65% speed retention)
+        - 50k: 0.80 (average MLB, 80% speed retention)
+        - 85k: 0.92 (elite, 92% speed retention)
+        - 100k: 0.97 (superhuman, 97% speed retention)
+        """
+        return piecewise_logistic_map(
+            self.turn_efficiency,
+            human_min=TURN_SPEED_RETENTION_POOR,
+            human_cap=TURN_SPEED_RETENTION_ELITE,
+            super_cap=0.97
+        )
     
     def get_optimal_leadoff(self, base: str) -> float:
-        """Get optimal leadoff distance for given base."""
+        """
+        Get optimal leadoff distance for given base.
+
+        Uses piecewise logistic mapping (0-100,000 scale):
+        Higher IQ = more aggressive leads (but also smarter)
+        """
         # Base leadoff distances on IQ rating
         if base == "first":
             min_lead = LEADOFF_FIRST_BASE_MIN
@@ -234,16 +252,14 @@ class BaseRunner:
             avg_lead = LEADOFF_THIRD_BASE_AVG
         else:
             return 0.0  # No leadoff from home
-        
-        # Higher IQ = more aggressive leads (but also smarter)
-        if self.base_running_iq <= 50:
-            factor = (self.base_running_iq - 20) / 30.0
-            leadoff = min_lead + factor * (avg_lead - min_lead)
-        else:
-            factor = (self.base_running_iq - 50) / 50.0
-            leadoff = avg_lead + factor * (max_lead - avg_lead)
-        
-        return leadoff
+
+        # Map IQ to leadoff distance
+        return piecewise_logistic_map(
+            self.base_running_iq,
+            human_min=min_lead,
+            human_cap=max_lead,
+            super_cap=max_lead * 1.2  # Superhuman: 20% more aggressive
+        )
     
     def calculate_time_to_base(self, from_base: str, to_base: str, 
                               include_leadoff: bool = True) -> float:

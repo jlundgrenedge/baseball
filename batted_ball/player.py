@@ -349,9 +349,6 @@ class Hitter:
         self,
         name: str,
         attributes: HitterAttributes,
-        # Simplified decision-making attributes (not yet in HitterAttributes)
-        zone_discipline: int = 50,
-        swing_decision_aggressiveness: int = 50,
     ):
         """
         Initialize hitter with physics-first attributes.
@@ -363,19 +360,10 @@ class Hitter:
         attributes : HitterAttributes
             Physics-first attribute system (0-100,000 scale)
             Provides bat speed, attack angle, barrel accuracy, timing mapped to physical units
-        zone_discipline : int (0-100)
-            Strike zone judgment (50=avg, 80=excellent patience)
-            TODO: Move to HitterAttributes in future
-        swing_decision_aggressiveness : int (0-100)
-            Swing frequency (50=avg, 80=very aggressive, 20=patient)
-            TODO: Move to HitterAttributes in future
+            Also includes zone discernment and swing decision latency
         """
         self.name = name
         self.attributes = attributes
-
-        # Decision attributes (kept as 0-100 for now, could move to attributes later)
-        self.zone_discipline = np.clip(zone_discipline, 0, 100)
-        self.swing_decision_aggressiveness = np.clip(swing_decision_aggressiveness, 0, 100)
 
     def get_bat_speed_mph(self) -> float:
         """
@@ -543,7 +531,8 @@ class Hitter:
                 base_swing_prob = 0.10 * np.exp(-distance_from_zone / 8.0)
 
         # Adjust for zone discipline (higher = more selective)
-        discipline_factor = self.zone_discipline / 100.0
+        # Use zone_discernment_factor from attributes (0-1 scale, higher = better recognition)
+        discipline_factor = self.attributes.get_zone_discernment_factor()
         if is_strike:
             # Good discipline = slightly lower swing rate in zone (but still high)
             swing_prob = base_swing_prob + (1 - discipline_factor) * 0.15
@@ -551,8 +540,11 @@ class Hitter:
             # Good discipline = much lower chase rate
             swing_prob = base_swing_prob * (1 - discipline_factor * 0.6)
 
-        # Adjust for aggressiveness
-        aggression_factor = self.swing_decision_aggressiveness / 100.0
+        # Adjust for decision speed (faster decisions = more aggressive swings)
+        # Swing decision latency: lower ms = faster = more aggressive
+        # Map to aggression factor: 75ms (elite, fast) = 0.9, 130ms (avg) = 0.5, 200ms (slow) = 0.2
+        decision_latency_ms = self.attributes.get_swing_decision_latency_ms()
+        aggression_factor = np.clip(1.0 - (decision_latency_ms - 75) / 125, 0.2, 0.9)
         swing_prob = swing_prob * (0.8 + aggression_factor * 0.4)
 
         # Velocity effect (faster pitches = less time to decide = more takes)
@@ -689,8 +681,9 @@ class Hitter:
         bat_speed = self.attributes.get_bat_speed_mph()
         attack_angle = self.attributes.get_attack_angle_mean_deg()
         barrel_error = self.attributes.get_barrel_accuracy_mm()
+        zone_discern = self.attributes.get_zone_discernment_factor()
         return (
             f"Hitter(name='{self.name}', "
             f"bat_speed={bat_speed:.1f} mph, angle={attack_angle:.1f}°, "
-            f"barrel_error={barrel_error:.1f}mm, discipline={self.zone_discipline})"
+            f"barrel_error={barrel_error:.1f}mm, zone_discern={zone_discern:.2f})"
         )
