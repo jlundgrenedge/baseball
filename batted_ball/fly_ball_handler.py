@@ -88,15 +88,6 @@ class FlyBallHandler:
             ball_position, hang_time
         )
 
-        # ENHANCED LOGGING: Check for assignment consistency
-        if hasattr(catch_result, 'fielder_position') and catch_result.fielder_position:
-            # Compare the assigned position to the fielder's actual position
-            if catch_result.fielder_position != responsible_position:
-                result.add_event(PlayEvent(
-                    0.07, "assignment_discrepancy",
-                    f"WARNING: Assigned to {responsible_position} but {catch_result.fielder_position} ({catch_result.fielder_name}) attempted catch"
-                ))
-
         result.fielding_results.append(catch_result)
 
         if catch_result.success:
