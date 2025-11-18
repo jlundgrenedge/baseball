@@ -542,7 +542,8 @@ def fetch_player_batting_stats(player_name: str, season: int = 2024) -> Optional
         Dictionary with stats and percentiles, or None if not found
     """
     if not PYBASEBALL_AVAILABLE:
-        raise ImportError("pybaseball is required. Install with: pip install pybaseball")
+        warnings.warn(f"pybaseball not available - cannot fetch stats for {player_name}. Using league average.")
+        return None
 
     # Split name
     parts = player_name.split()
@@ -634,7 +635,8 @@ def fetch_player_pitching_stats(player_name: str, season: int = 2024) -> Optiona
         Dictionary with stats and percentiles, or None if not found
     """
     if not PYBASEBALL_AVAILABLE:
-        raise ImportError("pybaseball is required. Install with: pip install pybaseball")
+        warnings.warn(f"pybaseball not available - cannot fetch stats for {player_name}. Using league average.")
+        return None
 
     try:
         # Get pitching stats
