@@ -768,16 +768,16 @@ class PitcherAttributes:
         Convert RAW_VELOCITY_CAP to fastball velocity (mph).
 
         Anchors:
-        - 0: 70 mph (very slow)
+        - 0: 76 mph (minimum human)
         - 50k: 91 mph (average MLB)
         - 85k: 98 mph (elite MLB)
-        - 100k: 108 mph (superhuman)
+        - 100k: 109 mph (superhuman)
         """
         return piecewise_logistic_map(
             self.RAW_VELOCITY_CAP,
-            human_min=70.0,
-            human_cap=98.0,
-            super_cap=108.0
+            human_min=76.0,
+            human_cap=98.4,
+            super_cap=109.0
         )
 
     def get_spin_rate_rpm(self) -> float:
