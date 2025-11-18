@@ -234,8 +234,11 @@ class HitHandler:
                     break
 
             # Calculate runner arrival time
+            # FIX FOR TIME TRAVEL BUG: Runners start running when ball is hit (t=0)
+            # calculate_time_to_base returns duration, we need absolute timestamp
             runner_time_to_target = runner.calculate_time_to_base(base, target_base, include_leadoff=False)
-            runner_arrival_time = runner_time_to_target
+            runner_start_time = 0.0  # Runners start at contact (time 0)
+            runner_arrival_time = runner_start_time + runner_time_to_target
 
             # Log the advancement DECISION with reasoning
             result.add_event(PlayEvent(

@@ -507,7 +507,14 @@ class GameSimulator:
             return f"⚾ Ground out to {fielder_pos}"
         elif outcome == PlayOutcome.FLY_OUT:
             fielder_pos = play_result.primary_fielder.position if play_result.primary_fielder else "outfield"
-            return f"⚾ Fly out to {fielder_pos}"
+
+            # FIX FOR OUTFIELD POP-UP BUG: If caught by an infielder, label as "Pop-up to infield"
+            # Infielders: pitcher, catcher, first_base, second_base, third_base, shortstop
+            infielder_positions = ['pitcher', 'catcher', 'first_base', 'second_base', 'third_base', 'shortstop']
+            if fielder_pos in infielder_positions:
+                return f"⚾ Pop-up to infield ({fielder_pos})"
+            else:
+                return f"⚾ Fly out to {fielder_pos}"
         elif outcome == PlayOutcome.LINE_OUT:
             return f"⚾ Line out"
         elif outcome == PlayOutcome.DOUBLE_PLAY:

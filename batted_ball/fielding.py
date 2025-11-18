@@ -57,7 +57,8 @@ class FieldingResult:
                  catch_position: FieldPosition,
                  fielder_name: str,
                  fielder_position: str = None,
-                 failure_reason: str = None):
+                 failure_reason: str = None,
+                 is_error: bool = False):
         """
         Initialize fielding result.
 
@@ -78,6 +79,8 @@ class FieldingResult:
         failure_reason : str, optional
             Reason for fielding failure if not successful:
             - None: success=True (no failure)
+        is_error : bool, optional
+            Whether this was a fielding error (dropped ball with positive time margin)
             - 'TOO_SLOW': fielder arrived after ball landed
             - 'DROP_ERROR': fielder arrived in time but failed to catch
         """
@@ -88,6 +91,7 @@ class FieldingResult:
         self.fielder_name = fielder_name
         self.fielder_position = fielder_position
         self.failure_reason = failure_reason
+        self.is_error = is_error
         self.margin = fielder_arrival_time - ball_arrival_time  # Negative = made it
 
 
@@ -734,9 +738,12 @@ class Fielder:
         # Target: ~9 runs/9 innings and ~15-18 hits/9 innings (not 57 hits!)
         if time_margin >= 0.5:
             # Fielder arrives well ahead (0.5+s early) - very routine play
-            # Should be caught >95% of the time after all penalties
-            # With worst penalties: 1.00 * 0.727 = 0.727, need higher base
-            probability = 1.00  # Perfect base, penalties bring it to realistic 73-92%
+            # FIX FOR BUTTERFINGERS BUG: When fielder arrives 0.5s+ early, they're
+            # standing and waiting. This should be caught 98-99% of the time.
+            # Only a rare error (1-2%) should cause a drop.
+            # Return immediately to skip all penalties (distance, hands, etc.)
+            # A fielder standing still waiting has no movement-based penalties.
+            return 0.99  # 99% success rate, 1% rare error
         elif time_margin >= 0.2:
             # Fielder arrives comfortably (0.2-0.5s early) - routine play
             # Should be caught ~85-90% of the time after penalties
