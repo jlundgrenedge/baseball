@@ -35,6 +35,39 @@ from .defense_factory import create_standard_defense
 
 
 # =============================================================================
+# POSITION MAPPING UTILITIES
+# =============================================================================
+
+def map_position_abbreviation_to_full_name(position_abbr: str) -> str:
+    """
+    Convert position abbreviation to full position name used by field_layout.
+
+    Parameters
+    ----------
+    position_abbr : str
+        Position abbreviation (e.g., 'RF', '1B', 'SS')
+
+    Returns
+    -------
+    str
+        Full position name (e.g., 'right_field', 'first_base', 'shortstop')
+    """
+    position_mapping = {
+        'P': 'pitcher',
+        'C': 'catcher',
+        '1B': 'first_base',
+        '2B': 'second_base',
+        '3B': 'third_base',
+        'SS': 'shortstop',
+        'LF': 'left_field',
+        'CF': 'center_field',
+        'RF': 'right_field',
+        'DH': 'designated_hitter'  # DH doesn't have a field position
+    }
+    return position_mapping.get(position_abbr, position_abbr.lower())
+
+
+# =============================================================================
 # PERCENTILE-BASED MAPPING UTILITIES
 # =============================================================================
 
@@ -755,7 +788,9 @@ def create_team_from_mlb_roster(
     fielders = {}
     for i, (player_name, position) in enumerate(roster_hitters[:9]):
         fielder = create_fielder_from_mlb_stats(player_name, position)
-        fielders[position] = fielder
+        # Map position abbreviation (e.g., 'RF') to full name (e.g., 'right_field')
+        position_full_name = map_position_abbreviation_to_full_name(position)
+        fielders[position_full_name] = fielder
 
     return Team(
         name=team_name,
@@ -802,6 +837,7 @@ def create_mlb_player(player_name: str, season: int = 2024, role: str = 'hitter'
 
 __all__ = [
     'PYBASEBALL_AVAILABLE',
+    'map_position_abbreviation_to_full_name',
     'percentile_to_attribute',
     'stat_to_percentile',
     'map_hitter_stats_to_attributes',
