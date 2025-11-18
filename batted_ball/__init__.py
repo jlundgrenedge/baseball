@@ -94,8 +94,8 @@ from .constants import *
 # Performance optimization modules (optional imports)
 try:
     from .performance import (
-        TrajectoryBuffer, 
-        ResultObjectPool, 
+        TrajectoryBuffer,
+        ResultObjectPool,
         OptimizedAerodynamicForces,
         UltraFastMode,
         PerformanceTracker
@@ -110,6 +110,22 @@ try:
     _PERFORMANCE_AVAILABLE = True
 except ImportError:
     _PERFORMANCE_AVAILABLE = False
+
+# PyBaseball integration (optional import)
+try:
+    from .pybaseball_integration import (
+        PYBASEBALL_AVAILABLE,
+        create_mlb_player,
+        create_team_from_mlb_roster,
+        fetch_player_batting_stats,
+        fetch_player_pitching_stats,
+        create_hitter_from_mlb_stats,
+        create_fielder_from_mlb_stats,
+        create_pitcher_from_mlb_stats,
+    )
+    _PYBASEBALL_INTEGRATION_AVAILABLE = True
+except ImportError:
+    _PYBASEBALL_INTEGRATION_AVAILABLE = False
 
 __version__ = '1.1.0'
 __author__ = 'Baseball Physics Team'
@@ -200,7 +216,7 @@ __all__ = [
 if _PERFORMANCE_AVAILABLE:
     __all__.extend([
         'TrajectoryBuffer',
-        'ResultObjectPool', 
+        'ResultObjectPool',
         'OptimizedAerodynamicForces',
         'UltraFastMode',
         'PerformanceTracker',
@@ -211,4 +227,17 @@ if _PERFORMANCE_AVAILABLE:
         'ParallelSimulationSettings',
         'ParallelSimulationResult',
         'GameResult'
+    ])
+
+# Add pybaseball integration if available
+if _PYBASEBALL_INTEGRATION_AVAILABLE:
+    __all__.extend([
+        'PYBASEBALL_AVAILABLE',
+        'create_mlb_player',
+        'create_team_from_mlb_roster',
+        'fetch_player_batting_stats',
+        'fetch_player_pitching_stats',
+        'create_hitter_from_mlb_stats',
+        'create_fielder_from_mlb_stats',
+        'create_pitcher_from_mlb_stats',
     ])

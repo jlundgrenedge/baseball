@@ -2,6 +2,32 @@
 
 A comprehensive physics-based baseball simulation engine that models complete games from pitch to play outcome. This system evolved through 5 development phases to create a fully integrated simulation with empirically-validated physics at every layer.
 
+## 🆕 NEW: PyBaseball Integration
+
+**Simulate games between real MLB teams!** The new PyBaseball integration allows you to:
+- ✓ Fetch real MLB player statistics automatically
+- ✓ Create teams from actual MLB rosters (2024 Yankees, Dodgers, etc.)
+- ✓ Simulate matchups between real players
+- ✓ Map MLB stats to physics-based attributes (percentile-based)
+
+**Quick Example:**
+```python
+from batted_ball import create_mlb_player, AtBatSimulator
+
+# Create real MLB players
+judge = create_mlb_player("Aaron Judge", season=2024, role='hitter')
+ohtani = create_mlb_player("Shohei Ohtani", season=2024, role='pitcher')
+
+# Simulate at-bat
+sim = AtBatSimulator(ohtani, judge)
+result = sim.simulate_at_bat()
+print(f"Outcome: {result.outcome}")
+```
+
+**Installation:** `pip install pybaseball pandas`
+
+See [PyBaseball Integration Guide](docs/PYBASEBALL_INTEGRATION_GUIDE.md) for complete documentation.
+
 ## Overview
 
 This is a **complete baseball game simulator** built on rigorous physics principles. Unlike arcade-style games or statistical simulations, this engine models the actual physical interactions of every element: spinning baseballs in flight, bat-ball collisions, fielder movement, and baserunning dynamics.
