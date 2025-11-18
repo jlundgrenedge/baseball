@@ -784,13 +784,25 @@ def create_team_from_mlb_roster(
         pitcher = create_pitcher_from_mlb_stats(player_name, stats, role=role)
         pitchers.append(pitcher)
 
-    # Create fielders from hitters (first 9 hitters fill defensive positions)
+    # Create fielders from hitters (skip DH as they don't play defense)
     fielders = {}
-    for i, (player_name, position) in enumerate(roster_hitters[:9]):
+    for i, (player_name, position) in enumerate(roster_hitters):
+        # Skip designated hitter - they don't have a defensive position
+        if position == 'DH':
+            continue
         fielder = create_fielder_from_mlb_stats(player_name, position)
         # Map position abbreviation (e.g., 'RF') to full name (e.g., 'right_field')
         position_full_name = map_position_abbreviation_to_full_name(position)
         fielders[position_full_name] = fielder
+        # Stop after we have 8 position players (pitcher will be added separately)
+        if len(fielders) >= 8:
+            break
+
+    # Add pitcher as a fielder (use the first pitcher in the rotation)
+    if pitchers:
+        pitcher_name = roster_pitchers[0][0] if roster_pitchers else "Pitcher"
+        pitcher_fielder = create_fielder_from_mlb_stats(pitcher_name, 'P')
+        fielders['pitcher'] = pitcher_fielder
 
     return Team(
         name=team_name,
