@@ -1122,7 +1122,10 @@ class FlyBallHandler:
             field_side = ""  # center field (no prefix)
 
         # Determine depth based on total distance
-        if distance < 95:
+        # FIX FOR OUTFIELD POP-UP BUG: Updated infield threshold from 95ft to 140ft
+        # This accounts for the dirt edge, not just the pitcher's mound distance
+        # Balls at 70-75 ft are clearly infield pop-ups, not "outfield" flies
+        if distance < 140:
             return "infield"
         elif distance < 180:
             return f"shallow {field_side}outfield"
