@@ -91,6 +91,13 @@ def simulate_yankees_vs_dodgers(season: int = 2024):
     # Create teams from MLB rosters
     print("Creating Yankees team from MLB data...")
     try:
+        # Force module reload to avoid caching issues
+        import sys
+        if 'batted_ball.pybaseball_integration' in sys.modules:
+            import importlib
+            import batted_ball.pybaseball_integration
+            importlib.reload(batted_ball.pybaseball_integration)
+
         yankees = create_team_from_mlb_roster(
             "New York Yankees",
             yankees_hitters,
@@ -98,9 +105,13 @@ def simulate_yankees_vs_dodgers(season: int = 2024):
             season=season
         )
         print("✓ Yankees roster created successfully")
+        print(f"  Lineup: {', '.join([h.name for h in yankees.hitters[:9]])}")
     except Exception as e:
+        import traceback
         print(f"✗ Error creating Yankees roster: {e}")
-        print("  Using generic team instead...")
+        print("  Stack trace:")
+        traceback.print_exc()
+        print("\n  Using generic team instead...")
         from batted_ball import create_test_team
         yankees = create_test_team("Yankees", "elite")
 
@@ -113,9 +124,13 @@ def simulate_yankees_vs_dodgers(season: int = 2024):
             season=season
         )
         print("✓ Dodgers roster created successfully")
+        print(f"  Lineup: {', '.join([h.name for h in dodgers.hitters[:9]])}")
     except Exception as e:
+        import traceback
         print(f"✗ Error creating Dodgers roster: {e}")
-        print("  Using generic team instead...")
+        print("  Stack trace:")
+        traceback.print_exc()
+        print("\n  Using generic team instead...")
         from batted_ball import create_test_team
         dodgers = create_test_team("Dodgers", "elite")
 
@@ -175,11 +190,14 @@ def simulate_single_player_at_bats():
         print(f"✓ Created: {judge.name}")
         print(f"  Bat Speed: {judge.attributes.get_bat_speed_mph():.1f} mph")
     except Exception as e:
+        import traceback
         print(f"✗ Error: {e}")
-        print("  Using default hitter")
+        traceback.print_exc()
+        print("\n  Using default hitter")
         from batted_ball.attributes import create_power_hitter
         from batted_ball import Hitter
-        judge = Hitter("Judge", create_power_hitter("elite"))
+        attrs = create_power_hitter("elite")
+        judge = Hitter("Judge", attrs)
 
     # Simulate 10 at-bats
     print(f"\nSimulating 10 at-bats: {ohtani_pitcher.name} vs {judge.name}")
