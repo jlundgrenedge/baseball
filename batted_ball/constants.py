@@ -691,6 +691,31 @@ OUTFIELD_DEPTH_ADJUSTMENT_POWER = 15.0 # Depth adjustment for power hitters (ft)
 DEFENSIVE_SHIFT_THRESHOLD = 0.6       # Pull tendency threshold for shifting
 GAP_COVERAGE_PRIORITY = 1.2           # Multiplier for gap coverage importance
 
+# Defensive Hierarchy for "Call Off" Logic
+# When multiple fielders can reach a ball, priority is given based on position:
+# - Center fielder has best view and range (highest priority)
+# - Corner outfielders next (better angles than infielders)
+# - Infielders lowest priority on fly balls (but high on ground balls)
+#
+# Priority values: Higher = takes precedence on contested balls
+FIELDING_HIERARCHY = {
+    'center_field': 100,      # CF has authority on all fly balls
+    'left_field': 80,         # Corner OFs defer to CF
+    'right_field': 80,
+    'shortstop': 60,          # Middle infielders can make plays
+    'second_base': 60,
+    'third_base': 50,         # Corner infielders
+    'first_base': 50,
+    'pitcher': 40,            # Pitcher lowest priority
+    'catcher': 30             # Catcher rarely involved in fly balls
+}
+
+# Distance threshold for applying hierarchy (feet)
+# If fielders are within this distance of each other's arrival times,
+# use hierarchy to break ties
+FIELDING_HIERARCHY_DISTANCE_THRESHOLD = 20.0  # feet
+FIELDING_HIERARCHY_TIME_THRESHOLD = 0.3       # seconds
+
 # ============================================================================
 # BASERUNNING ATTRIBUTES AND PHYSICS
 # ============================================================================

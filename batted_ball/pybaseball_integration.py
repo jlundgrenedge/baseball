@@ -484,7 +484,7 @@ def create_fielder_from_mlb_stats(
     name : str
         Player name
     position : str
-        Defensive position (e.g., 'RF', 'SS', '1B')
+        Defensive position (e.g., 'RF', 'SS', '1B', or full names like 'right_field')
     fielder_stats : dict, optional
         Fielding statistics with percentiles
 
@@ -498,18 +498,13 @@ def create_fielder_from_mlb_stats(
 
     fielder_attrs = map_fielder_stats_to_attributes(fielder_stats, position)
 
-    # Determine position type for Fielder constructor
-    position_types = {
-        'C': 'catcher',
-        'P': 'pitcher',
-        '1B': 'infield', '2B': 'infield', '3B': 'infield', 'SS': 'infield',
-        'LF': 'outfield', 'CF': 'outfield', 'RF': 'outfield'
-    }
-    position_type = position_types.get(position, 'outfield')
+    # Convert position abbreviation to full position name for consistency
+    # with fielding system (which uses 'center_field', 'left_field', etc. as keys)
+    position_full = map_position_abbreviation_to_full_name(position)
 
     return Fielder(
         name=name,
-        position=position_type,
+        position=position_full,
         attributes=fielder_attrs
     )
 

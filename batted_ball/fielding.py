@@ -56,7 +56,8 @@ class FieldingResult:
                  ball_arrival_time: float,
                  catch_position: FieldPosition,
                  fielder_name: str,
-                 fielder_position: str = None):
+                 fielder_position: str = None,
+                 failure_reason: str = None):
         """
         Initialize fielding result.
 
@@ -74,6 +75,11 @@ class FieldingResult:
             Name of the fielder
         fielder_position : str, optional
             Position key of the fielder (e.g., 'shortstop', 'left_field')
+        failure_reason : str, optional
+            Reason for fielding failure if not successful:
+            - None: success=True (no failure)
+            - 'TOO_SLOW': fielder arrived after ball landed
+            - 'DROP_ERROR': fielder arrived in time but failed to catch
         """
         self.success = success
         self.fielder_arrival_time = fielder_arrival_time
@@ -81,6 +87,7 @@ class FieldingResult:
         self.catch_position = catch_position
         self.fielder_name = fielder_name
         self.fielder_position = fielder_position
+        self.failure_reason = failure_reason
         self.margin = fielder_arrival_time - ball_arrival_time  # Negative = made it
 
 
@@ -780,28 +787,44 @@ class Fielder:
 
         return probability
 
-    def attempt_fielding(self, ball_position: FieldPosition, 
+    def attempt_fielding(self, ball_position: FieldPosition,
                         ball_arrival_time: float) -> FieldingResult:
         """
         Attempt to field a ball at given position and time using research-based model.
-        
+
         Parameters
         ----------
         ball_position : FieldPosition
             Position where ball arrives
         ball_arrival_time : float
             Time when ball arrives
-            
+
         Returns
         -------
         FieldingResult
             Result of fielding attempt
         """
         effective_fielder_time = self.calculate_effective_time_to_position(ball_position)
-        
+
+        # Determine if fielder can reach the ball in time
+        # Positive time margin = fielder arrives before ball
+        time_margin = ball_arrival_time - effective_fielder_time
+
         # Use research-based catch probability
         catch_probability = self.calculate_catch_probability(ball_position, ball_arrival_time)
-        success = np.random.random() < catch_probability
+        catch_roll = np.random.random()
+        success = catch_roll < catch_probability
+
+        # Determine failure reason if not successful
+        failure_reason = None
+        if not success:
+            # Check if fielder arrives too late (more than 0.15s after ball)
+            # Allow small negative margins for diving/stretching catches
+            if time_margin < -0.15:
+                failure_reason = 'TOO_SLOW'
+            else:
+                # Fielder arrived in time (or close enough) but failed the catch roll
+                failure_reason = 'DROP_ERROR'
 
         return FieldingResult(
             success=success,
@@ -809,7 +832,8 @@ class Fielder:
             ball_arrival_time=ball_arrival_time,
             catch_position=ball_position,
             fielder_name=self.name,
-            fielder_position=self.position
+            fielder_position=self.position,
+            failure_reason=failure_reason
         )
     
     def throw_ball(self, target_position: FieldPosition, 
@@ -1321,42 +1345,111 @@ class FieldingSimulator:
         
         self.fielders[position_name] = fielder
     
-    def determine_responsible_fielder(self, ball_position: FieldPosition, 
+    def determine_responsible_fielder(self, ball_position: FieldPosition,
                                      ball_arrival_time: Optional[float] = None) -> str:
         """
         Determine which fielder should attempt to field the ball based on
-        proximity and capability rather than simple zone assignment.
-        
+        proximity, capability, and defensive hierarchy ("call off" logic).
+
+        Implements physics-first approach with realistic defensive priorities:
+        1. Calculate time-to-reach for all fielders
+        2. Filter to fielders who can make the play
+        3. Apply defensive hierarchy to resolve conflicts
+        4. Prefer fielders with best positioning and capability
+
         Parameters
         ----------
         ball_position : FieldPosition
             Position where ball will land
         ball_arrival_time : float, optional
             Time when ball will arrive (used for capability assessment)
-            
+
         Returns
         -------
         str
             Name of the fielder position best suited to field the ball
         """
+        from .constants import (
+            FIELDING_HIERARCHY,
+            FIELDING_HIERARCHY_TIME_THRESHOLD,
+            FIELDING_HIERARCHY_DISTANCE_THRESHOLD
+        )
+
         # If no arrival time provided, use zone assignment as fallback
         if ball_arrival_time is None:
             return self.field_layout.get_nearest_fielder_position(ball_position)
-        
+
         # Calculate fielding capabilities for all fielders
         probabilities = self.get_all_fielding_probabilities(ball_position, ball_arrival_time)
-        
+
         # Filter out fielders who can't possibly reach the ball
         viable_fielders = {pos: prob for pos, prob in probabilities.items() if prob > 0.0}
-        
+
         if not viable_fielders:
             # No one can reach it - fall back to zone assignment
             return self.field_layout.get_nearest_fielder_position(ball_position)
-        
-        # Choose fielder with highest probability of success
-        best_fielder = max(viable_fielders.items(), key=lambda x: x[1])[0]
-        
-        return best_fielder
+
+        # Calculate detailed fielding metrics for viable fielders
+        fielder_metrics = []
+        for pos_name in viable_fielders.keys():
+            fielder = self.fielders[pos_name]
+            effective_time = fielder.calculate_effective_time_to_position(ball_position)
+            time_margin = ball_arrival_time - effective_time
+            distance = fielder.current_position.horizontal_distance_to(ball_position)
+            hierarchy_priority = FIELDING_HIERARCHY.get(pos_name, 50)
+
+            fielder_metrics.append({
+                'position': pos_name,
+                'fielder': fielder,
+                'effective_time': effective_time,
+                'time_margin': time_margin,
+                'distance': distance,
+                'hierarchy': hierarchy_priority,
+                'probability': viable_fielders[pos_name]
+            })
+
+        # Sort by time margin (descending) - who arrives earliest
+        fielder_metrics.sort(key=lambda x: x['time_margin'], reverse=True)
+
+        # Get the fielder who arrives earliest
+        best_metric = fielder_metrics[0]
+
+        # Check if there are contested situations (multiple fielders arrive within threshold)
+        contested_fielders = [
+            m for m in fielder_metrics
+            if abs(m['time_margin'] - best_metric['time_margin']) <= FIELDING_HIERARCHY_TIME_THRESHOLD
+        ]
+
+        if len(contested_fielders) > 1:
+            # Multiple fielders can make the play - apply hierarchy
+            # Also consider distance: if one is significantly closer, they get priority
+            distance_differences = [
+                best_metric['distance'] - m['distance']
+                for m in contested_fielders
+            ]
+
+            # Find closest fielder
+            closest_idx = min(range(len(contested_fielders)),
+                            key=lambda i: contested_fielders[i]['distance'])
+            closest = contested_fielders[closest_idx]
+
+            # Check if closest fielder is significantly closer than others
+            is_significantly_closer = any(
+                diff > FIELDING_HIERARCHY_DISTANCE_THRESHOLD
+                for diff in distance_differences
+                if diff > 0
+            )
+
+            if is_significantly_closer:
+                # Closest fielder gets priority if significantly closer
+                return closest['position']
+            else:
+                # Apply defensive hierarchy to break tie
+                contested_fielders.sort(key=lambda x: x['hierarchy'], reverse=True)
+                return contested_fielders[0]['position']
+
+        # Clear winner - fielder who arrives earliest with significant margin
+        return best_metric['position']
     
     def simulate_fielding_attempt(self, ball_position: FieldPosition, 
                                  ball_arrival_time: float) -> FieldingResult:

@@ -210,7 +210,7 @@ class HitHandler:
             target_base = decision["target_base"]
             runner_targets[base] = target_base  # Track for throw destination logic
 
-            # LOG RUNNER ADVANCEMENT DECISION
+            # LOG RUNNER ADVANCEMENT DECISION WITH TIMING
             # Get ball retrieval time from events for proper timestamp
             ball_retrieval_time = 0.0
             for event in result.events:
@@ -218,11 +218,30 @@ class HitHandler:
                     ball_retrieval_time = event.time
                     break
 
-            # Log the advancement decision with reasoning
+            # Extract ball arrival times at each base from race_analysis event
+            ball_at_base = {}
+            for event in result.events:
+                if event.event_type == "race_analysis":
+                    # Parse: "Ball arrival times - 1st: X.XXs, 2nd: X.XXs, 3rd: X.XXs, home: X.XXs"
+                    import re
+                    desc = event.description
+                    base_labels = {"1st": "first", "2nd": "second", "3rd": "third", "home": "home"}
+                    for label, base_name in base_labels.items():
+                        pattern = f"{label}: ([0-9.]+)s"
+                        match = re.search(pattern, desc)
+                        if match:
+                            ball_at_base[base_name] = float(match.group(1))
+                    break
+
+            # Calculate runner arrival time
+            runner_time_to_target = runner.calculate_time_to_base(base, target_base, include_leadoff=False)
+            runner_arrival_time = runner_time_to_target
+
+            # Log the advancement DECISION with reasoning
             result.add_event(PlayEvent(
                 ball_retrieval_time + 0.05,
                 "runner_advancement_decision",
-                f"Runner on {base} advancing to {target_base} (risk: {decision['risk_level']}, advancing {decision['advancement_bases']} bases)"
+                f"DECISION: Runner on {base} attempts advance to {target_base} (risk: {decision['risk_level']}, advancing {decision['advancement_bases']} bases)"
             ))
 
             if DEBUG_BASERUNNING:
@@ -232,11 +251,19 @@ class HitHandler:
             if target_base == "home":
                 result.runs_scored += 1
                 runners_to_remove.append(base)
-                # Log runner scoring
+
+                # Log runner scoring with race timing
+                ball_time_at_home = ball_at_base.get("home", float('inf'))
+                time_difference = runner_arrival_time - ball_time_at_home
+
+                if time_difference < 0:
+                    margin_desc = f"beats throw by {abs(time_difference):.2f}s"
+                else:
+                    margin_desc = f"ball arrives {time_difference:.2f}s later (no play)"
+
                 result.add_event(PlayEvent(
-                    ball_retrieval_time + 0.06,
-                    "runner_scores",
-                    f"Runner from {base} scores"
+                    runner_arrival_time, "runner_scores",
+                    f"Runner from {base} scores at {runner_arrival_time:.2f}s (ball: {ball_time_at_home:.2f}s, {margin_desc})"
                 ))
                 if DEBUG_BASERUNNING:
                     print(f"  [BR] -> Runner scores!")
@@ -245,11 +272,24 @@ class HitHandler:
                 runner.current_base = target_base
                 new_positions[target_base] = runner
                 runners_to_remove.append(base)  # Remove from old base
-                # Log runner advancement completion
+
+                # Log runner advancement with race timing
+                ball_time_at_target = ball_at_base.get(target_base, float('inf'))
+                time_difference = runner_arrival_time - ball_time_at_target
+
+                if ball_time_at_target == float('inf'):
+                    # No ball timing available - use simple message
+                    status_desc = "safe"
+                elif time_difference < -0.5:
+                    status_desc = f"safe (beats throw by {abs(time_difference):.2f}s)"
+                elif time_difference < 0:
+                    status_desc = f"safe (close play, beats throw by {abs(time_difference):.2f}s)"
+                else:
+                    status_desc = f"safe (ball arrives {time_difference:.2f}s later, no play)"
+
                 result.add_event(PlayEvent(
-                    ball_retrieval_time + 0.07,
-                    "runner_advances",
-                    f"Runner advances from {base} to {target_base} (safe)"
+                    runner_arrival_time, "runner_advances",
+                    f"Runner arrives at {target_base} at {runner_arrival_time:.2f}s ({status_desc}) - Runner: {runner_arrival_time:.2f}s vs Ball: {ball_time_at_target:.2f}s"
                 ))
 
         # Store runner targets for later throw destination logic

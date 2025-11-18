@@ -88,15 +88,6 @@ class FlyBallHandler:
             ball_position, hang_time
         )
 
-        # ENHANCED LOGGING: Check for assignment consistency
-        if hasattr(catch_result, 'fielder_position') and catch_result.fielder_position:
-            # Compare the assigned position to the fielder's actual position
-            if catch_result.fielder_position != responsible_position:
-                result.add_event(PlayEvent(
-                    0.07, "assignment_discrepancy",
-                    f"WARNING: Assigned to {responsible_position} but {catch_result.fielder_position} ({catch_result.fielder_name}) attempted catch"
-                ))
-
         result.fielding_results.append(catch_result)
 
         if catch_result.success:
@@ -105,16 +96,33 @@ class FlyBallHandler:
                 f"Caught by {responsible_position} at {self.describe_field_location(ball_position)}"
             ))
         else:
-            result.add_event(PlayEvent(
-                hang_time, "ball_drops",
-                f"Ball drops in {self.describe_field_location(ball_position)}, {responsible_position} couldn't reach it"
-            ))
+            # Use failure reason to provide accurate description
+            if catch_result.failure_reason == 'TOO_SLOW':
+                result.add_event(PlayEvent(
+                    hang_time, "ball_drops",
+                    f"Ball drops in {self.describe_field_location(ball_position)}, {responsible_position} couldn't reach it"
+                ))
+            elif catch_result.failure_reason == 'DROP_ERROR':
+                # Calculate time margin for context
+                time_margin = catch_result.ball_arrival_time - catch_result.fielder_arrival_time
+                result.add_event(PlayEvent(
+                    hang_time, "ball_drops",
+                    f"Ball dropped by {responsible_position} in {self.describe_field_location(ball_position)} (arrived {time_margin:.2f}s early)"
+                ))
+            else:
+                # Fallback for unknown failure reason
+                result.add_event(PlayEvent(
+                    hang_time, "ball_drops",
+                    f"Ball drops in {self.describe_field_location(ball_position)}, missed by {responsible_position}"
+                ))
 
         return catch_result
 
     def log_fly_ball_fielder_analysis(self, ball_position: FieldPosition, hang_time: float,
                                      responsible_position: str, result: PlayResult):
         """Log detailed fielder analysis for fly ball attempts."""
+        from .constants import FIELDING_HIERARCHY
+
         fielder_analyses = []
         distance_from_home = np.sqrt(ball_position.x**2 + ball_position.y**2)
 
@@ -130,33 +138,75 @@ class FlyBallHandler:
         if distance_from_home < 250:
             positions_to_check.extend(infielders)
 
+        # Collect detailed metrics for viable fielders
+        viable_fielders = []
+
         for pos_name in positions_to_check:
             if pos_name in self.fielding_simulator.fielders:
                 fielder = self.fielding_simulator.fielders[pos_name]
                 start_pos = fielder.current_position
-                distance_to_ball = start_pos.distance_to(ball_position)
+                distance_to_ball = start_pos.horizontal_distance_to(ball_position)
 
-                # Calculate if this fielder could make the play (simplified)
-                reaction_time = fielder.get_reaction_time_seconds()
-                available_time = hang_time - reaction_time
-                speed_fps = fielder.get_sprint_speed_fps()
-                max_travel = speed_fps * available_time if available_time > 0 else 0
+                # Calculate if this fielder could make the play
+                effective_time = fielder.calculate_effective_time_to_position(ball_position)
+                time_margin = hang_time - effective_time
 
-                can_reach = distance_to_ball <= max_travel
-                margin = available_time - (distance_to_ball / speed_fps) if speed_fps > 0 else -999
+                can_reach = time_margin >= 0.0
+                hierarchy = FIELDING_HIERARCHY.get(pos_name, 50)
 
-                status = "can reach" if can_reach else "too far"
-                fielder_analyses.append(f"{pos_name}: {distance_to_ball:.1f}ft, margin {margin:.2f}s ({status})")
+                if can_reach or time_margin > -0.3:  # Show fielders who are close
+                    viable_fielders.append({
+                        'position': pos_name,
+                        'distance': distance_to_ball,
+                        'time_margin': time_margin,
+                        'hierarchy': hierarchy,
+                        'can_reach': can_reach
+                    })
 
-        # Log the analysis (limit to avoid overly long output)
-        limited_analyses = fielder_analyses[:6]  # Show more fielders for better analysis
+                # Create simple analysis string
+                status = "CAN REACH" if can_reach else f"late {abs(time_margin):.2f}s"
+                fielder_analyses.append(
+                    f"{pos_name}: {distance_to_ball:.1f}ft, margin {time_margin:+.2f}s ({status})"
+                )
+
+        # Log the basic analysis (all fielders checked)
+        if fielder_analyses:
+            # Split into chunks if too many
+            chunk_size = 4
+            for i in range(0, len(fielder_analyses), chunk_size):
+                chunk = fielder_analyses[i:i+chunk_size]
+                result.add_event(PlayEvent(
+                    0.05 + i * 0.002, "fly_ball_fielder_analysis",
+                    f"Fielders: {'; '.join(chunk)}"
+                ))
+
+        # Log detailed assignment decision if multiple fielders can reach
+        viable_count = sum(1 for f in viable_fielders if f['can_reach'])
+        if viable_count > 1:
+            # Sort by distance to see who's closest
+            viable_fielders.sort(key=lambda x: x['distance'])
+            closest = viable_fielders[0]
+
+            # Check if assigned fielder is the closest
+            assigned_viable = next((f for f in viable_fielders if f['position'] == responsible_position), None)
+
+            if assigned_viable and assigned_viable['position'] != closest['position']:
+                # Assignment differs from closest - log reasoning
+                reason = ""
+                if assigned_viable['time_margin'] > closest['time_margin'] + 0.1:
+                    reason = f"arrives {assigned_viable['time_margin'] - closest['time_margin']:.2f}s earlier"
+                elif assigned_viable['hierarchy'] > closest['hierarchy']:
+                    reason = f"hierarchy priority (H:{assigned_viable['hierarchy']} vs {closest['hierarchy']})"
+                else:
+                    reason = "similar arrival time, better positioning"
+
+                result.add_event(PlayEvent(
+                    0.065, "fly_ball_assignment_reasoning",
+                    f"Assigned to {responsible_position} over {closest['position']} ({closest['distance']:.1f}ft closer): {reason}"
+                ))
+
         result.add_event(PlayEvent(
-            0.05, "fly_ball_fielder_analysis",
-            f"Fielder analysis - {'; '.join(limited_analyses)}"
-        ))
-
-        result.add_event(PlayEvent(
-            0.06, "fly_ball_assignment",
+            0.07, "fly_ball_assignment",
             f"Assigned to: {responsible_position}"
         ))
 
