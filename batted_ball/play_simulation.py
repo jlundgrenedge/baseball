@@ -201,19 +201,33 @@ class PlaySimulator:
                 result.play_description = result.generate_description()
                 return result
 
-            # Not a home run - attempt catch at landing position using fly ball handler
-            catch_result = self.fly_ball_handler.simulate_catch_attempt(ball_landing_pos, hang_time, result)
+            # Not a home run - first try to intercept during flight
+            # FIX FOR "SCHRÖDINGER'S CATCH" BUG: Check trajectory interception FIRST
+            # before attempting landing position catch. This prevents logging "ball drops"
+            # followed by "caught" for the same play.
+            trajectory_caught = self.fly_ball_handler.attempt_trajectory_interception(
+                batted_ball_result, result
+            )
 
-            if catch_result.success:
-                # Ball caught - delegate to fly ball handler
-                self.fly_ball_handler.handle_fly_ball_caught(catch_result, result)
-            elif hasattr(catch_result, 'is_error') and catch_result.is_error:
-                # FIX FOR BUTTERFINGERS BUG: Fielding error (dropped with positive time margin)
-                # Ball stays at fielder's location, runners advance 1-2 bases only
-                self.fly_ball_handler.handle_fielding_error(catch_result, ball_landing_pos, hang_time, result)
+            if trajectory_caught:
+                # Ball was caught during flight - play is over
+                # attempt_trajectory_interception already set outcome and logged events
+                pass
             else:
-                # Ball dropped - becomes hit (trajectory interception already ran)
-                self.fly_ball_handler.handle_ball_in_play(ball_landing_pos, hang_time, result)
+                # Ball not caught during flight - try catch at landing position
+                catch_result = self.fly_ball_handler.simulate_catch_attempt(ball_landing_pos, hang_time, result)
+
+                if catch_result.success:
+                    # Ball caught at landing - delegate to fly ball handler
+                    self.fly_ball_handler.handle_fly_ball_caught(catch_result, result)
+                elif hasattr(catch_result, 'is_error') and catch_result.is_error:
+                    # FIX FOR BUTTERFINGERS BUG: Fielding error (dropped with positive time margin)
+                    # Ball stays at fielder's location, runners advance 1-2 bases only
+                    self.fly_ball_handler.handle_fielding_error(catch_result, ball_landing_pos, hang_time, result)
+                else:
+                    # Ball dropped at landing - becomes hit
+                    # Skip trajectory interception in handle_ball_in_play since we already tried it
+                    self.fly_ball_handler.handle_ball_in_play(ball_landing_pos, hang_time, result, skip_trajectory_interception=True)
         else:
             # Ground ball - delegate to ground ball handler
             self.ground_ball_handler.handle_ground_ball(ball_landing_pos, result)
