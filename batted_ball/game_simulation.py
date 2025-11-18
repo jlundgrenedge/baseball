@@ -519,6 +519,8 @@ class GameSimulator:
             return f"⚾ Line out"
         elif outcome == PlayOutcome.DOUBLE_PLAY:
             return f"⚾⚾ DOUBLE PLAY!"
+        elif outcome == PlayOutcome.INFIELD_FLY:
+            return f"⚾ INFIELD FLY - Batter Out (rule invoked)"
         else:
             # Handle both enum and string outcomes
             outcome_str = outcome.value if hasattr(outcome, 'value') else str(outcome)

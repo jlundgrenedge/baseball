@@ -16,6 +16,7 @@ class PlayOutcome(Enum):
     FORCE_OUT = "force_out"
     DOUBLE_PLAY = "double_play"
     TRIPLE_PLAY = "triple_play"
+    INFIELD_FLY = "infield_fly"  # Infield fly rule - batter out, runners advance at own risk
     SINGLE = "single"
     DOUBLE = "double"
     TRIPLE = "triple"

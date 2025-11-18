@@ -151,10 +151,59 @@ class PlaySimulator:
         ))
 
         if is_air_ball:
-            # Check for home run FIRST before attempting catch
+            # Calculate distance for various checks
             distance_ft = np.sqrt(ball_landing_pos.x**2 + ball_landing_pos.y**2)
             spray_angle = np.arctan2(ball_landing_pos.x, ball_landing_pos.y) * 180.0 / np.pi
             peak_height = batted_ball_result.peak_height if batted_ball_result else 0
+
+            # FIX FOR INFIELD FLY RULE: Check if this is an infield fly situation
+            # Conditions:
+            # 1. High pop-up (hang_time > 3.0s)
+            # 2. Ball lands in infield (distance < 140ft)
+            # 3. Runners on 1st AND 2nd (or bases loaded)
+            # 4. Less than 2 outs
+            is_infield_popup = hang_time > 3.0 and distance_ft < 140.0
+
+            # Check runner situation
+            runners_on_first = self.baserunning_simulator.get_runner_at_base("first") is not None
+            runners_on_second = self.baserunning_simulator.get_runner_at_base("second") is not None
+            infield_fly_runners = runners_on_first and runners_on_second
+
+            # Check outs
+            infield_fly_outs_ok = current_outs < 2
+
+            # Trigger infield fly rule if all conditions met
+            if is_infield_popup and infield_fly_runners and infield_fly_outs_ok:
+                # INFIELD FLY RULE IN EFFECT
+                result.outcome = PlayOutcome.INFIELD_FLY
+                result.outs_made = 1
+
+                result.add_event(PlayEvent(
+                    0.1, "infield_fly_rule",
+                    f"INFIELD FLY RULE in effect - Batter is automatically OUT"
+                ))
+
+                result.add_event(PlayEvent(
+                    hang_time, "ball_lands",
+                    f"Ball lands in infield at {self.play_analyzer.describe_field_location(ball_landing_pos)}"
+                ))
+
+                # Remove batter-runner (they're out)
+                self.baserunning_simulator.remove_runner("home")
+
+                # Preserve all existing runners (they stay on their bases, can tag up at own risk)
+                # In a real implementation, runners could tag up and advance if they want
+                # For now, we keep them on their bases
+                for base in ["first", "second", "third"]:
+                    runner = self.baserunning_simulator.get_runner_at_base(base)
+                    if runner:
+                        result.final_runner_positions[base] = runner
+
+                # Finalize and return
+                result.play_description = result.generate_description()
+                return result
+
+            # Not infield fly - check for home run FIRST before attempting catch
 
             # Determine fence distance and height based on spray angle
             abs_angle = abs(spray_angle)
