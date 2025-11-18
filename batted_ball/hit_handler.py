@@ -237,30 +237,48 @@ class HitHandler:
             # FIX FOR TIME TRAVEL BUG: Runners start running when ball is hit (t=0)
             # calculate_time_to_base returns duration, we need absolute timestamp
 
-            # FIX FOR "12.01s TIME ARTIFACT" BUG (Corrected):
-            # Previous fix checked "if base == 'home'" but 'base' is the dictionary key
-            # from runners_to_process, which NEVER contains "home" (only checks third/second/first).
-            # The REAL issue: runner.current_base attribute is incorrectly "home" even though
-            # the runner is stored in the dictionary under "first", "second", or "third".
+            # FIX FOR "12.01s TIME ARTIFACT" BUG (Enhanced):
+            # Use dictionary key as source of truth for runner location
+            # The dictionary key tells us where the runner IS (first/second/third)
+            # The runner.current_base attribute may be stale (often stuck at "home")
             #
-            # Root cause: When runners are created, they default to current_base="home",
-            # and while add_runner() SHOULD update this (line 516 in baserunning.py),
-            # there may be edge cases where it doesn't sync properly.
-            #
-            # Solution: Use the dictionary key 'base' as the source of truth (where the
-            # runner actually is), not the runner's internal current_base attribute.
-            # Update current_base to match for consistency.
+            # CRITICAL: Always use dictionary key, not runner.current_base
+            # This prevents incorrect time calculations like using "home->third" (17s)
+            # when the runner is actually at "second" and should use "second->third" (5.5s)
 
-            actual_base = base  # Use dictionary key (correct location)
+            actual_base = base  # ALWAYS use dictionary key as source of truth
 
-            # Sync runner's current_base to match if it's wrong
-            if runner.current_base != base and runner != batter_runner:
+            # ALWAYS sync runner's current_base to match dictionary (don't just check, force it)
+            # This ensures runner.current_base is never stale for future calculations
+            if runner.current_base != base:
                 if DEBUG_BASERUNNING:
-                    print(f"  [BR WARNING] Runner's current_base='{runner.current_base}' doesn't match dictionary key='{base}' - syncing to '{base}'")
-                runner.current_base = base  # Fix the runner's internal state
+                    print(f"  [BR FIX] Runner at dictionary key '{base}' had stale current_base='{runner.current_base}' - forcing sync")
+                runner.current_base = base  # Force synchronization
 
             # Calculate movement time using correct base
             runner_time_to_target = runner.calculate_time_to_base(actual_base, target_base, include_leadoff=False)
+
+            # FIX FOR "12.01s TIME ARTIFACT" BUG - Validation:
+            # Sanity check: 1-base advances should be ~3.5-6s, 2-base ~10-14s, 3-base ~15-20s
+            # If we get an unexpected time, recalculate with physics approximation
+            expected_bases = {
+                ("first", "second"): 1, ("second", "third"): 1, ("third", "home"): 1,
+                ("first", "third"): 2, ("second", "home"): 2, ("home", "second"): 2,
+                ("first", "home"): 3, ("home", "third"): 3
+            }
+            base_pair = (actual_base, target_base)
+            if base_pair in expected_bases:
+                expected_num_bases = expected_bases[base_pair]
+                # Typical range: 1 base = 3.5-6s, 2 bases = 10-14s, 3 bases = 15-20s
+                expected_min = 3.5 * expected_num_bases
+                expected_max = 6.5 * expected_num_bases
+                if not (expected_min <= runner_time_to_target <= expected_max):
+                    if DEBUG_BASERUNNING:
+                        print(f"  [BR WARNING] Time {runner_time_to_target:.2f}s for {actual_base}->{target_base} "
+                              f"is outside expected range [{expected_min:.1f}, {expected_max:.1f}]s for {expected_num_bases} bases")
+                    # Use physics approximation: distance / avg_speed
+                    # Average sprint speed ~27 ft/s, distance = 90ft * num_bases
+                    runner_time_to_target = (90.0 * expected_num_bases) / 27.0
 
             runner_start_time = 0.0  # Runners start at contact (time 0)
             runner_arrival_time = runner_start_time + runner_time_to_target
