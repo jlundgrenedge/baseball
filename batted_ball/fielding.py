@@ -49,16 +49,17 @@ from .attributes import FielderAttributes
 
 class FieldingResult:
     """Result of a fielding attempt."""
-    
-    def __init__(self, 
+
+    def __init__(self,
                  success: bool,
                  fielder_arrival_time: float,
                  ball_arrival_time: float,
                  catch_position: FieldPosition,
-                 fielder_name: str):
+                 fielder_name: str,
+                 fielder_position: str = None):
         """
         Initialize fielding result.
-        
+
         Parameters
         ----------
         success : bool
@@ -71,12 +72,15 @@ class FieldingResult:
             Position where ball was fielded
         fielder_name : str
             Name of the fielder
+        fielder_position : str, optional
+            Position key of the fielder (e.g., 'shortstop', 'left_field')
         """
         self.success = success
         self.fielder_arrival_time = fielder_arrival_time
         self.ball_arrival_time = ball_arrival_time
         self.catch_position = catch_position
         self.fielder_name = fielder_name
+        self.fielder_position = fielder_position
         self.margin = fielder_arrival_time - ball_arrival_time  # Negative = made it
 
 
@@ -798,13 +802,14 @@ class Fielder:
         # Use research-based catch probability
         catch_probability = self.calculate_catch_probability(ball_position, ball_arrival_time)
         success = np.random.random() < catch_probability
-        
+
         return FieldingResult(
             success=success,
             fielder_arrival_time=effective_fielder_time,
             ball_arrival_time=ball_arrival_time,
             catch_position=ball_position,
-            fielder_name=self.name
+            fielder_name=self.name,
+            fielder_position=self.position
         )
     
     def throw_ball(self, target_position: FieldPosition, 

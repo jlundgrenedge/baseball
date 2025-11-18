@@ -89,25 +89,12 @@ class FlyBallHandler:
         )
 
         # ENHANCED LOGGING: Check for assignment consistency
-        if hasattr(catch_result, 'fielder_name') and catch_result.fielder_name:
-            # Convert position key to display name for comparison
-            position_to_display = {
-                'left_field': 'Left Field',
-                'center_field': 'Center Field',
-                'right_field': 'Right Field',
-                'first_base': 'First Base',
-                'second_base': 'Second Base',
-                'third_base': 'Third Base',
-                'shortstop': 'Shortstop',
-                'pitcher': 'Pitcher',
-                'catcher': 'Catcher'
-            }
-            expected_display_name = position_to_display.get(responsible_position, responsible_position)
-
-            if catch_result.fielder_name != expected_display_name:
+        if hasattr(catch_result, 'fielder_position') and catch_result.fielder_position:
+            # Compare the assigned position to the fielder's actual position
+            if catch_result.fielder_position != responsible_position:
                 result.add_event(PlayEvent(
                     0.07, "assignment_discrepancy",
-                    f"WARNING: Assigned to {responsible_position} but {catch_result.fielder_name} attempted catch"
+                    f"WARNING: Assigned to {responsible_position} but {catch_result.fielder_position} ({catch_result.fielder_name}) attempted catch"
                 ))
 
         result.fielding_results.append(catch_result)
