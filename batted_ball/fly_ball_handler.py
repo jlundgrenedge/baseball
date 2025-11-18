@@ -105,10 +105,24 @@ class FlyBallHandler:
             elif catch_result.failure_reason == 'DROP_ERROR':
                 # Calculate time margin for context
                 time_margin = catch_result.ball_arrival_time - catch_result.fielder_arrival_time
-                result.add_event(PlayEvent(
-                    hang_time, "ball_drops",
-                    f"Ball dropped by {responsible_position} in {self.describe_field_location(ball_position)} (arrived {time_margin:.2f}s early)"
-                ))
+
+                # FIX FOR BUTTERFINGERS BUG: If fielder arrived early (positive time margin),
+                # especially if waiting (>0.5s), this should be a FIELDING ERROR, not a hit.
+                if time_margin > 0.0:
+                    # Fielder was there in time but dropped it - this is an error
+                    result.add_event(PlayEvent(
+                        hang_time, "fielding_error",
+                        f"ERROR! Ball dropped by {responsible_position} in {self.describe_field_location(ball_position)} (arrived {time_margin:.2f}s early, E{self._get_error_number(responsible_position)})"
+                    ))
+                    # Mark this as an error, not allowing the ball to roll to the wall
+                    # We'll handle this in handle_fly_ball_caught with special error logic
+                    catch_result.is_error = True
+                else:
+                    # Fielder barely missed (arrived slightly late but within diving range)
+                    result.add_event(PlayEvent(
+                        hang_time, "ball_drops",
+                        f"Ball dropped by {responsible_position} in {self.describe_field_location(ball_position)} (diving attempt)"
+                    ))
             else:
                 # Fallback for unknown failure reason
                 result.add_event(PlayEvent(
@@ -227,6 +241,121 @@ class FlyBallHandler:
             runner = self.baserunning_simulator.get_runner_at_base(base)
             if runner:
                 result.final_runner_positions[base] = runner
+
+    def handle_fielding_error(self, catch_result: FieldingResult,
+                              ball_position: FieldPosition, error_time: float,
+                              result: PlayResult):
+        """
+        Handle fielding error (dropped ball with positive time margin).
+
+        FIX FOR BUTTERFINGERS BUG: When fielder arrives early but drops the ball,
+        this should be a fielding error, not a hit that rolls to the wall.
+
+        Ball stays at fielder's location. Runners advance 1-2 bases, not unlimited.
+        """
+        # Set outcome to ERROR
+        result.outcome = PlayOutcome.ERROR
+        result.outs_made = 0  # No outs on error
+
+        # Ball stays at fielder's location (bounced off glove)
+        # Fielder retrieves it immediately (1-2 seconds to recover)
+        recovery_time = 1.5  # seconds to recover from error
+        ball_retrieved_time = error_time + recovery_time
+
+        # Get the fielder info
+        fielder_position = catch_result.fielder_position
+        fielder = self.fielding_simulator.fielders.get(fielder_position)
+
+        result.add_event(PlayEvent(
+            ball_retrieved_time, "ball_recovered",
+            f"Ball recovered by {fielder_position} after error at {ball_retrieved_time:.2f}s"
+        ))
+
+        # Baserunning: Batter reaches base, existing runners advance 1-2 bases
+        batter_runner = self.baserunning_simulator.get_runner_at_base("home")
+        if not batter_runner:
+            return  # Safety check
+
+        # Calculate how far batter can run during error recovery
+        time_to_first = batter_runner.calculate_time_to_base("home", "first", include_leadoff=False)
+        time_to_second = batter_runner.calculate_time_to_base("home", "second", include_leadoff=False)
+
+        # Determine batter's advancement
+        if ball_retrieved_time >= time_to_second:
+            # Batter reaches second on error
+            batter_target = "second"
+            result.add_event(PlayEvent(
+                time_to_second, "batter_reaches_second",
+                f"Batter reaches second base on error ({time_to_second:.2f}s)"
+            ))
+        else:
+            # Batter reaches first on error
+            batter_target = "first"
+            result.add_event(PlayEvent(
+                time_to_first, "batter_reaches_first",
+                f"Batter reaches first base on error ({time_to_first:.2f}s)"
+            ))
+
+        # Move batter to target base
+        self.baserunning_simulator.remove_runner("home")
+        batter_runner.current_base = batter_target
+        self.baserunning_simulator.add_runner(batter_target, batter_runner)
+        result.final_runner_positions[batter_target] = batter_runner
+
+        # Advance existing runners (force if needed, otherwise hold or advance 1 base)
+        # Process in reverse order (third -> second -> first) to avoid conflicts
+        for base in ["third", "second", "first"]:
+            runner = self.baserunning_simulator.get_runner_at_base(base)
+            if runner:
+                # Determine where this runner should go
+                if base == "third":
+                    # Runner on third scores on error
+                    target_base = "home"
+                    result.runs_scored += 1
+                    self.baserunning_simulator.remove_runner(base)
+                    result.add_event(PlayEvent(
+                        error_time + 0.5, f"runner_scores_from_{base}",
+                        f"Runner scores from third on error"
+                    ))
+                elif base == "second":
+                    # Runner on second advances to third (or home if batter only reached first)
+                    if batter_target == "first":
+                        target_base = "third"
+                    else:
+                        target_base = "home"
+                        result.runs_scored += 1
+
+                    self.baserunning_simulator.remove_runner(base)
+                    if target_base == "home":
+                        result.add_event(PlayEvent(
+                            error_time + 0.8, f"runner_scores_from_{base}",
+                            f"Runner scores from second on error"
+                        ))
+                    else:
+                        runner.current_base = target_base
+                        self.baserunning_simulator.add_runner(target_base, runner)
+                        result.final_runner_positions[target_base] = runner
+                        result.add_event(PlayEvent(
+                            error_time + 0.8, f"runner_advances_to_{target_base}",
+                            f"Runner advances from second to {target_base}"
+                        ))
+                elif base == "first":
+                    # Runner on first advances based on batter's advancement
+                    if batter_target == "second":
+                        # Forced to second (batter took second)
+                        target_base = "third"
+                    else:
+                        # Advances to second (force play)
+                        target_base = "second"
+
+                    self.baserunning_simulator.remove_runner(base)
+                    runner.current_base = target_base
+                    self.baserunning_simulator.add_runner(target_base, runner)
+                    result.final_runner_positions[target_base] = runner
+                    result.add_event(PlayEvent(
+                        error_time + 0.6, f"runner_advances_to_{target_base}",
+                        f"Runner advances from first to {target_base}"
+                    ))
 
     def handle_ball_in_play(self, ball_position: FieldPosition,
                             ball_time: float, result: PlayResult):
@@ -956,6 +1085,21 @@ class FlyBallHandler:
                     result.final_runner_positions[base] = other_runner
 
             return True
+
+    def _get_error_number(self, position: str) -> int:
+        """Get the error number (1-9) for a fielding position."""
+        error_numbers = {
+            'pitcher': 1,
+            'catcher': 2,
+            'first_base': 3,
+            'second_base': 4,
+            'third_base': 5,
+            'shortstop': 6,
+            'left_field': 7,
+            'center_field': 8,
+            'right_field': 9
+        }
+        return error_numbers.get(position, 0)
 
     def describe_field_location(self, position: FieldPosition) -> str:
         """Generate human-readable description of field location."""
