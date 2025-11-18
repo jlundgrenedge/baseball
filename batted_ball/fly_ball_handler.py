@@ -128,11 +128,28 @@ class FlyBallHandler:
                     # We'll handle this in handle_fly_ball_caught with special error logic
                     catch_result.is_error = True
                 else:
-                    # Fielder barely missed (arrived slightly late but within diving range)
-                    result.add_event(PlayEvent(
-                        hang_time, "ball_drops",
-                        f"Ball dropped by {responsible_position} in {self.describe_field_location(ball_position)} (diving attempt)"
-                    ))
+                    # FIX FOR "DIVING ATTEMPT VS ROUTINE DROP" BUG (Priority 3):
+                    # Fielder arrived slightly late (within diving range, -0.15s to 0.0s margin)
+                    # This is a diving attempt - most of these should be HITS, not errors
+                    # Only mark as error if ball actually hit the glove and was dropped
+
+                    # Small chance ball hits glove during diving attempt (20%)
+                    # This represents cases where fielder gets a glove on it but can't hold on
+                    ball_hit_glove = np.random.random() < 0.20
+
+                    if ball_hit_glove:
+                        # Ball touched glove but couldn't hold on - this is an error
+                        result.add_event(PlayEvent(
+                            hang_time, "fielding_error",
+                            f"ERROR! Diving attempt by {responsible_position}, ball hit glove but dropped in {self.describe_field_location(ball_position)} (E{self._get_error_number(responsible_position)})"
+                        ))
+                        catch_result.is_error = True
+                    else:
+                        # Diving attempt, ball never reached glove - this is a HIT (trapped/just missed)
+                        result.add_event(PlayEvent(
+                            hang_time, "ball_drops",
+                            f"Diving attempt by {responsible_position} in {self.describe_field_location(ball_position)}... just missed!"
+                        ))
             else:
                 # Fallback for unknown failure reason
                 # FIX FOR BALL RETRIEVAL LOGIC BUG: Don't specify fielder, let retrieval logic assign
