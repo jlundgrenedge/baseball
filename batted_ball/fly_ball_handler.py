@@ -889,20 +889,14 @@ class FlyBallHandler:
                         print(f"    {position_name} fielding at t={t:.2f}s, z={ball_pos_t.z:.1f}ft (margin: {best_candidate['time_margin']:.2f}s)")
                     return self.attempt_ground_ball_out(fielder, ball_pos_t, t, result, position_name)
 
-        # No interception possible - ball will drop for a hit
+        # No interception possible during trajectory - ball will continue to landing position
+        # where a catch attempt will be made
         if debug:
-            print("    No fielders can intercept")
+            print("    No fielders can intercept during flight")
 
-        # Add event to clarify that ball was not caught during flight
-        landing_pos = FieldPosition(
-            batted_ball_result.landing_x,
-            batted_ball_result.landing_y,
-            0.0
-        )
-        result.add_event(PlayEvent(
-            flight_time, "ball_not_caught",
-            f"Ball lands uncaught at {self.describe_field_location(landing_pos)} - no fielder could intercept"
-        ))
+        # DON'T log "Ball lands uncaught" here - we haven't tried the landing position catch yet!
+        # The landing position catch attempt happens in play_simulation.py after this returns False.
+        # Only log "uncaught" after BOTH trajectory interception AND landing catch have been attempted.
         return False
 
     def calculate_ball_position_at_time(self, batted_ball_result: BattedBallResult, t: float) -> FieldPosition:
