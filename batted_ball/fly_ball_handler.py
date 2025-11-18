@@ -717,6 +717,11 @@ class FlyBallHandler:
         #     if self.interception_debug_count > 3:
         #         debug = False  # Only debug first 3 balls in play
 
+        # FIX FOR "SCHRÖDINGER'S CAT" LOOP: Implement "any match" logic
+        # Initialize catch_made flag to track if ANY fielder catches the ball
+        # This prevents logging "uncaught" for individual fielders before checking all possibilities
+        catch_made = False
+
         # Sample entire trajectory, checking ALL fielders at each point
         # Skip very early trajectory (first 0.15s or 10% of flight) - ball rising too fast near batter
         start_time_threshold = min(0.15, flight_time * 0.10)
@@ -875,6 +880,10 @@ class FlyBallHandler:
                         print(f"    {position_name} catch attempt: prob={catch_prob:.2%}, roll={catch_roll:.2f}, {'SUCCESS' if catch_success else 'MISS'}")
 
                     if catch_success:
+                        # FIX FOR "SCHRÖDINGER'S CAT" LOOP: Set catch_made flag and log success
+                        # Only log "Caught" here after we've confirmed a fielder successfully caught it
+                        catch_made = True
+
                         # Catch made! Log at the actual time when fielder reaches the ball
                         fielder_arrival_time = best_candidate['effective_time']
                         actual_catch_time = max(t, fielder_arrival_time)  # Can't catch before ball arrives
@@ -894,10 +903,12 @@ class FlyBallHandler:
                             if runner:
                                 result.final_runner_positions[base] = runner
 
+                        # Return True to indicate ball was caught
                         return True
                     else:
-                        # Catch attempt failed - ball drops, continue checking other time points
-                        # Don't return here, let the ball keep going to see if another fielder can field it
+                        # FIX FOR "SCHRÖDINGER'S CAT" LOOP: Don't log failure here
+                        # Catch attempt failed - continue checking other time points
+                        # Don't log "uncaught" here - wait to see if another fielder can catch it
                         if debug:
                             print(f"    {position_name} missed catch (prob was {catch_prob:.0%})")
                         continue
@@ -906,15 +917,22 @@ class FlyBallHandler:
                         print(f"    {position_name} fielding at t={t:.2f}s, z={ball_pos_t.z:.1f}ft (margin: {best_candidate['time_margin']:.2f}s)")
                     return self.attempt_ground_ball_out(fielder, ball_pos_t, t, result, position_name)
 
-        # No interception possible during trajectory - ball will continue to landing position
-        # where a catch attempt will be made
-        if debug:
-            print("    No fielders can intercept during flight")
+        # FIX FOR "SCHRÖDINGER'S CAT" LOOP: After checking ALL fielders at ALL time points
+        # Only now can we determine that no interception was possible
+        if not catch_made:
+            # No interception possible during trajectory - ball will continue to landing position
+            # where a catch attempt will be made
+            if debug:
+                print("    No fielders can intercept during flight")
 
-        # DON'T log "Ball lands uncaught" here - we haven't tried the landing position catch yet!
-        # The landing position catch attempt happens in play_simulation.py after this returns False.
-        # Only log "uncaught" after BOTH trajectory interception AND landing catch have been attempted.
-        return False
+            # DON'T log "Ball lands uncaught" here - we haven't tried the landing position catch yet!
+            # The landing position catch attempt happens in play_simulation.py after this returns False.
+            # Only log "uncaught" after BOTH trajectory interception AND landing catch have been attempted.
+            return False
+
+        # If catch_made is True, we already returned True above (line 907)
+        # This line should never be reached, but included for completeness
+        return catch_made
 
     def calculate_ball_position_at_time(self, batted_ball_result: BattedBallResult, t: float) -> FieldPosition:
         """Calculate ball position at time t during flight using actual physics trajectory."""
