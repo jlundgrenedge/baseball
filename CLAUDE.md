@@ -36,7 +36,7 @@ A **physics-based baseball simulation engine** (~17,800 lines of Python) that mo
 - 8 pitch types with spin-dependent aerodynamics
 - Bat-ball contact physics with sweet spot modeling
 - Complete defensive plays including fielding and baserunning
-- Player attribute system (0-100 ratings) mapped to physical parameters
+- Player attribute system (0-100,000 ratings) mapped to physical parameters
 - Environmental effects (altitude, temperature, wind)
 - Force plays, double plays, and complex baserunning scenarios
 
@@ -88,15 +88,20 @@ Base positions (feet):
 **When modifying fielding/baserunning code**: Verify coordinate consistency by checking calculations against `field_layout.py`.
 
 ### 4. **Continuous Attribute Mapping**
-Player attributes (0-100 scale) map to physical parameters via **continuous functions** (sigmoid/logistic):
+Player attributes (0-100,000 scale) map to physical parameters via **continuous functions** (piecewise logistic):
 
 ```python
-# CORRECT: Continuous mapping in attributes.py
-def velocity_from_rating(rating):
-    return 55 + 50 * (rating / 100)**1.5  # 55-105 mph range
+# CORRECT: Continuous mapping in attributes.py using piecewise_logistic_map
+def get_bat_speed_mph(self) -> float:
+    return piecewise_logistic_map(
+        self.BAT_SPEED,  # 0-100,000 rating
+        human_min=52.0,  # Minimum human capability
+        human_cap=80.0,  # Elite human (at rating=85k)
+        super_cap=92.0   # Superhuman (at rating=100k)
+    )
 
 # INCORRECT: Hard-coded tiers
-if rating >= 80:
+if rating >= 80000:
     return 95  # DON'T create discrete buckets
 ```
 
@@ -148,7 +153,7 @@ pitch.py (880 lines)          - 8 pitch types with spin characteristics
 
 #### **Layer 3: Player Attributes**
 ```
-attributes.py (1,000 lines)   - 0-100 → physical parameter mappings
+attributes.py (1,000 lines)   - 0-100,000 → physical parameter mappings
 player.py (696 lines)         - Pitcher/Hitter classes
 at_bat.py (830 lines)         - Plate appearance simulation
 ```
@@ -280,26 +285,36 @@ def create_cutter(velocity_mph: float) -> Pitch:
 **Location**: `attributes.py` (1,000 lines)
 
 **Key Functions**:
-- `velocity_from_rating(rating)`: Pitcher velocity (0-100 → 55-105 mph)
-- `bat_speed_from_rating(rating)`: Hitter bat speed (0-100 → 60-85 mph)
-- `command_from_rating(rating)`: Pitch location accuracy (0-100 → 8" - 1" std dev)
-- `contact_ability_from_rating(rating)`: Sweet spot probability (0-100 → 0.05 - 0.65)
+- `get_raw_velocity_mph()`: Pitcher velocity (0-100k → 70-108 mph)
+- `get_bat_speed_mph()`: Hitter bat speed (0-100k → 52-92 mph)
+- `get_command_sigma_inches()`: Pitch location accuracy (0-100k → 8" - 0.8" std dev)
+- `get_barrel_accuracy_mm()`: Contact point error (0-100k → 40mm - 2mm RMS)
 
 **When tuning**:
 1. Identify which physical parameter needs adjustment
-2. Modify the mapping function (usually sigmoid/power law)
+2. Modify the piecewise_logistic_map parameters (human_min, human_cap, super_cap)
 3. Test with `examples/demonstrate_batter_vs_pitcher.py`
 4. Verify realistic stat distributions (BA, HR rate)
 
 **Example - Increasing power**:
 ```python
-# OLD: Power mapped to exit velocity bonus
-def power_from_rating(rating):
-    return 0 + 15 * (rating / 100)**2  # 0-15 mph bonus
+# OLD: Less bat speed at elite level
+def get_bat_speed_mph(self) -> float:
+    return piecewise_logistic_map(
+        self.BAT_SPEED,
+        human_min=52.0,
+        human_cap=80.0,   # Old elite cap
+        super_cap=92.0
+    )
 
-# NEW: More power influence
-def power_from_rating(rating):
-    return 0 + 20 * (rating / 100)**1.8  # 0-20 mph bonus (steeper curve)
+# NEW: More power at elite level
+def get_bat_speed_mph(self) -> float:
+    return piecewise_logistic_map(
+        self.BAT_SPEED,
+        human_min=52.0,
+        human_cap=83.0,   # Increased elite cap (+3 mph)
+        super_cap=95.0    # Increased superhuman cap (+3 mph)
+    )
 ```
 
 ### Workflow 4: Debugging Fielding/Baserunning Issues
@@ -748,14 +763,14 @@ def calculate_distance(velocity_mph, time_s):
 
 ### 3. Player Attribute Ranges
 
-**GOTCHA**: Attributes use 0-100 scale, but realistic players typically fall in 30-100 range. Values below 30 produce unrealistic physics.
+**GOTCHA**: Attributes use 0-100,000 scale, but realistic players typically fall in 30k-100k range. Values below 30k produce unrealistic physics.
 
 **Safe ranges**:
-- Elite: 85-100
-- Good: 70-85
-- Average: 50-70
-- Below average: 30-50
-- **Avoid**: 0-30 (produces unplayable characters)
+- Elite: 85k-100k (superhuman range starts at 85k)
+- Good: 65k-85k (above average to elite human)
+- Average: 45k-65k (typical MLB player)
+- Below average: 30k-45k (fringe MLB / minor league)
+- **Avoid**: 0-30k (produces unplayable characters)
 
 ### 4. Time Step Sensitivity
 
@@ -1002,7 +1017,7 @@ rover = Fielder(name="Rover", position="Rover", ...)
 1. **Physics-first**: Every outcome from physical simulation, not probability tables
 2. **Empirically calibrated**: All constants from MLB data
 3. **Coordinate consistency**: Home plate origin, unified across all modules
-4. **Continuous attributes**: Smooth mapping from 0-100 ratings to physics
+4. **Continuous attributes**: Smooth mapping from 0-100,000 ratings to physics via piecewise logistic functions
 5. **Validation-driven**: 7/7 benchmarks must pass
 
 ### When in Doubt
