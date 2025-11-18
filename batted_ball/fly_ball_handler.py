@@ -60,6 +60,10 @@ class FlyBallHandler:
         self.outfield_interceptor = outfield_interceptor
         self.current_outs = current_outs
 
+        # FIX FOR DATA CLEANLINESS (Priority 5): Debug flag for verbose fielder assignment logs
+        # Set to False to clean up play-by-play logs from clutter
+        self.DEBUG_FIELDING_ASSIGNMENT = False
+
         # These will be set externally by the play simulation
         self.play_analyzer = None
         self.hit_handler = None
@@ -68,20 +72,22 @@ class FlyBallHandler:
     def simulate_catch_attempt(self, ball_position: FieldPosition,
                                hang_time: float, result: PlayResult) -> FieldingResult:
         """Simulate fielder attempting to catch a fly ball."""
-        # ENHANCED LOGGING: Add detailed spatial and fielder analysis
-        distance_from_home = np.sqrt(ball_position.x**2 + ball_position.y**2)
-        result.add_event(PlayEvent(
-            0.0, "fly_ball_analysis",
-            f"Fly ball coordinates: ({ball_position.x:.1f}, {ball_position.y:.1f}) ft, distance {distance_from_home:.1f} ft, hang time {hang_time:.2f}s"
-        ))
+        # ENHANCED LOGGING: Add detailed spatial and fielder analysis (only if debug enabled)
+        if self.DEBUG_FIELDING_ASSIGNMENT:
+            distance_from_home = np.sqrt(ball_position.x**2 + ball_position.y**2)
+            result.add_event(PlayEvent(
+                0.0, "fly_ball_analysis",
+                f"Fly ball coordinates: ({ball_position.x:.1f}, {ball_position.y:.1f}) ft, distance {distance_from_home:.1f} ft, hang time {hang_time:.2f}s"
+            ))
 
         # Determine responsible fielder based on position and capability
         responsible_position = self.fielding_simulator.determine_responsible_fielder(
             ball_position, hang_time
         )
 
-        # ENHANCED LOGGING: Show fielder analysis for catch attempt
-        self.log_fly_ball_fielder_analysis(ball_position, hang_time, responsible_position, result)
+        # ENHANCED LOGGING: Show fielder analysis for catch attempt (only if debug enabled)
+        if self.DEBUG_FIELDING_ASSIGNMENT:
+            self.log_fly_ball_fielder_analysis(ball_position, hang_time, responsible_position, result)
 
         # Simulate fielding attempt - NOTE: This should use the same responsible fielder
         catch_result = self.fielding_simulator.simulate_fielding_attempt(
@@ -362,23 +368,25 @@ class FlyBallHandler:
         """Handle ball in play using trajectory interception logic instead of landing spot racing."""
         import numpy as np
 
-        # ENHANCED LOGGING: Add comprehensive outfield ball analysis
+        # ENHANCED LOGGING: Add comprehensive outfield ball analysis (only if debug enabled)
         distance_ft = np.sqrt(ball_position.x**2 + ball_position.y**2)
         batted_ball = result.batted_ball_result
         peak_height = batted_ball.peak_height if batted_ball else 0
 
-        result.add_event(PlayEvent(
-            ball_time, "outfield_ball_analysis",
-            f"Ball in play at ({ball_position.x:.1f}, {ball_position.y:.1f}) ft, distance {distance_ft:.1f} ft, peak height {peak_height:.1f} ft"
-        ))
+        if self.DEBUG_FIELDING_ASSIGNMENT:
+            result.add_event(PlayEvent(
+                ball_time, "outfield_ball_analysis",
+                f"Ball in play at ({ball_position.x:.1f}, {ball_position.y:.1f}) ft, distance {distance_ft:.1f} ft, peak height {peak_height:.1f} ft"
+            ))
 
         # Check for home run first (ball clears fence)
         spray_angle = np.arctan2(ball_position.x, ball_position.y) * 180.0 / np.pi
 
-        result.add_event(PlayEvent(
-            ball_time + 0.01, "trajectory_analysis",
-            f"Spray angle: {spray_angle:.1f}° from center field"
-        ))
+        if self.DEBUG_FIELDING_ASSIGNMENT:
+            result.add_event(PlayEvent(
+                ball_time + 0.01, "trajectory_analysis",
+                f"Spray angle: {spray_angle:.1f}° from center field"
+            ))
 
         # Determine fence distance based on spray angle
         # MLB standard: 325-330 down lines, 375-385 in gaps, 400-410 in center
@@ -497,11 +505,12 @@ class FlyBallHandler:
                        batter_runner.calculate_time_to_base("second", "third", include_leadoff=False) +
                        batter_runner.calculate_time_to_base("third", "home", include_leadoff=False))
 
-        # Log batter runner timing analysis
-        result.add_event(PlayEvent(
-            ball_retrieved_time + 0.01, "baserunning_analysis",
-            f"Batter runner times - 1st: {time_to_first:.2f}s, 2nd: {time_to_second:.2f}s, 3rd: {time_to_third:.2f}s, home: {time_to_home:.2f}s"
-        ))
+        # Log batter runner timing analysis (only if debug enabled)
+        if self.DEBUG_FIELDING_ASSIGNMENT:
+            result.add_event(PlayEvent(
+                ball_retrieved_time + 0.01, "baserunning_analysis",
+                f"Batter runner times - 1st: {time_to_first:.2f}s, 2nd: {time_to_second:.2f}s, 3rd: {time_to_third:.2f}s, home: {time_to_home:.2f}s"
+            ))
 
         # Calculate fielder throw times to each base (with transfer time)
         # Use relay-aware throws for long distances (>200 ft)
@@ -535,10 +544,12 @@ class FlyBallHandler:
         if relay_to_third.is_relay:
             relay_info += f" (3rd via {relay_to_third.cutoff_position})"
 
-        result.add_event(PlayEvent(
-            ball_retrieved_time + 0.02, "throw_analysis",
-            f"Throw times from {responsible_position} - 1st: {relay_to_first.total_arrival_time:.2f}s, 2nd: {relay_to_second.total_arrival_time:.2f}s, 3rd: {relay_to_third.total_arrival_time:.2f}s, home: {relay_to_home.total_arrival_time:.2f}s{relay_info}"
-        ))
+        # Log throw analysis (only if debug enabled)
+        if self.DEBUG_FIELDING_ASSIGNMENT:
+            result.add_event(PlayEvent(
+                ball_retrieved_time + 0.02, "throw_analysis",
+                f"Throw times from {responsible_position} - 1st: {relay_to_first.total_arrival_time:.2f}s, 2nd: {relay_to_second.total_arrival_time:.2f}s, 3rd: {relay_to_third.total_arrival_time:.2f}s, home: {relay_to_home.total_arrival_time:.2f}s{relay_info}"
+            ))
 
         # Ball arrival times at each base (retrieval + throw time)
         ball_at_first = ball_retrieved_time + relay_to_first.total_arrival_time
@@ -546,11 +557,12 @@ class FlyBallHandler:
         ball_at_third = ball_retrieved_time + relay_to_third.total_arrival_time
         ball_at_home = ball_retrieved_time + relay_to_home.total_arrival_time
 
-        # ENHANCED LOGGING: Add detailed race comparison
-        result.add_event(PlayEvent(
-            ball_retrieved_time + 0.03, "race_analysis",
-            f"Ball arrival times - 1st: {ball_at_first:.2f}s, 2nd: {ball_at_second:.2f}s, 3rd: {ball_at_third:.2f}s, home: {ball_at_home:.2f}s"
-        ))
+        # ENHANCED LOGGING: Add detailed race comparison (only if debug enabled)
+        if self.DEBUG_FIELDING_ASSIGNMENT:
+            result.add_event(PlayEvent(
+                ball_retrieved_time + 0.03, "race_analysis",
+                f"Ball arrival times - 1st: {ball_at_first:.2f}s, 2nd: {ball_at_second:.2f}s, 3rd: {ball_at_third:.2f}s, home: {ball_at_home:.2f}s"
+            ))
 
         # Delegate to hit_handler for final baserunning logic
         if self.hit_handler:
@@ -629,6 +641,10 @@ class FlyBallHandler:
     def log_outfield_interception_details(self, interception_result, ball_position: FieldPosition,
                                          ball_time: float, result: PlayResult):
         """Log detailed information about outfield interception analysis."""
+        # Only log if debug mode is enabled
+        if not self.DEBUG_FIELDING_ASSIGNMENT:
+            return
+
         if not interception_result.can_be_fielded:
             result.add_event(PlayEvent(
                 ball_time + 0.02, "outfield_interception_analysis",
