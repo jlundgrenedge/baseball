@@ -315,8 +315,9 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
             log_file.write(f"{'#'*80}\n\n")
             log_file.flush()
 
-            # Create simulator with verbose=True (no log_file to avoid truncation)
-            sim = GameSimulator(away_team, home_team, verbose=True)
+            # Create simulator with verbose=True and EXHAUSTIVE metrics (level 3)
+            # This provides maximum detail for tuning and analysis
+            sim = GameSimulator(away_team, home_team, verbose=True, debug_metrics=3)
 
             # Capture stdout to write to log file
             import io
