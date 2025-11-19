@@ -34,7 +34,7 @@ class PlaySimulator:
     Main play simulation engine that coordinates all components.
     """
 
-    def __init__(self, field_layout: Optional[FieldLayout] = None, surface_type='grass'):
+    def __init__(self, field_layout: Optional[FieldLayout] = None, surface_type='grass', ballpark: str = 'generic'):
         """
         Initialize play simulator.
 
@@ -44,6 +44,8 @@ class PlaySimulator:
             Field layout (creates standard if not provided)
         surface_type : str, optional
             Field surface type: 'grass', 'turf', or 'dirt' (default: 'grass')
+        ballpark : str, optional
+            Ballpark name for park-adjusted outcomes (default: 'generic')
         """
         self.field_layout = field_layout or FieldLayout()
         self.fielding_simulator = FieldingSimulator(self.field_layout)
@@ -53,11 +55,12 @@ class PlaySimulator:
         self.outfield_interceptor = OutfieldInterceptor()
         self.current_time = 0.0
         self.current_outs = 0  # Track outs for baserunning decisions
+        self.ballpark = ballpark  # Store for later use
 
         # Create handler instances
         self.play_analyzer = PlayAnalyzer()
         self.throwing_logic = ThrowingLogic(self.field_layout, self.baserunning_simulator)
-        self.hit_handler = HitHandler(self.baserunning_simulator, self.current_outs)
+        self.hit_handler = HitHandler(self.baserunning_simulator, self.current_outs, ballpark=ballpark)
         self.ground_ball_handler = GroundBallHandler(
             self.field_layout,
             self.fielding_simulator,

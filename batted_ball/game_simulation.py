@@ -202,11 +202,12 @@ class PlayByPlayEvent:
 class GameSimulator:
     """Simulates a complete baseball game"""
 
-    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True, log_file: str = None):
+    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True, log_file: str = None, ballpark: str = 'generic'):
         self.away_team = away_team
         self.home_team = home_team
         self.verbose = verbose
         self.log_file = log_file
+        self.ballpark = ballpark
         self.game_state = GameState()
         self.play_by_play: List[PlayByPlayEvent] = []
 
@@ -216,7 +217,7 @@ class GameSimulator:
             self.log_handle = open(self.log_file, 'w', encoding='utf-8')
 
         # Simulator (we'll create at-bat simulators per at-bat)
-        self.play_simulator = PlaySimulator()
+        self.play_simulator = PlaySimulator(ballpark=ballpark)
 
     def log(self, message: str):
         """Log a message to console and/or file"""
