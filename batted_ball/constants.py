@@ -228,10 +228,12 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # Previous reductions were too aggressive, suppressing realistic power output
 # With typical bat speed 78 mph and pitch speed 83 mph:
 # - Old q=0.08: EV = 0.08*83 + 1.08*78 = 91 mph (too low, suppressed HRs)
-# - New q=0.12: EV = 0.12*83 + 1.12*78 = 97 mph (better for power hitters)
-# This restores approximately 3-4 MPH to average exit velocities
+# - Mid q=0.12: EV = 0.12*83 + 1.12*78 = 97 mph (0 HRs per game - too low)
+# - Try q=0.13: EV = 0.13*83 + 1.13*78 = 99 mph (target: 2-5 HRs/game)
+# - Was q=0.14: EV = 0.14*83 + 1.14*78 = 100.5 mph (16 HRs/game - too high!)
+# This provides optimal balance for realistic MLB home run rates (~2.2/game avg)
 # Combined with hit_handler distance-first logic for more realistic HR distribution
-COLLISION_EFFICIENCY_WOOD = 0.12        # Wood bats (maple, ash, birch) - restored power hitting
+COLLISION_EFFICIENCY_WOOD = 0.13        # Wood bats (maple, ash, birch) - balanced power hitting
 COLLISION_EFFICIENCY_ALUMINUM = 0.11    # Aluminum bats (BBCOR regulated) - reduced from 0.24
 COLLISION_EFFICIENCY_COMPOSITE = 0.12   # Composite bats (BBCOR regulated) - reduced from 0.25
 
