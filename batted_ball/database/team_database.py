@@ -12,10 +12,22 @@ import sqlite3
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import pandas as pd
+import numpy as np
 
 from .db_schema import DatabaseSchema
 from .stats_converter import StatsConverter
 from .pybaseball_fetcher import PybaseballFetcher
+
+
+def clean_value(value):
+    """Convert pandas NaN/None to Python None for database storage."""
+    if pd.isna(value):
+        return None
+    if isinstance(value, (np.integer, np.floating)):
+        if np.isnan(value):
+            return None
+        return int(value) if isinstance(value, np.integer) else float(value)
+    return value
 
 
 class TeamDatabase:
@@ -165,13 +177,13 @@ class TeamDatabase:
         """Store a pitcher in the database."""
         # Convert stats to attributes
         attrs = self.converter.mlb_stats_to_pitcher_attributes(
-            era=stats.get('era'),
-            whip=stats.get('whip'),
-            k_per_9=stats.get('k_per_9'),
-            bb_per_9=stats.get('bb_per_9'),
-            avg_fastball_velo=stats.get('avg_fastball_velo'),
-            innings_pitched=stats.get('innings_pitched'),
-            games_pitched=stats.get('games_pitched'),
+            era=clean_value(stats.get('era')),
+            whip=clean_value(stats.get('whip')),
+            k_per_9=clean_value(stats.get('k_per_9')),
+            bb_per_9=clean_value(stats.get('bb_per_9')),
+            avg_fastball_velo=clean_value(stats.get('avg_fastball_velo')),
+            innings_pitched=clean_value(stats.get('innings_pitched')),
+            games_pitched=clean_value(stats.get('games_pitched')),
         )
 
         cursor = self.conn.cursor()
@@ -196,10 +208,11 @@ class TeamDatabase:
             """, (
                 attrs['velocity'], attrs['command'], attrs['stamina'],
                 attrs['movement'], attrs['repertoire'],
-                stats.get('era'), stats.get('whip'), stats.get('strikeouts'),
-                stats.get('walks'), stats.get('innings_pitched'),
-                stats.get('avg_fastball_velo'), stats.get('k_per_9'),
-                stats.get('bb_per_9'), stats.get('games_pitched'),
+                clean_value(stats.get('era')), clean_value(stats.get('whip')),
+                clean_value(stats.get('strikeouts')), clean_value(stats.get('walks')),
+                clean_value(stats.get('innings_pitched')),
+                clean_value(stats.get('avg_fastball_velo')), clean_value(stats.get('k_per_9')),
+                clean_value(stats.get('bb_per_9')), clean_value(stats.get('games_pitched')),
                 pitcher_id
             ))
         else:
@@ -213,10 +226,11 @@ class TeamDatabase:
             """, (
                 stats.get('player_name'), attrs['velocity'], attrs['command'],
                 attrs['stamina'], attrs['movement'], attrs['repertoire'],
-                stats.get('era'), stats.get('whip'), stats.get('strikeouts'),
-                stats.get('walks'), stats.get('innings_pitched'),
-                stats.get('avg_fastball_velo'), stats.get('k_per_9'),
-                stats.get('bb_per_9'), season, stats.get('games_pitched')
+                clean_value(stats.get('era')), clean_value(stats.get('whip')),
+                clean_value(stats.get('strikeouts')), clean_value(stats.get('walks')),
+                clean_value(stats.get('innings_pitched')),
+                clean_value(stats.get('avg_fastball_velo')), clean_value(stats.get('k_per_9')),
+                clean_value(stats.get('bb_per_9')), season, clean_value(stats.get('games_pitched'))
             ))
             pitcher_id = cursor.lastrowid
 
@@ -226,18 +240,18 @@ class TeamDatabase:
         """Store a hitter in the database."""
         # Convert stats to attributes
         attrs = self.converter.mlb_stats_to_hitter_attributes(
-            batting_avg=stats.get('batting_avg'),
-            on_base_pct=stats.get('on_base_pct'),
-            slugging_pct=stats.get('slugging_pct'),
-            ops=stats.get('ops'),
-            home_runs=stats.get('home_runs'),
-            strikeouts=stats.get('strikeouts'),
-            walks=stats.get('walks'),
-            at_bats=stats.get('at_bats'),
-            avg_exit_velo=stats.get('avg_exit_velo'),
-            max_exit_velo=stats.get('max_exit_velo'),
-            barrel_pct=stats.get('barrel_pct'),
-            sprint_speed=stats.get('sprint_speed'),
+            batting_avg=clean_value(stats.get('batting_avg')),
+            on_base_pct=clean_value(stats.get('on_base_pct')),
+            slugging_pct=clean_value(stats.get('slugging_pct')),
+            ops=clean_value(stats.get('ops')),
+            home_runs=clean_value(stats.get('home_runs')),
+            strikeouts=clean_value(stats.get('strikeouts')),
+            walks=clean_value(stats.get('walks')),
+            at_bats=clean_value(stats.get('at_bats')),
+            avg_exit_velo=clean_value(stats.get('avg_exit_velo')),
+            max_exit_velo=clean_value(stats.get('max_exit_velo')),
+            barrel_pct=clean_value(stats.get('barrel_pct')),
+            sprint_speed=clean_value(stats.get('sprint_speed')),
         )
 
         cursor = self.conn.cursor()
@@ -263,13 +277,13 @@ class TeamDatabase:
                 WHERE hitter_id = ?
             """, (
                 attrs['contact'], attrs['power'], attrs['discipline'], attrs['speed'],
-                stats.get('batting_avg'), stats.get('on_base_pct'),
-                stats.get('slugging_pct'), stats.get('ops'),
-                stats.get('home_runs'), stats.get('stolen_bases'),
-                stats.get('strikeouts'), stats.get('walks'),
-                stats.get('avg_exit_velo'), stats.get('max_exit_velo'),
-                stats.get('barrel_pct'), stats.get('sprint_speed'),
-                stats.get('games_played'), stats.get('at_bats'),
+                clean_value(stats.get('batting_avg')), clean_value(stats.get('on_base_pct')),
+                clean_value(stats.get('slugging_pct')), clean_value(stats.get('ops')),
+                clean_value(stats.get('home_runs')), clean_value(stats.get('stolen_bases')),
+                clean_value(stats.get('strikeouts')), clean_value(stats.get('walks')),
+                clean_value(stats.get('avg_exit_velo')), clean_value(stats.get('max_exit_velo')),
+                clean_value(stats.get('barrel_pct')), clean_value(stats.get('sprint_speed')),
+                clean_value(stats.get('games_played')), clean_value(stats.get('at_bats')),
                 hitter_id
             ))
         else:
@@ -285,13 +299,13 @@ class TeamDatabase:
             """, (
                 stats.get('player_name'), attrs['contact'], attrs['power'],
                 attrs['discipline'], attrs['speed'],
-                stats.get('batting_avg'), stats.get('on_base_pct'),
-                stats.get('slugging_pct'), stats.get('ops'),
-                stats.get('home_runs'), stats.get('stolen_bases'),
-                stats.get('strikeouts'), stats.get('walks'),
-                stats.get('avg_exit_velo'), stats.get('max_exit_velo'),
-                stats.get('barrel_pct'), stats.get('sprint_speed'),
-                season, stats.get('games_played'), stats.get('at_bats')
+                clean_value(stats.get('batting_avg')), clean_value(stats.get('on_base_pct')),
+                clean_value(stats.get('slugging_pct')), clean_value(stats.get('ops')),
+                clean_value(stats.get('home_runs')), clean_value(stats.get('stolen_bases')),
+                clean_value(stats.get('strikeouts')), clean_value(stats.get('walks')),
+                clean_value(stats.get('avg_exit_velo')), clean_value(stats.get('max_exit_velo')),
+                clean_value(stats.get('barrel_pct')), clean_value(stats.get('sprint_speed')),
+                season, clean_value(stats.get('games_played')), clean_value(stats.get('at_bats'))
             ))
             hitter_id = cursor.lastrowid
 
