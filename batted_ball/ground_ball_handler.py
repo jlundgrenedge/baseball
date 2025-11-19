@@ -199,10 +199,32 @@ class GroundBallHandler:
         # Get the fielder who made the play
         fielder = self.fielding_simulator.fielders[fielding_position]
 
+
         # Attempt throw to first base
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
+
+        # Snapshot runners to restore if ThrowingLogic clobbers them (e.g. runner on 1st)
+        # We need a shallow copy of the dictionary
+        original_runners = self.baserunning_simulator.runners.copy()
+
         if batter_runner and self.throwing_logic:
             self.throwing_logic.simulate_throw_to_first(fielder, fielding_time, batter_runner, result)
+            
+            # FIX: If ThrowingLogic determines it's a SINGLE (safe at first), 
+            # we MUST call HitHandler to advance other runners!
+            # ThrowingLogic only moves the batter to first and might overwrite/clobber existing runners.
+            if result.outcome == PlayOutcome.SINGLE and self.hit_handler:
+                # Restore original runners (undo ThrowingLogic's partial state changes)
+                self.baserunning_simulator.runners = original_runners.copy()
+                for base, runner in original_runners.items():
+                    runner.current_base = base
+                
+                # Ensure batter is at home for HitHandler to process correctly
+                if batter_runner:
+                    batter_runner.current_base = "home"
+                    self.baserunning_simulator.add_runner("home", batter_runner)
+
+                self.hit_handler.handle_hit_baserunning(result, self.current_outs)
         else:
             # Fallback: if no batter runner or throwing logic, default to single
             result.outcome = PlayOutcome.SINGLE

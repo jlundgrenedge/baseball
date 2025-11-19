@@ -476,7 +476,11 @@ class GameSimulator:
 
             self.print_play_breakdown(play_result)
 
+
         # Update game state based on outcome
+        if self.verbose and play_result.runs_scored > 0:
+            print(f"    [DEBUG] PlayResult.runs_scored: {play_result.runs_scored}")
+            
         self.update_game_state_from_play(play_result, batter)
 
         # Log play by play

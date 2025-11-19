@@ -1,0 +1,35 @@
+Reproducing Infield Single Bug...
+    Starter: 95.0 mph, 2589 rpm, 108 pitch stamina
+      Arsenal: fastball, cutter, changeup, curveball
+    Reliever: 97.7 mph, 2669 rpm, 77 pitch stamina
+      Arsenal: fastball, slider, changeup
+    Reliever: 97.8 mph, 2644 rpm, 50 pitch stamina
+      Arsenal: fastball, curveball, changeup
+    C: line drive hitter (bat: 69.0 mph, angle: 3.0°)
+    1B: balanced hitter (bat: 68.7 mph, angle: 13.0°)
+    2B: balanced hitter (bat: 71.8 mph, angle: 12.7°)
+    3B: balanced hitter (bat: 71.2 mph, angle: 7.9°)
+    SS: power hitter (bat: 85.2 mph, angle: 25.9°)
+    LF: line drive hitter (bat: 76.5 mph, angle: 3.8°)
+    CF: line drive hitter (bat: 68.8 mph, angle: 7.1°)
+    RF: groundball hitter (bat: 76.5 mph, angle: -1.8°)
+    DH: balanced hitter (bat: 74.0 mph, angle: 11.3°)
+Runner on 3rd: Away Team C
+
+Simulating Play...
+DEBUG: Forcing SINGLE in ThrowingLogic
+
+Play Outcome: PlayOutcome.SINGLE
+Runs Scored: 1
+Final Runner Positions: dict_keys(['first'])
+
+Events:
+[0.00s] Ball hit to infield
+[0.00s] Ground ball coordinates: (0.0, 40.0) ft, distance 40.0 ft from home
+[0.00s] Safe at first (Forced)
+[0.05s] DECISION: Runner on third attempts advance to home (risk: safe, advancing 1 bases)
+[0.10s] Interception: shortstop travels 38.1 ft from (-35.0, 55.0) to (0.0, 40.0), margin +1.76s
+[0.60s] Ground ball fielded by shortstop at (0.0, 40.0) in 0.60s
+[4.95s] Runner from third scores at 4.95s (ball: infs, beats throw by infs)
+
+SUCCESS: Runner scored.

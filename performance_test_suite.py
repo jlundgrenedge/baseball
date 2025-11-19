@@ -201,7 +201,8 @@ def test_single_game():
 
 def test_parallel_games(n_games=10):
     """Test multi-core parallel game simulation."""
-    from batted_ball.parallel_game_simulation import ParallelGameSimulator
+    from batted_ball.parallel_game_simulation import ParallelGameSimulator, ParallelSimulationSettings
+    from batted_ball.game_simulation import create_test_team
     import multiprocessing
 
     print_header("Multi-Core Parallel Game Simulation")
@@ -211,17 +212,30 @@ def test_parallel_games(n_games=10):
     print(f"Using: {n_cores} cores")
     print(f"Simulating {n_games} games in parallel...\n")
 
-    sim = ParallelGameSimulator(num_workers=n_cores, verbose=False)
+    # Create teams
+    away_team = create_test_team("Yankees", team_quality="good")
+    home_team = create_test_team("Red Sox", team_quality="good")
+
+    # Create settings
+    settings = ParallelSimulationSettings(
+        num_workers=n_cores,
+        verbose=False,
+        show_progress=True
+    )
+
+    sim = ParallelGameSimulator(settings=settings)
 
     start = time.time()
-    results = sim.simulate_games(n_games, show_progress=True)
+    results = sim.simulate_games(away_team, home_team, n_games)
     elapsed = time.time() - start
 
-    total_at_bats = sum(r['total_at_bats'] for r in results)
-    avg_score = sum(r['home_score'] + r['away_score'] for r in results) / len(results)
+    # Extract data from ParallelSimulationResult
+    game_results = results.game_results
+    total_at_bats = sum(r.total_pitches for r in game_results)  # Approximate at-bats from pitches
+    avg_score = results.avg_runs_per_game
 
     print(f"\n{'Results:':<30}")
-    print(f"  {'Games simulated:':<28} {len(results)}")
+    print(f"  {'Games simulated:':<28} {len(game_results)}")
     print(f"  {'Total time:':<28} {elapsed:.2f}s")
     print(f"  {'Time per game:':<28} {elapsed/n_games:.2f}s")
     print(f"  {'Games per second:':<28} {n_games/elapsed:.2f}")
@@ -234,7 +248,8 @@ def test_parallel_games(n_games=10):
 
 def test_large_parallel_benchmark(n_games=50):
     """Large-scale parallel benchmark."""
-    from batted_ball.parallel_game_simulation import ParallelGameSimulator
+    from batted_ball.parallel_game_simulation import ParallelGameSimulator, ParallelSimulationSettings
+    from batted_ball.game_simulation import create_test_team
     import multiprocessing
 
     print_header("Large-Scale Parallel Benchmark")
@@ -243,20 +258,33 @@ def test_large_parallel_benchmark(n_games=50):
     print(f"Benchmarking with {n_games} games on {n_cores} cores...")
     print("This may take a few minutes...\n")
 
-    sim = ParallelGameSimulator(num_workers=n_cores, verbose=False)
+    # Create teams
+    away_team = create_test_team("Giants", team_quality="good")
+    home_team = create_test_team("Dodgers", team_quality="good")
+
+    # Create settings
+    settings = ParallelSimulationSettings(
+        num_workers=n_cores,
+        verbose=False,
+        show_progress=True
+    )
+
+    sim = ParallelGameSimulator(settings=settings)
 
     start = time.time()
-    results = sim.simulate_games(n_games, show_progress=True)
+    results = sim.simulate_games(away_team, home_team, n_games)
     elapsed = time.time() - start
 
-    total_at_bats = sum(r['total_at_bats'] for r in results)
+    # Extract data from ParallelSimulationResult
+    game_results = results.game_results
+    total_at_bats = sum(r.total_pitches for r in game_results)  # Approximate at-bats from pitches
 
     # Calculate speedup estimate (assuming ~30s per game sequential)
     estimated_sequential = n_games * 30
     speedup = estimated_sequential / elapsed
 
     print(f"\n{'Benchmark Results:':<30}")
-    print(f"  {'Games simulated:':<28} {len(results)}")
+    print(f"  {'Games simulated:':<28} {len(game_results)}")
     print(f"  {'Total time:':<28} {elapsed/60:.1f} minutes")
     print(f"  {'Time per game:':<28} {elapsed/n_games:.1f}s")
     print(f"  {'Throughput:':<28} {n_games/elapsed:.2f} games/sec")
