@@ -1132,6 +1132,28 @@ class GameSimulator:
         self.log(f"  BB%: {bb_pct:.1f}%")
         self.log(f"  ISO: {iso:.3f}")
 
+        # Add compact sabermetric snapshot
+        # Calculate contact type rates
+        total_bip = singles + doubles + triples + hr
+        if is_away:
+            gb_count = gs.away_ground_balls
+            ld_count = gs.away_line_drives
+            fb_count = gs.away_fly_balls
+        else:
+            gb_count = gs.home_ground_balls
+            ld_count = gs.home_line_drives
+            fb_count = gs.home_fly_balls
+
+        total_contact = gb_count + ld_count + fb_count
+        gb_pct = (gb_count / total_contact * 100) if total_contact > 0 else 0.0
+        ld_pct = (ld_count / total_contact * 100) if total_contact > 0 else 0.0
+        fb_pct = (fb_count / total_contact * 100) if total_contact > 0 else 0.0
+        hr_per_fb = (hr / fb_count * 100) if fb_count > 0 else 0.0
+
+        self.log(f"\n  SABERMETRIC SNAPSHOT:")
+        self.log(f"    BABIP: {babip:.3f} | K%: {k_pct:.1f}% | BB%: {bb_pct:.1f}% | ISO: {iso:.3f} | HR/FB: {hr_per_fb:.1f}%")
+        self.log(f"    GB%: {gb_pct:.1f}% | LD%: {ld_pct:.1f}% | FB%: {fb_pct:.1f}%")
+
     def print_model_drift_indicators(self):
         """Print model drift indicators to flag unrealistic stat distributions"""
         gs = self.game_state
@@ -1162,17 +1184,28 @@ class GameSimulator:
         all_evs = gs.away_exit_velocities + gs.home_exit_velocities
         avg_ev = sum(all_evs) / len(all_evs) if all_evs else 0.0
 
+        # Calculate contact type percentages
+        total_contact = total_gb + total_ld + total_fb
+        gb_pct = (total_gb / total_contact * 100) if total_contact > 0 else 0.0
+        ld_pct = (total_ld / total_contact * 100) if total_contact > 0 else 0.0
+        fb_pct = (total_fb / total_contact * 100) if total_contact > 0 else 0.0
+
         self.log(f"\nMODEL DRIFT INDICATORS:")
 
+        # Always show all metrics (even if not enough data for flags)
         # HR/FB check (MLB typical: 12-14%)
         hr_fb_flag = ""
-        if total_fb >= 5:  # Only check if enough data
+        if total_fb >= 5:  # Only flag if enough data
             if hr_per_fb < 8:
                 hr_fb_flag = " ⚠ too low; MLB ~12-14%"
             elif hr_per_fb > 18:
                 hr_fb_flag = " ⚠ too high; MLB ~12-14%"
             else:
                 hr_fb_flag = " ok"
+        elif total_fb > 0:
+            hr_fb_flag = " (sample size too small)"
+        else:
+            hr_fb_flag = " (no fly balls)"
         self.log(f"  HR/FB: {hr_per_fb:.1f}%{hr_fb_flag}")
 
         # BABIP check (MLB typical: .290-.310)
@@ -1184,6 +1217,10 @@ class GameSimulator:
                 babip_flag = " ⚠ too high; MLB ~.290-.310"
             else:
                 babip_flag = " ok"
+        elif babip_denom > 0:
+            babip_flag = " (sample size too small)"
+        else:
+            babip_flag = " (no balls in play)"
         self.log(f"  BABIP: {babip:.3f}{babip_flag}")
 
         # K% check (MLB typical: 22-24%)
@@ -1195,6 +1232,10 @@ class GameSimulator:
                 k_flag = " ⚠ too high; MLB ~22-24%"
             else:
                 k_flag = " ok"
+        elif total_pa > 0:
+            k_flag = " (sample size too small)"
+        else:
+            k_flag = " (no plate appearances)"
         self.log(f"  K%: {k_pct:.1f}%{k_flag}")
 
         # BB% check (MLB typical: 8-9%)
@@ -1206,6 +1247,10 @@ class GameSimulator:
                 bb_flag = " ⚠ too high; MLB ~8-9%"
             else:
                 bb_flag = " ok"
+        elif total_pa > 0:
+            bb_flag = " (sample size too small)"
+        else:
+            bb_flag = " (no plate appearances)"
         self.log(f"  BB%: {bb_pct:.1f}%{bb_flag}")
 
         # Avg EV check (MLB typical: 87-89 mph)
@@ -1217,7 +1262,23 @@ class GameSimulator:
                 ev_flag = " ⚠ too high; MLB ~87-89 mph"
             else:
                 ev_flag = " ok"
+        elif len(all_evs) > 0:
+            ev_flag = " (sample size too small)"
+        else:
+            ev_flag = " (no batted balls)"
         self.log(f"  AvgExitVelo: {avg_ev:.1f} mph{ev_flag}")
+
+        # Contact type distribution (MLB typical: ~43% GB, ~24% LD, ~33% FB)
+        self.log(f"  Contact Distribution:")
+        gb_flag = " ok" if 38 <= gb_pct <= 48 else (" ⚠ too low" if gb_pct < 38 else " ⚠ too high")
+        ld_flag = " ok" if 19 <= ld_pct <= 29 else (" ⚠ too low" if ld_pct < 19 else " ⚠ too high")
+        fb_flag = " ok" if 28 <= fb_pct <= 38 else (" ⚠ too low" if fb_pct < 28 else " ⚠ too high")
+        if total_contact >= 5:
+            self.log(f"    GB%: {gb_pct:.1f}% (MLB ~43%){gb_flag}")
+            self.log(f"    LD%: {ld_pct:.1f}% (MLB ~24%){ld_flag}")
+            self.log(f"    FB%: {fb_pct:.1f}% (MLB ~33%){fb_flag}")
+        else:
+            self.log(f"    GB%: {gb_pct:.1f}% | LD%: {ld_pct:.1f}% | FB%: {fb_pct:.1f}% (sample size too small)")
 
 
 def create_test_team(name: str, team_quality: str = "average") -> Team:
