@@ -1,0 +1,245 @@
+
+================================================================================
+GAME START: Visitors @ Home
+================================================================================
+
+SIM CONFIG:
+  EngineVersion: git-ff6095b
+  RNGSeed: 42
+  Ballpark: Test Stadium
+  Weather: default
+
+  Pitch sequence:
+    #1: slider 89.2->81.0 mph to (0.12', 3.45') [0-0 -> 0-1] fouled off (contact: weak, EV 85.0 mph, LA 7.6°)
+    ZoneBucket: UP_AWAY
+    OutcomeCodePitch: FOUL
+    Fatigue:
+      PitchCount: 1
+      FatigueLevel: 0.00
+      VelocityPenaltyMph: 0.0
+      CommandPenaltyInches: 0.0
+    #2: cutter 96.9->87.9 mph to (-0.83', 2.17') [0-1 -> 1-1] taken for ball
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: BALL
+    Fatigue:
+      PitchCount: 2
+      FatigueLevel: 0.01
+      VelocityPenaltyMph: 0.0
+      CommandPenaltyInches: 0.0
+    #3: changeup 82.3->74.4 mph to (-0.32', 1.09') [1-1 -> 2-1] taken for ball
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: BALL
+    Fatigue:
+      PitchCount: 3
+      FatigueLevel: 0.02
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
+    #4: changeup 82.3->74.0 mph to (0.67', 2.78') [2-1 -> 2-1] put in play (contact: weak, EV 85.3 mph, LA 26.6°)
+    ZoneBucket: UP_AWAY
+    OutcomeCodePitch: INPLAY
+    Fatigue:
+      PitchCount: 4
+      FatigueLevel: 0.03
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
+  ⚾ Fly out to outfield
+    Physics: EV=85.3 mph, LA=26.6°, Dist=252.4 ft, Hang=2.93s, Peak=38.8 ft, Contact: weak
+    Pitch: changeup 74.0 mph at zone (0.7', 2.8')
+  OutcomeCodePA: OUT_FLY
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 2.93s] Caught by center_field at outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 2.93s, arrival 2.37s (margin +0.56s) -> made play
+  Pitch sequence:
+    #1: slider 89.0->80.9 mph to (-0.21', 3.38') [0-0 -> 0-1] taken for strike
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: STRIKE_TAKEN
+    Fatigue:
+      PitchCount: 5
+      FatigueLevel: 0.04
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
+    #2: fastball 96.8->87.0 mph to (-0.51', 1.50') [0-1 -> 1-1] taken for ball
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: BALL
+    Fatigue:
+      PitchCount: 6
+      FatigueLevel: 0.05
+      VelocityPenaltyMph: 0.2
+      CommandPenaltyInches: 0.1
+    #3: slider 89.0->81.7 mph to (-0.56', -0.00') [1-1 -> 2-1] taken for ball
+    ZoneBucket: LOW_IN
+    OutcomeCodePitch: BALL
+    Fatigue:
+      PitchCount: 7
+      FatigueLevel: 0.06
+      VelocityPenaltyMph: 0.2
+      CommandPenaltyInches: 0.2
+    #4: cutter 96.7->87.8 mph to (-0.63', 1.55') [2-1 -> 2-2] swing and miss
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: STRIKE_SWING
+    Fatigue:
+      PitchCount: 8
+      FatigueLevel: 0.06
+      VelocityPenaltyMph: 0.3
+      CommandPenaltyInches: 0.2
+    #5: changeup 82.1->73.8 mph to (-0.26', 3.12') [2-2 -> 2-2] put in play (contact: weak, EV 100.0 mph, LA 27.8°)
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: INPLAY
+    Fatigue:
+      PitchCount: 9
+      FatigueLevel: 0.07
+      VelocityPenaltyMph: 0.3
+      CommandPenaltyInches: 0.2
+  ⚾ Fly out to outfield
+    Physics: EV=100.0 mph, LA=27.8°, Dist=326.6 ft, Hang=3.51s, Peak=54.3 ft, Contact: weak
+    Pitch: changeup 73.8 mph at zone (-0.3', 3.1')
+  OutcomeCodePA: OUT_FLY
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 3.51s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 3.51s, arrival 0.70s (margin +2.82s) -> made play
+  Pitch sequence:
+    #1: fastball 96.6->86.7 mph to (-0.34', 2.41') [0-0 -> 0-0] put in play (contact: fair, EV 105.3 mph, LA 20.3°)
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: INPLAY
+    Fatigue:
+      PitchCount: 10
+      FatigueLevel: 0.08
+      VelocityPenaltyMph: 0.3
+      CommandPenaltyInches: 0.2
+  ⚾ Fly out to outfield
+    Physics: EV=105.3 mph, LA=20.3°, Dist=307.6 ft, Hang=2.87s, Peak=36.2 ft, Contact: fair
+    Pitch: fastball 86.7 mph at zone (-0.3', 2.4')
+  OutcomeCodePA: OUT_FLY
+    Play timeline:
+      [ 0.00s] Ball hit to deep right outfield (contact)
+      [ 2.87s] Caught by right_field at deep right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 2.87s, arrival 0.49s (margin +2.38s) -> made play
+  Pitch sequence:
+    #1: curveball 85.3->76.8 mph to (-0.04', 2.48') [0-0 -> 0-0] put in play (contact: solid, EV 95.8 mph, LA 19.3°)
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: INPLAY
+    Fatigue:
+      PitchCount: 1
+      FatigueLevel: 0.00
+      VelocityPenaltyMph: 0.0
+      CommandPenaltyInches: 0.0
+  ⚾ Fly out to outfield
+    Physics: EV=95.8 mph, LA=19.3°, Dist=309.7 ft, Hang=3.28s, Peak=37.9 ft, Contact: solid
+    Pitch: curveball 76.8 mph at zone (-0.0', 2.5')
+  OutcomeCodePA: OUT_FLY
+    Play timeline:
+      [ 0.00s] Ball hit to deep right outfield (contact)
+      [ 3.28s] Caught by right_field at deep right outfield (catch)
+    Fielding breakdown:
+      Right Field: ball 3.28s, arrival 0.63s (margin +2.66s) -> made play
+  Pitch sequence:
+    #1: slider 89.2->81.2 mph to (0.28', 2.42') [0-0 -> 0-1] swing and miss
+    ZoneBucket: UP_AWAY
+    OutcomeCodePitch: STRIKE_SWING
+    Fatigue:
+      PitchCount: 2
+      FatigueLevel: 0.01
+      VelocityPenaltyMph: 0.0
+      CommandPenaltyInches: 0.0
+    #2: cutter 96.9->87.8 mph to (-1.54', 2.67') [0-1 -> 1-1] taken for ball
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: BALL
+    Fatigue:
+      PitchCount: 3
+      FatigueLevel: 0.02
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
+    #3: fastball 96.9->86.9 mph to (0.35', 2.85') [1-1 -> 1-2] taken for strike
+    ZoneBucket: UP_AWAY
+    OutcomeCodePitch: STRIKE_TAKEN
+    Fatigue:
+      PitchCount: 4
+      FatigueLevel: 0.03
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
+    #4: cutter 96.8->87.7 mph to (1.31', 2.72') [1-2 -> 2-2] taken for ball
+    ZoneBucket: UP_AWAY
+    OutcomeCodePitch: BALL
+    Fatigue:
+      PitchCount: 5
+      FatigueLevel: 0.04
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
+    #5: changeup 82.2->74.2 mph to (0.69', 1.88') [2-2 -> 2-2] put in play (contact: weak, EV 89.7 mph, LA 2.1°)
+    ZoneBucket: UP_AWAY
+    OutcomeCodePitch: INPLAY
+    Fatigue:
+      PitchCount: 6
+      FatigueLevel: 0.05
+      VelocityPenaltyMph: 0.2
+      CommandPenaltyInches: 0.1
+  ground_out
+    Physics: EV=89.7 mph, LA=2.1°, Dist=30.1 ft, Hang=0.36s, Peak=3.1 ft, Contact: weak
+    Pitch: changeup 74.2 mph at zone (0.7', 1.9')
+  OutcomeCodePA: OUT_GROUND
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (21.3, 21.3) ft, distance 30.1 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: second_base travels 10.6 ft from (40.0, 55.0) to (47.5, 47.5), margin +0.16s (ground_ball_interception_analysis)
+      [ 0.81s] Ground ball fielded by second_base at (47.5, 47.5) in 0.81s (ground_ball_fielded)
+      [ 1.52s] Throw to first base at 84.4 mph (release 1.52s, flight 0.63s) (throw_to_first)
+      [ 4.29s] Runner out at first base (runner 4.29s vs ball 2.15s) (play_at_first)
+  Pitch sequence:
+    #1: changeup 82.2->74.1 mph to (-0.24', 2.25') [0-0 -> 0-0] put in play (contact: fair, EV 91.4 mph, LA -0.7°)
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: INPLAY
+    Fatigue:
+      PitchCount: 7
+      FatigueLevel: 0.06
+      VelocityPenaltyMph: 0.2
+      CommandPenaltyInches: 0.2
+  ground_out
+    Physics: EV=91.4 mph, LA=-0.7°, Dist=22.8 ft, Hang=0.29s, Peak=3.0 ft, Contact: fair
+    Pitch: changeup 74.1 mph at zone (-0.2', 2.3')
+  OutcomeCodePA: OUT_GROUND
+    Play timeline:
+      [ 0.00s] Ball hit to infield (contact)
+      [ 0.00s] Ground ball coordinates: (2.0, 22.7) ft, distance 22.8 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: pitcher travels 6.2 ft from (0.0, 60.5) to (5.1, 57.1), margin +-0.08s (ground_ball_interception_analysis)
+      [ 0.74s] Ground ball fielded by pitcher at (5.1, 57.1) in 0.74s (ground_ball_fielded)
+      [ 1.36s] Throw to first base at 78.9 mph (release 1.36s, flight 0.98s) (throw_to_first)
+      [ 4.29s] Runner out at first base (runner 4.29s vs ball 2.34s) (play_at_first)
+
+================================================================================
+FINAL SCORE
+================================================================================
+Visitors: 0
+Home: 0
+
+Game Statistics:
+  Total Pitches: 17
+  Total Hits: 0
+  Home Runs: 0
+
+--------------------------------------------------------------------------------
+SABERMETRIC SUMMARY – Visitors
+  PA: 3
+  AVG: 0.000
+  OBP: 0.000
+  SLG: 0.000
+  BABIP: 0.000
+  K%: 0.0%
+  BB%: 0.0%
+  ISO: 0.000
+--------------------------------------------------------------------------------
+SABERMETRIC SUMMARY – Home
+  PA: 3
+  AVG: 0.000
+  OBP: 0.000
+  SLG: 0.000
+  BABIP: 0.000
+  K%: 0.0%
+  BB%: 0.0%
+  ISO: 0.000
+================================================================================
+

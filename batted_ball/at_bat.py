@@ -530,6 +530,17 @@ class AtBatSimulator:
             fast_mode=self.fast_mode,
         )
 
+        # Calculate fatigue metrics BEFORE updating pitcher state
+        stamina_cap = self.pitcher.attributes.get_stamina_pitches()
+        fatigue_level = min(1.0, self.pitcher.pitches_thrown / stamina_cap)
+
+        # Estimate velocity penalty (from player.py logic)
+        velocity_penalty = fatigue_level * 4.0  # Up to 4 mph loss when exhausted
+
+        # Estimate command penalty (from player.py logic)
+        # Command error multiplier goes from 1.0 to 2.0
+        command_penalty_inches = fatigue_level * 3.0  # Up to 3" additional error
+
         # Update pitcher state
         self.pitcher.throw_pitch()
 
@@ -545,6 +556,11 @@ class AtBatSimulator:
             'result': result,
             'spin_rpm': spin,
             'extension_ft': extension,
+            # Fatigue diagnostics
+            'pitcher_pitches_thrown': self.pitcher.pitches_thrown,
+            'pitcher_fatigue_level': fatigue_level,
+            'velocity_penalty_mph': velocity_penalty,
+            'command_penalty_inches': command_penalty_inches,
         }
 
         return pitch_data

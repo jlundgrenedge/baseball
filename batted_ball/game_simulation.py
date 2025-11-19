@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Tuple
 from enum import Enum
 import random
+import sys
 
 from .player import Pitcher, Hitter, generate_pitch_arsenal
 from .fielding import Fielder
@@ -37,6 +38,126 @@ class BaseState(Enum):
     FIRST_THIRD = "1st_3rd"
     SECOND_THIRD = "2nd_3rd"
     LOADED = "loaded"
+
+
+def get_zone_bucket(location: Tuple[float, float]) -> str:
+    """
+    Classify pitch location into a zone bucket.
+
+    Parameters
+    ----------
+    location : tuple
+        (x, z) location in inches at plate crossing
+
+    Returns
+    -------
+    str
+        Zone bucket label (e.g., "MID_MIDDLE", "LOW_AWAY", etc.)
+    """
+    from .constants import STRIKE_ZONE_WIDTH, STRIKE_ZONE_BOTTOM, STRIKE_ZONE_TOP
+
+    x_inches, z_inches = location
+
+    # Strike zone boundaries (in inches)
+    # x: negative = inside (for RHH), positive = outside
+    # Simplify: treat as universal (not handedness-specific)
+    sz_left = -STRIKE_ZONE_WIDTH / 2.0
+    sz_right = STRIKE_ZONE_WIDTH / 2.0
+    sz_bottom = STRIKE_ZONE_BOTTOM
+    sz_top = STRIKE_ZONE_TOP
+
+    # Horizontal classification
+    third_width = STRIKE_ZONE_WIDTH / 3.0
+    if x_inches < sz_left:
+        horiz = "IN"
+    elif x_inches < sz_left + third_width:
+        horiz = "IN"
+    elif x_inches < sz_left + 2 * third_width:
+        horiz = "MID"
+    elif x_inches <= sz_right:
+        horiz = "AWAY"
+    else:
+        horiz = "AWAY"
+
+    # Vertical classification
+    third_height = (sz_top - sz_bottom) / 3.0
+    if z_inches < sz_bottom:
+        vert = "LOW"
+    elif z_inches < sz_bottom + third_height:
+        vert = "LOW"
+    elif z_inches < sz_bottom + 2 * third_height:
+        vert = "MID"
+    elif z_inches <= sz_top:
+        vert = "UP"
+    else:
+        vert = "UP"
+
+    return f"{vert}_{horiz}"
+
+
+def get_pitch_outcome_code(pitch_data: Dict) -> str:
+    """
+    Convert pitch outcome to a standard outcome code.
+
+    Parameters
+    ----------
+    pitch_data : dict
+        Pitch data dictionary with 'pitch_outcome' key
+
+    Returns
+    -------
+    str
+        Standard outcome code for parsing
+    """
+    outcome = pitch_data.get('pitch_outcome', 'unknown')
+    swing = pitch_data.get('swing', False)
+
+    outcome_map = {
+        'ball': 'BALL',
+        'called_strike': 'STRIKE_TAKEN',
+        'swinging_strike': 'STRIKE_SWING',
+        'foul': 'FOUL',
+        'ball_in_play': 'INPLAY',
+        'contact': 'INPLAY',
+    }
+
+    return outcome_map.get(outcome, 'UNKNOWN')
+
+
+def get_pa_outcome_code(outcome: str, batted_ball_result: Optional[Dict] = None) -> str:
+    """
+    Convert plate appearance outcome to a standard outcome code.
+
+    Parameters
+    ----------
+    outcome : str
+        PA outcome ('strikeout', 'walk', 'single', 'home_run', etc.)
+    batted_ball_result : dict, optional
+        Batted ball data if applicable
+
+    Returns
+    -------
+    str
+        Standard PA outcome code for parsing
+    """
+    # Map common outcomes
+    outcome_map = {
+        'strikeout': 'STRIKEOUT_SWING',  # Default to swing, can refine
+        'walk': 'WALK',
+        'single': 'SINGLE',
+        'double': 'DOUBLE',
+        'triple': 'TRIPLE',
+        'home_run': 'HOMERUN',
+        'fly_out': 'OUT_FLY',
+        'line_out': 'OUT_LINE',
+        'ground_out': 'OUT_GROUND',
+        'force_out': 'OUT_FORCE',
+        'double_play': 'DOUBLE_PLAY',
+        'error': 'REACHED_ON_ERROR',
+        'fielders_choice': 'FIELDERS_CHOICE',
+    }
+
+    return outcome_map.get(outcome, outcome.upper())
 
 
 @dataclass
@@ -267,12 +388,54 @@ class GameSimulator:
         """Destructor to ensure log file is closed"""
         self.close_log()
 
-    def simulate_game(self, num_innings: int = 9) -> GameState:
+    def print_sim_config(self, rng_seed: int = None):
+        """Print simulation configuration block"""
+        self.log("SIM CONFIG:")
+
+        # Engine version - try to get git hash if available
+        try:
+            import subprocess
+            git_hash = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
+                                             stderr=subprocess.DEVNULL).decode('ascii').strip()
+            self.log(f"  EngineVersion: git-{git_hash}")
+        except:
+            self.log(f"  EngineVersion: v1.1.2")
+
+        # RNG seed
+        if rng_seed is not None:
+            self.log(f"  RNGSeed: {rng_seed}")
+        else:
+            self.log(f"  RNGSeed: random")
+
+        # Ballpark
+        self.log(f"  Ballpark: {self.ballpark}")
+
+        # Weather/environment (get from play_simulator if available)
+        try:
+            env = self.play_simulator.environment
+            self.log(f"  Weather:")
+            self.log(f"    TemperatureF: {env.temperature:.1f}")
+            self.log(f"    AltitudeFt: {env.altitude:.0f}")
+            self.log(f"    Humidity: {env.humidity:.2f}")
+            # Wind info might not be available, skip if missing
+            wind_speed = getattr(env, 'wind_speed', 0.0)
+            wind_direction = getattr(env, 'wind_direction', 0.0)
+            self.log(f"    WindSpeedMph: {wind_speed:.1f}")
+            self.log(f"    WindDirection: {wind_direction:.0f}°")
+        except:
+            self.log(f"  Weather: default")
+
+        self.log("")  # Blank line after config
+
+    def simulate_game(self, num_innings: int = 9, rng_seed: int = None) -> GameState:
         """Simulate a complete baseball game"""
         if self.verbose:
             self.log(f"\n{'='*80}")
             self.log(f"GAME START: {self.away_team.name} @ {self.home_team.name}")
             self.log(f"{'='*80}\n")
+
+            # Print SIM CONFIG block
+            self.print_sim_config(rng_seed)
 
         while self.game_state.inning <= num_innings:
             self.simulate_half_inning()
@@ -413,7 +576,8 @@ class GameSimulator:
                 self.game_state.home_at_bats += 1
 
             if self.verbose:
-                print(f"  ⚾ STRIKEOUT! {self.game_state.outs} out(s)")
+                self.log(f"  ⚾ STRIKEOUT! {self.game_state.outs} out(s)")
+                self.log(f"  OutcomeCodePA: {get_pa_outcome_code('strikeout')}")
 
         elif outcome == "walk":
             # Track walk statistics
@@ -424,7 +588,8 @@ class GameSimulator:
 
             # Batter walks to first, runners advance if forced
             if self.verbose:
-                print(f"  🚶 WALK!")
+                self.log(f"  🚶 WALK!")
+                self.log(f"  OutcomeCodePA: {get_pa_outcome_code('walk')}")
 
             # Check for force plays and advance runners
             if self.game_state.runner_on_first is not None:
@@ -595,7 +760,7 @@ class GameSimulator:
         description = self.build_play_description(play_result, physics_data)
 
         if self.verbose:
-            print(f"  {description}")
+            self.log(f"  {description}")
 
             # Enhanced physics display
             physics_line = (f"    Physics: EV={physics_data['exit_velocity_mph']} mph, "
@@ -615,7 +780,7 @@ class GameSimulator:
             if 'contact_quality' in physics_data:
                 physics_line += f", Contact: {physics_data['contact_quality']}"
 
-            print(physics_line)
+            self.log(physics_line)
 
             # Add pitch information if available
             if last_pitch:
@@ -627,7 +792,11 @@ class GameSimulator:
                     zone_x = pitch_location[0] / 12.0  # Convert inches to feet for display
                     zone_z = pitch_location[1] / 12.0
                     pitch_line += f" at zone ({zone_x:.1f}', {zone_z:.1f}')"
-                print(pitch_line)
+                self.log(pitch_line)
+
+            # Add PA outcome code
+            outcome_str = outcome.value if hasattr(outcome, 'value') else str(outcome)
+            self.log(f"  OutcomeCodePA: {get_pa_outcome_code(outcome_str, at_bat_result.batted_ball_result if at_bat_result else None)}")
 
             self.print_play_breakdown(play_result)
 
@@ -767,7 +936,7 @@ class GameSimulator:
         if not pitches:
             return
 
-        print("  Pitch sequence:")
+        self.log("  Pitch sequence:")
         for index, pitch in enumerate(pitches, 1):
             index = pitch.get('sequence_index', index)
             pitch_type = pitch.get('pitch_type', 'pitch')
@@ -782,8 +951,10 @@ class GameSimulator:
                 zone_x = location[0] / 12.0
                 zone_z = location[1] / 12.0
                 location_str = f"({zone_x:.2f}', {zone_z:.2f}')"
+                zone_bucket = get_zone_bucket(location)
             else:
                 location_str = "(unknown)"
+                zone_bucket = "UNKNOWN"
 
             outcome_map = {
                 'ball': 'taken for ball',
@@ -807,11 +978,25 @@ class GameSimulator:
                     f"LA {contact_summary['launch_angle']:.1f}°)"
                 )
 
-            print(
+            self.log(
                 f"    #{index}: {pitch_type} {velocity_release:.1f}->{velocity_plate:.1f} mph to {location_str} "
                 f"[{count_before[0]}-{count_before[1]} -> {count_after[0]}-{count_after[1]}] "
                 f"{outcome_desc}{contact_details}"
             )
+            # Add machine-readable codes
+            self.log(f"    ZoneBucket: {zone_bucket}")
+            self.log(f"    OutcomeCodePitch: {get_pitch_outcome_code(pitch)}")
+
+            # Add fatigue diagnostics if available
+            if 'pitcher_pitches_thrown' in pitch:
+                fatigue_level = pitch.get('pitcher_fatigue_level', 0.0)
+                velo_penalty = pitch.get('velocity_penalty_mph', 0.0)
+                command_penalty = pitch.get('command_penalty_inches', 0.0)
+                self.log(f"    Fatigue:")
+                self.log(f"      PitchCount: {pitch['pitcher_pitches_thrown']}")
+                self.log(f"      FatigueLevel: {fatigue_level:.2f}")
+                self.log(f"      VelocityPenaltyMph: {velo_penalty:.1f}")
+                self.log(f"      CommandPenaltyInches: {command_penalty:.1f}")
 
     def print_play_breakdown(self, play_result: PlayResult):
         """Print detailed physics/fielding/baserunning breakdown for a play."""
@@ -843,16 +1028,82 @@ class GameSimulator:
 
     def print_final_summary(self):
         """Print final game summary"""
-        print(f"\n{'='*80}")
-        print(f"FINAL SCORE")
-        print(f"{'='*80}")
-        print(f"{self.away_team.name}: {self.game_state.away_score}")
-        print(f"{self.home_team.name}: {self.game_state.home_score}")
-        print(f"\nGame Statistics:")
-        print(f"  Total Pitches: {self.game_state.total_pitches}")
-        print(f"  Total Hits: {self.game_state.total_hits}")
-        print(f"  Home Runs: {self.game_state.total_home_runs}")
-        print(f"{'='*80}\n")
+        self.log(f"\n{'='*80}")
+        self.log(f"FINAL SCORE")
+        self.log(f"{'='*80}")
+        self.log(f"{self.away_team.name}: {self.game_state.away_score}")
+        self.log(f"{self.home_team.name}: {self.game_state.home_score}")
+        self.log(f"\nGame Statistics:")
+        self.log(f"  Total Pitches: {self.game_state.total_pitches}")
+        self.log(f"  Total Hits: {self.game_state.total_hits}")
+        self.log(f"  Home Runs: {self.game_state.total_home_runs}")
+
+        # Print sabermetric summaries for each team
+        self.log(f"\n{'-'*80}")
+        self.print_sabermetric_summary(self.away_team.name, is_away=True)
+        self.log(f"{'-'*80}")
+        self.print_sabermetric_summary(self.home_team.name, is_away=False)
+        self.log(f"{'='*80}\n")
+
+    def print_sabermetric_summary(self, team_name: str, is_away: bool):
+        """Print sabermetric summary for a team"""
+        gs = self.game_state
+
+        # Get team-specific stats
+        if is_away:
+            ab = gs.away_at_bats
+            h = gs.away_hits
+            bb = gs.away_walks
+            so = gs.away_strikeouts
+            singles = gs.away_singles
+            doubles = gs.away_doubles
+            triples = gs.away_triples
+            hr = gs.away_home_runs
+        else:
+            ab = gs.home_at_bats
+            h = gs.home_hits
+            bb = gs.home_walks
+            so = gs.home_strikeouts
+            singles = gs.home_singles
+            doubles = gs.home_doubles
+            triples = gs.home_triples
+            hr = gs.home_home_runs
+
+        # Calculate sabermetrics
+        pa = ab + bb  # Approximate PA (ignoring HBP, SF, etc.)
+
+        # AVG
+        avg = h / ab if ab > 0 else 0.0
+
+        # OBP = (H + BB) / PA
+        obp = (h + bb) / pa if pa > 0 else 0.0
+
+        # SLG = Total Bases / AB
+        total_bases = singles + (2 * doubles) + (3 * triples) + (4 * hr)
+        slg = total_bases / ab if ab > 0 else 0.0
+
+        # BABIP = (H - HR) / (AB - K - HR)
+        babip_denom = ab - so - hr
+        babip = (h - hr) / babip_denom if babip_denom > 0 else 0.0
+
+        # K%
+        k_pct = (so / pa * 100) if pa > 0 else 0.0
+
+        # BB%
+        bb_pct = (bb / pa * 100) if pa > 0 else 0.0
+
+        # ISO = SLG - AVG
+        iso = slg - avg
+
+        self.log(f"SABERMETRIC SUMMARY – {team_name}")
+        self.log(f"  PA: {pa}")
+        self.log(f"  AVG: {avg:.3f}")
+        self.log(f"  OBP: {obp:.3f}")
+        self.log(f"  SLG: {slg:.3f}")
+        self.log(f"  BABIP: {babip:.3f}")
+        self.log(f"  K%: {k_pct:.1f}%")
+        self.log(f"  BB%: {bb_pct:.1f}%")
+        self.log(f"  ISO: {iso:.3f}")
 
 
 def create_test_team(name: str, team_quality: str = "average") -> Team:
