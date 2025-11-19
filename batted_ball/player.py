@@ -349,6 +349,7 @@ class Hitter:
         self,
         name: str,
         attributes: HitterAttributes,
+        speed: int = 50000,
     ):
         """
         Initialize hitter with physics-first attributes.
@@ -361,9 +362,13 @@ class Hitter:
             Physics-first attribute system (0-100,000 scale)
             Provides bat speed, attack angle, barrel accuracy, timing mapped to physical units
             Also includes zone discernment and swing decision latency
+        speed : int, optional
+            Running speed rating (0-100,000 scale, default: 50000 = average)
+            Used for baserunning physics
         """
         self.name = name
         self.attributes = attributes
+        self.speed = np.clip(speed, 0, 100000)
 
     def get_bat_speed_mph(self) -> float:
         """

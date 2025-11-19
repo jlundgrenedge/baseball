@@ -184,15 +184,14 @@ class TeamLoader:
             BAT_SPEED=record['power'],  # Power maps to bat speed
             BARREL_ACCURACY=record['contact'],  # Contact maps to barrel accuracy
             ZONE_DISCERNMENT=record['discipline'],  # Discipline maps to pitch recognition
-            # Note: Speed is used for baserunning in the game simulation,
-            # not directly stored in HitterAttributes
             # Other attributes use defaults
         )
 
-        # Create Hitter
+        # Create Hitter with speed for baserunning
         hitter = Hitter(
             name=record['player_name'],
-            attributes=hitter_attrs
+            attributes=hitter_attrs,
+            speed=record['speed']  # Use stored speed rating for baserunning
         )
 
         return hitter
