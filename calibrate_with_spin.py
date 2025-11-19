@@ -6,19 +6,27 @@ def estimate_backspin_from_launch_angle(launch_angle_deg):
     """
     Estimate typical backspin based on launch angle.
 
-    Based on empirical patterns:
-    - Line drives (10-20°): Less backspin, more topspin component
-    - Fly balls (25-35°): Optimal backspin
-    - Pop-ups (>40°): High backspin
+    Based on Statcast calibration findings (v2 - reduced line drive spin):
+    - Line drives (<20°): Minimal backspin (200-700 rpm) due to contact above center
+    - Transition (20-25°): 700-1200 rpm (gradual increase)
+    - Fly balls (25-35°): Optimal backspin (1200-1950 rpm)
+    - Pop-ups (>35°): High backspin (1950-2700 rpm)
+
+    v1 had 600-1200 rpm for line drives → +37 ft avg error
+    v2 reduces to 200-700 rpm for better calibration
     """
     if launch_angle_deg < 20:
-        # Line drives: 600-1200 rpm
-        return 600.0 + 30.0 * launch_angle_deg
+        # Line drives: 200-700 rpm (REDUCED from v1)
+        # At 10°: 200 rpm, at 20°: 700 rpm
+        return 200.0 + 25.0 * launch_angle_deg
+    elif launch_angle_deg < 25:
+        # Transition zone: 700-1200 rpm
+        return 700.0 + 100.0 * (launch_angle_deg - 20)
     elif launch_angle_deg < 35:
-        # Fly balls: 1200-1950 rpm (linear interpolation)
-        return 1200.0 + 50.0 * (launch_angle_deg - 20)
+        # Fly balls: 1200-1950 rpm (unchanged from v1)
+        return 1200.0 + 75.0 * (launch_angle_deg - 25)
     else:
-        # Pop-ups: 1950-2700 rpm
+        # Pop-ups: 1950-2700 rpm (unchanged from v1)
         return 1950.0 + 50.0 * (launch_angle_deg - 35)
 
 # Initialize calibrator
