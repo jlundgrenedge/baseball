@@ -901,7 +901,9 @@ def create_test_team(name: str, team_quality: str = "average") -> Team:
     # No profiles needed - power emerges from HIGH bat speed + HIGH attack angle
     hitters = []
     position_names = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
-    hitter_type_weights = [0.15, 0.25, 0.30, 0.20, 0.10]  # GB, LD, Balanced, FB, Power
+    # FIX (2025-11-19): Increased ground ball % from 15% to 25% for realistic GB rate (~43%)
+    # MLB distribution: ~43% GB, ~24% LD, ~33% FB
+    hitter_type_weights = [0.25, 0.25, 0.30, 0.15, 0.05]  # GB, LD, Balanced, FB, Power
     hitter_type_names = ["groundball", "line drive", "balanced", "fly ball", "power"]
 
     for i, pos in enumerate(position_names):
