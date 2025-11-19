@@ -4,161 +4,20 @@ GAME START: Visitors @ Home
 ================================================================================
 
 SIM CONFIG:
-  EngineVersion: git-9713331
+  EngineVersion: git-aa32b37
   RNGSeed: 42
   Ballpark: Test Stadium
   Weather: default
 
   Pitch sequence:
-    #1: changeup 82.5->74.2 mph to (0.20', 2.65') [0-0 -> 0-0] put in play (contact: fair, EV 94.0 mph, LA 4.9°)
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: INPLAY
+    #1: curveball 85.4->76.8 mph to (-0.36', 2.56') [0-0 -> 0-1] swing and miss
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: STRIKE_SWING
     Fatigue:
       PitchCount: 1
       FatigueLevel: 0.00
       VelocityPenaltyMph: 0.0
       CommandPenaltyInches: 0.0
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.91
-      EV_Swing: +0.041
-      EV_Take: -0.041
-      AggressionModifier: +0.23
-      Decision: SWING
-    PitchIntent:
-      IntentionCategory: strike_looking
-      IntendedZone: UP_AWAY
-      IntendedPitchType: changeup
-      CommandError:
-        XErrorInches: -0.1
-        ZErrorInches: -0.1
-  ground_out
-    Physics: EV=94.0 mph, LA=4.9°, Dist=43.4 ft, Hang=0.46s, Peak=3.5 ft, Contact: fair
-    Pitch: changeup 74.2 mph at zone (0.2', 2.6')
-  OutcomeCodePA: OUT_GROUND
-    Play timeline:
-      [ 0.00s] Ball hit to infield (contact)
-      [ 0.00s] Ground ball coordinates: (-13.0, 41.4) ft, distance 43.4 ft from home (ground_ball_analysis)
-      [ 0.10s] Interception: shortstop travels 16.9 ft from (-35.0, 55.0) to (-18.7, 59.2), margin +0.64s (ground_ball_interception_analysis)
-      [ 0.66s] Ground ball fielded by shortstop at (-18.7, 59.2) in 0.66s (ground_ball_fielded)
-      [ 1.35s] Throw to first base at 82.1 mph (release 1.35s, flight 1.19s) (throw_to_first)
-      [ 4.29s] Runner out at first base (runner 4.29s vs ball 2.54s) (play_at_first)
-  Pitch sequence:
-    #1: changeup 82.4->74.3 mph to (0.05', 2.23') [0-0 -> 0-1] swing and miss
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: STRIKE_SWING
-    Fatigue:
-      PitchCount: 2
-      FatigueLevel: 0.01
-      VelocityPenaltyMph: 0.0
-      CommandPenaltyInches: 0.0
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.93
-      EV_Swing: +0.043
-      EV_Take: -0.043
-      AggressionModifier: +0.26
-      Decision: SWING
-    PitchIntent:
-      IntentionCategory: strike_looking
-      IntendedZone: UP_MID
-      IntendedPitchType: changeup
-      CommandError:
-        XErrorInches: +0.7
-        ZErrorInches: -3.1
-      MissedIntoZone: UP_AWAY
-    #2: fastball 97.0->87.0 mph to (-1.40', 2.81') [0-1 -> 1-1] taken for ball
-    ZoneBucket: UP_IN
-    OutcomeCodePitch: BALL
-    Fatigue:
-      PitchCount: 3
-      FatigueLevel: 0.02
-      VelocityPenaltyMph: 0.1
-      CommandPenaltyInches: 0.1
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.98
-      EV_Swing: -0.048
-      EV_Take: +0.048
-      AggressionModifier: +0.26
-      Decision: TAKE
-    PitchIntent:
-      IntentionCategory: ball_intentional
-      IntendedZone: UP_IN
-      IntendedPitchType: fastball
-      CommandError:
-        XErrorInches: -0.4
-        ZErrorInches: +1.8
-    #3: changeup 82.4->74.3 mph to (0.17', 1.70') [1-1 -> 1-1] put in play (contact: fair, EV 93.7 mph, LA -2.9°)
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: INPLAY
-    Fatigue:
-      PitchCount: 4
-      FatigueLevel: 0.03
-      VelocityPenaltyMph: 0.1
-      CommandPenaltyInches: 0.1
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.85
-      EV_Swing: +0.035
-      EV_Take: -0.035
-      AggressionModifier: +0.26
-      Decision: SWING
-    PitchIntent:
-      IntentionCategory: strike_competitive
-      IntendedZone: UP_AWAY
-      IntendedPitchType: changeup
-      CommandError:
-        XErrorInches: -0.7
-        ZErrorInches: +1.5
-  ground_out
-    Physics: EV=93.7 mph, LA=-2.9°, Dist=18.7 ft, Hang=0.25s, Peak=3.0 ft, Contact: fair
-    Pitch: changeup 74.3 mph at zone (0.2', 1.7')
-  OutcomeCodePA: OUT_GROUND
-    Play timeline:
-      [ 0.00s] Ball hit to infield (contact)
-      [ 0.00s] Ground ball coordinates: (-2.6, 18.6) ft, distance 18.7 ft from home (ground_ball_analysis)
-      [ 0.10s] Interception: pitcher travels 9.6 ft from (0.0, 60.5) to (-7.5, 54.5), margin +0.04s (ground_ball_interception_analysis)
-      [ 0.75s] Ground ball fielded by pitcher at (-7.5, 54.5) in 0.75s (ground_ball_fielded)
-      [ 1.45s] Throw to first base at 84.2 mph (release 1.45s, flight 0.92s) (throw_to_first)
-      [ 4.29s] Runner out at first base (runner 4.29s vs ball 2.37s) (play_at_first)
-  Pitch sequence:
-    #1: curveball 85.2->76.7 mph to (-0.02', 2.48') [0-0 -> 0-0] put in play (contact: fair, EV 93.5 mph, LA 10.5°)
-    ZoneBucket: UP_MID
-    OutcomeCodePitch: INPLAY
-    Fatigue:
-      PitchCount: 5
-      FatigueLevel: 0.04
-      VelocityPenaltyMph: 0.1
-      CommandPenaltyInches: 0.1
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.94
-      EV_Swing: +0.044
-      EV_Take: -0.044
-      AggressionModifier: +0.23
-      Decision: SWING
-    PitchIntent:
-      IntentionCategory: strike_looking
-      IntendedZone: UP_IN
-      IntendedPitchType: curveball
-      CommandError:
-        XErrorInches: +1.8
-        ZErrorInches: -0.1
-  ✓ SINGLE
-    Physics: EV=93.5 mph, LA=10.5°, Dist=176.3 ft, Hang=1.54s, Peak=11.3 ft, Contact: fair
-    Pitch: curveball 76.7 mph at zone (-0.0', 2.5')
-  OutcomeCodePA: SINGLE
-    Play timeline:
-      [ 0.00s] Ball hit to shallow right outfield (contact)
-      [ 1.54s] Ball drops in shallow right outfield (ball_drops)
-      [ 5.80s] Ball retrieved by first_base in shallow right outfield at 5.80s (ball_retrieved)
-    Fielding breakdown:
-      First Base: ball 1.54s, arrival 4.25s (margin -2.71s) -> missed
-  Pitch sequence:
-    #1: curveball 85.2->76.7 mph to (-0.37', 2.44') [0-0 -> 0-1] swing and miss
-    ZoneBucket: UP_IN
-    OutcomeCodePitch: STRIKE_SWING
-    Fatigue:
-      PitchCount: 6
-      FatigueLevel: 0.05
-      VelocityPenaltyMph: 0.2
-      CommandPenaltyInches: 0.1
     SwingDecisionModel:
       EstimatedStrikeProb: 0.89
       EV_Swing: +0.039
@@ -170,79 +29,58 @@ SIM CONFIG:
       IntendedZone: UP_IN
       IntendedPitchType: curveball
       CommandError:
-        XErrorInches: -3.1
-        ZErrorInches: +1.1
-    #2: slider 89.0->80.9 mph to (0.53', 3.43') [0-1 -> 0-2] swing and miss
-    ZoneBucket: UP_AWAY
+        XErrorInches: -2.3
+        ZErrorInches: -1.4
+    #2: curveball 85.3->76.7 mph to (-0.09', 3.24') [0-1 -> 0-2] swing and miss
+    ZoneBucket: UP_IN
     OutcomeCodePitch: STRIKE_SWING
     Fatigue:
-      PitchCount: 7
-      FatigueLevel: 0.06
-      VelocityPenaltyMph: 0.2
-      CommandPenaltyInches: 0.2
+      PitchCount: 2
+      FatigueLevel: 0.01
+      VelocityPenaltyMph: 0.0
+      CommandPenaltyInches: 0.0
     SwingDecisionModel:
-      EstimatedStrikeProb: 0.77
-      EV_Swing: +0.027
-      EV_Take: -0.027
+      EstimatedStrikeProb: 0.86
+      EV_Swing: +0.036
+      EV_Take: -0.036
       AggressionModifier: +0.25
       Decision: SWING
     PitchIntent:
+      IntentionCategory: strike_competitive
+      IntendedZone: UP_IN
+      IntendedPitchType: curveball
+      CommandError:
+        XErrorInches: +0.9
+        ZErrorInches: -0.7
+    #3: fastball 96.9->86.8 mph to (-0.60', 3.61') [0-2 -> 1-2] taken for ball
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: BALL
+    Fatigue:
+      PitchCount: 3
+      FatigueLevel: 0.02
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
+    SwingDecisionModel:
+      EstimatedStrikeProb: 0.81
+      EV_Swing: -0.031
+      EV_Take: +0.031
+      AggressionModifier: +0.25
+      Decision: TAKE
+    PitchIntent:
       IntentionCategory: strike_corner
-      IntendedZone: UP_AWAY
-      IntendedPitchType: slider
-      CommandError:
-        XErrorInches: -1.5
-        ZErrorInches: +0.6
-    #3: slider 89.0->81.2 mph to (0.32', 1.31') [0-2 -> 1-2] taken for ball
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: BALL
-    Fatigue:
-      PitchCount: 8
-      FatigueLevel: 0.06
-      VelocityPenaltyMph: 0.3
-      CommandPenaltyInches: 0.2
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.82
-      EV_Swing: -0.032
-      EV_Take: +0.032
-      AggressionModifier: +0.25
-      Decision: TAKE
-    PitchIntent:
-      IntentionCategory: waste_chase
-      IntendedZone: UP_AWAY
-      IntendedPitchType: slider
-      CommandError:
-        XErrorInches: -0.5
-        ZErrorInches: +0.2
-    #4: fastball 96.7->86.8 mph to (1.03', 2.56') [1-2 -> 2-2] taken for ball
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: BALL
-    Fatigue:
-      PitchCount: 9
-      FatigueLevel: 0.07
-      VelocityPenaltyMph: 0.3
-      CommandPenaltyInches: 0.2
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.96
-      EV_Swing: -0.046
-      EV_Take: +0.046
-      AggressionModifier: +0.25
-      Decision: TAKE
-    PitchIntent:
-      IntentionCategory: waste_chase
-      IntendedZone: UP_AWAY
+      IntendedZone: UP_IN
       IntendedPitchType: fastball
       CommandError:
-        XErrorInches: +1.5
-        ZErrorInches: +1.8
-    #5: changeup 82.1->74.1 mph to (-0.04', 1.67') [2-2 -> 2-2] put in play (contact: fair, EV 91.5 mph, LA 7.4°)
+        XErrorInches: -0.8
+        ZErrorInches: +2.3
+    #4: changeup 82.4->74.2 mph to (-0.35', 2.30') [1-2 -> 1-2] put in play (contact: fair, EV 100.8 mph, LA 50.8°)
     ZoneBucket: UP_IN
     OutcomeCodePitch: INPLAY
     Fatigue:
-      PitchCount: 10
-      FatigueLevel: 0.08
-      VelocityPenaltyMph: 0.3
-      CommandPenaltyInches: 0.3
+      PitchCount: 4
+      FatigueLevel: 0.03
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
     SwingDecisionModel:
       EstimatedStrikeProb: 0.95
       EV_Swing: +0.045
@@ -254,22 +92,82 @@ SIM CONFIG:
       IntendedZone: UP_IN
       IntendedPitchType: changeup
       CommandError:
-        XErrorInches: +0.6
-        ZErrorInches: -1.8
-  double_play
-    Physics: EV=91.5 mph, LA=7.4°, Dist=59.4 ft, Hang=0.58s, Peak=4.4 ft, Contact: fair
-    Pitch: changeup 74.1 mph at zone (-0.0', 1.7')
-  OutcomeCodePA: DOUBLE_PLAY
+        XErrorInches: +1.6
+        ZErrorInches: +0.3
+  ⚾ Fly out to outfield
+    Physics: EV=100.8 mph, LA=50.8°, Dist=346.4 ft, Hang=6.08s, Peak=146.6 ft, Contact: fair
+    Pitch: changeup 74.2 mph at zone (-0.4', 2.3')
+  OutcomeCodePA: OUT_FLY
     Play timeline:
-      [ 0.00s] Ball hit to infield (contact)
-      [ 0.00s] Ground ball coordinates: (-0.8, 59.4) ft, distance 59.4 ft from home (ground_ball_analysis)
-      [ 0.10s] Interception: pitcher travels 9.0 ft from (0.0, 60.5) to (-0.9, 69.5), margin +0.41s (ground_ball_interception_analysis)
-      [ 0.68s] Ground ball fielded by pitcher at (-0.9, 69.5) in 0.68s (ground_ball_fielded)
-      [ 2.51s] Force out at second (margin: 2.46s) (force_out)
-      [ 4.31s] Double play! pitcher to second to first (double_play)
+      [ 0.00s] Ball hit to deep left outfield (contact)
+      [ 6.08s] Caught by left_field at deep left outfield (catch)
+    Fielding breakdown:
+      Left Field: ball 6.08s, arrival 2.17s (margin +3.90s) -> made play
   Pitch sequence:
-    #1: fastball 96.6->86.6 mph to (-0.43', 3.40') [0-0 -> 0-0] put in play (contact: fair, EV 90.2 mph, LA 15.8°)
+    #1: fastball 96.9->86.9 mph to (-0.22', 2.73') [0-0 -> 0-0] put in play (contact: fair, EV 105.1 mph, LA 23.7°)
     ZoneBucket: UP_IN
+    OutcomeCodePitch: INPLAY
+    Fatigue:
+      PitchCount: 5
+      FatigueLevel: 0.04
+      VelocityPenaltyMph: 0.1
+      CommandPenaltyInches: 0.1
+    SwingDecisionModel:
+      EstimatedStrikeProb: 0.89
+      EV_Swing: +0.039
+      EV_Take: -0.039
+      AggressionModifier: +0.27
+      Decision: SWING
+    PitchIntent:
+      IntentionCategory: strike_looking
+      IntendedZone: UP_IN
+      IntendedPitchType: fastball
+      CommandError:
+        XErrorInches: -2.4
+        ZErrorInches: +0.6
+  ⚾ Fly out to outfield
+    Physics: EV=105.1 mph, LA=23.7°, Dist=383.8 ft, Hang=4.25s, Peak=62.6 ft, Contact: fair
+    Pitch: fastball 86.9 mph at zone (-0.2', 2.7')
+  OutcomeCodePA: OUT_FLY
+    Play timeline:
+      [ 0.00s] Ball hit to warning track / wall (contact)
+      [ 4.25s] Caught by center_field at warning track / wall (catch)
+    Fielding breakdown:
+      Center Field: ball 4.25s, arrival 3.59s (margin +0.66s) -> made play
+  Pitch sequence:
+    #1: slider 89.1->81.0 mph to (-0.21', 2.57') [0-0 -> 0-0] put in play (contact: fair, EV 88.4 mph, LA 22.7°)
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: INPLAY
+    Fatigue:
+      PitchCount: 6
+      FatigueLevel: 0.05
+      VelocityPenaltyMph: 0.2
+      CommandPenaltyInches: 0.1
+    SwingDecisionModel:
+      EstimatedStrikeProb: 0.92
+      EV_Swing: +0.042
+      EV_Take: -0.042
+      AggressionModifier: +0.26
+      Decision: SWING
+    PitchIntent:
+      IntentionCategory: strike_looking
+      IntendedZone: UP_IN
+      IntendedPitchType: slider
+      CommandError:
+        XErrorInches: -2.2
+        ZErrorInches: +0.0
+  ⚾ Fly out to outfield
+    Physics: EV=88.4 mph, LA=22.7°, Dist=271.4 ft, Hang=3.02s, Peak=36.6 ft, Contact: fair
+    Pitch: slider 81.0 mph at zone (-0.2', 2.6')
+  OutcomeCodePA: OUT_FLY
+    Play timeline:
+      [ 0.00s] Ball hit to outfield (contact)
+      [ 3.02s] Caught by center_field at outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 3.02s, arrival 2.73s (margin +0.29s) -> made play
+  Pitch sequence:
+    #1: fastball 97.4->87.4 mph to (0.43', 2.95') [0-0 -> 0-0] put in play (contact: fair, EV 89.2 mph, LA 29.2°)
+    ZoneBucket: UP_AWAY
     OutcomeCodePitch: INPLAY
     Fatigue:
       PitchCount: 1
@@ -277,277 +175,112 @@ SIM CONFIG:
       VelocityPenaltyMph: 0.0
       CommandPenaltyInches: 0.0
     SwingDecisionModel:
-      EstimatedStrikeProb: 0.78
-      EV_Swing: +0.028
-      EV_Take: -0.028
-      AggressionModifier: +0.25
+      EstimatedStrikeProb: 0.83
+      EV_Swing: +0.033
+      EV_Take: -0.033
+      AggressionModifier: +0.24
       Decision: SWING
     PitchIntent:
-      IntentionCategory: strike_corner
-      IntendedZone: UP_IN
+      IntentionCategory: strike_competitive
+      IntendedZone: UP_AWAY
       IntendedPitchType: fastball
       CommandError:
-        XErrorInches: +2.0
-        ZErrorInches: -0.4
-  ✓ SINGLE
-    Physics: EV=90.2 mph, LA=15.8°, Dist=214.7 ft, Hang=2.08s, Peak=19.6 ft, Contact: fair
-    Pitch: fastball 86.6 mph at zone (-0.4', 3.4')
-  OutcomeCodePA: SINGLE
+        XErrorInches: -1.1
+        ZErrorInches: -0.7
+  ⚾ Fly out to outfield
+    Physics: EV=89.2 mph, LA=29.2°, Dist=290.1 ft, Hang=3.44s, Peak=50.8 ft, Contact: fair
+    Pitch: fastball 87.4 mph at zone (0.4', 3.0')
+  OutcomeCodePA: OUT_FLY
     Play timeline:
-      [ 0.00s] Ball hit to left outfield (contact)
-      [ 2.08s] Ball drops in left outfield (ball_drops)
-      [ 3.98s] Ball retrieved by left_field in outfield at 3.98s (rolling_stop) (ball_retrieved)
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 3.44s] Caught by left_field at deep outfield (catch)
     Fielding breakdown:
-      Left Field: ball 2.08s, arrival 4.09s (margin -2.01s) -> missed
+      Left Field: ball 3.44s, arrival 1.87s (margin +1.57s) -> made play
   Pitch sequence:
-    #1: changeup 82.1->74.0 mph to (0.05', 2.06') [0-0 -> 0-0] put in play (contact: fair, EV 87.4 mph, LA 11.7°)
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: INPLAY
+    #1: cutter 97.3->88.3 mph to (-0.07', 2.12') [0-0 -> 0-1] swing and miss
+    ZoneBucket: UP_IN
+    OutcomeCodePitch: STRIKE_SWING
     Fatigue:
       PitchCount: 2
       FatigueLevel: 0.01
       VelocityPenaltyMph: 0.0
       CommandPenaltyInches: 0.0
     SwingDecisionModel:
-      EstimatedStrikeProb: 0.90
-      EV_Swing: +0.040
-      EV_Take: -0.040
-      AggressionModifier: +0.26
+      EstimatedStrikeProb: 0.88
+      EV_Swing: +0.038
+      EV_Take: -0.038
+      AggressionModifier: +0.24
       Decision: SWING
     PitchIntent:
       IntentionCategory: strike_looking
-      IntendedZone: UP_MID
-      IntendedPitchType: changeup
+      IntendedZone: UP_IN
+      IntendedPitchType: cutter
       CommandError:
-        XErrorInches: +0.6
-        ZErrorInches: -0.6
-  ✓ SINGLE
-    Physics: EV=87.4 mph, LA=11.7°, Dist=176.5 ft, Hang=1.67s, Peak=12.5 ft, Contact: fair
-    Pitch: changeup 74.0 mph at zone (0.1', 2.1')
-  OutcomeCodePA: SINGLE
-    Play timeline:
-      [ 0.00s] Ball hit to shallow left outfield (contact)
-      [ 0.05s] DECISION: Runner on first attempts advance to third (risk: aggressive, advancing 2 bases) (runner_advancement_decision)
-      [ 1.67s] Ball drops in shallow left outfield (ball_drops)
-      [ 4.57s] Ball retrieved by center_field in outfield at 4.57s (rolling_stop) (ball_retrieved)
-      [ 8.49s] Runner arrives at third at 8.49s (safe) - Runner: 8.49s vs Ball: infs (runner_advances)
-    Fielding breakdown:
-      Third Base: ball 1.67s, arrival 4.14s (margin -2.47s) -> missed
-  Pitch sequence:
-    #1: slider 88.8->81.0 mph to (0.55', 1.71') [0-0 -> 0-1] fouled off (contact: weak, EV 90.2 mph, LA 31.1°)
+        XErrorInches: +0.3
+        ZErrorInches: +2.5
+    #2: changeup 82.7->74.6 mph to (0.82', 1.89') [0-1 -> 0-1] put in play (contact: fair, EV 94.5 mph, LA 21.5°)
     ZoneBucket: UP_AWAY
-    OutcomeCodePitch: FOUL
+    OutcomeCodePitch: INPLAY
     Fatigue:
       PitchCount: 3
       FatigueLevel: 0.02
       VelocityPenaltyMph: 0.1
       CommandPenaltyInches: 0.1
     SwingDecisionModel:
-      EstimatedStrikeProb: 0.79
-      EV_Swing: +0.029
-      EV_Take: -0.029
-      AggressionModifier: +0.25
+      EstimatedStrikeProb: 0.84
+      EV_Swing: -0.034
+      EV_Take: +0.034
+      AggressionModifier: +0.24
       Decision: SWING
     PitchIntent:
-      IntentionCategory: strike_corner
+      IntentionCategory: strike_competitive
       IntendedZone: UP_AWAY
-      IntendedPitchType: slider
+      IntendedPitchType: changeup
       CommandError:
-        XErrorInches: -0.8
-        ZErrorInches: -0.7
-    #2: curveball 84.9->76.3 mph to (-0.53', 3.59') [0-1 -> 1-1] taken for ball
-    ZoneBucket: UP_IN
-    OutcomeCodePitch: BALL
+        XErrorInches: +1.9
+        ZErrorInches: -1.7
+  ⚾ Fly out to outfield
+    Physics: EV=94.5 mph, LA=21.5°, Dist=286.5 ft, Hang=2.97s, Peak=36.4 ft, Contact: fair
+    Pitch: changeup 74.6 mph at zone (0.8', 1.9')
+  OutcomeCodePA: OUT_FLY
+    Play timeline:
+      [ 0.00s] Ball hit to deep outfield (contact)
+      [ 2.97s] Caught by center_field at deep outfield (catch)
+    Fielding breakdown:
+      Center Field: ball 2.97s, arrival 1.02s (margin +1.95s) -> made play
+  Pitch sequence:
+    #1: cutter 97.3->88.1 mph to (-0.01', 2.92') [0-0 -> 0-0] put in play (contact: fair, EV 87.0 mph, LA 8.0°)
+    ZoneBucket: UP_MID
+    OutcomeCodePitch: INPLAY
     Fatigue:
       PitchCount: 4
       FatigueLevel: 0.03
       VelocityPenaltyMph: 0.1
       CommandPenaltyInches: 0.1
     SwingDecisionModel:
-      EstimatedStrikeProb: 0.82
-      EV_Swing: -0.032
-      EV_Take: +0.032
-      AggressionModifier: +0.25
-      Decision: TAKE
-    PitchIntent:
-      IntentionCategory: waste_chase
-      IntendedZone: UP_IN
-      IntendedPitchType: curveball
-      CommandError:
-        XErrorInches: +0.0
-        ZErrorInches: -1.4
-    #3: fastball 96.5->86.5 mph to (0.69', 3.26') [1-1 -> 1-2] taken for strike
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: STRIKE_TAKEN
-    Fatigue:
-      PitchCount: 5
-      FatigueLevel: 0.04
-      VelocityPenaltyMph: 0.1
-      CommandPenaltyInches: 0.1
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.76
-      EV_Swing: +0.026
-      EV_Take: -0.026
-      AggressionModifier: +0.25
-      Decision: TAKE
-    PitchIntent:
-      IntentionCategory: strike_corner
-      IntendedZone: UP_AWAY
-      IntendedPitchType: fastball
-      CommandError:
-        XErrorInches: +1.2
-        ZErrorInches: +0.1
-    #4: curveball 84.9->76.8 mph to (-1.95', 0.00') [1-2 -> 2-2] taken for ball
-    ZoneBucket: LOW_IN
-    OutcomeCodePitch: BALL
-    Fatigue:
-      PitchCount: 6
-      FatigueLevel: 0.05
-      VelocityPenaltyMph: 0.2
-      CommandPenaltyInches: 0.1
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.99
-      EV_Swing: -0.049
-      EV_Take: +0.049
-      AggressionModifier: +0.25
-      Decision: TAKE
-    PitchIntent:
-      IntentionCategory: strike_competitive
-      IntendedZone: UP_IN
-      IntendedPitchType: curveball
-      CommandError:
-        XErrorInches: -17.0
-        ZErrorInches: -20.8
-      MissedIntoZone: LOW_IN
-    #5: changeup 81.9->73.6 mph to (-0.25', 3.48') [2-2 -> 2-2] put in play (contact: fair, EV 94.1 mph, LA 28.4°)
-    ZoneBucket: UP_IN
-    OutcomeCodePitch: INPLAY
-    Fatigue:
-      PitchCount: 7
-      FatigueLevel: 0.06
-      VelocityPenaltyMph: 0.2
-      CommandPenaltyInches: 0.2
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.95
-      EV_Swing: +0.045
-      EV_Take: -0.045
+      EstimatedStrikeProb: 0.89
+      EV_Swing: +0.039
+      EV_Take: -0.039
       AggressionModifier: +0.25
       Decision: SWING
-    PitchIntent:
-      IntentionCategory: strike_competitive
-      IntendedZone: UP_IN
-      IntendedPitchType: changeup
-      CommandError:
-        XErrorInches: +0.4
-        ZErrorInches: -1.0
-  ⚾ Fly out to outfield
-    Physics: EV=94.1 mph, LA=28.4°, Dist=340.3 ft, Hang=4.21s, Peak=64.6 ft, Contact: fair
-    Pitch: changeup 73.6 mph at zone (-0.3', 3.5')
-  OutcomeCodePA: OUT_FLY
-    Play timeline:
-      [ 0.00s] Ball hit to deep left outfield (contact)
-      [ 4.21s] Caught by left_field at deep left outfield (catch)
-    Fielding breakdown:
-      Left Field: ball 4.21s, arrival 1.72s (margin +2.48s) -> made play
-  Pitch sequence:
-    #1: fastball 96.4->86.5 mph to (0.08', 2.47') [0-0 -> 0-1] taken for strike
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: STRIKE_TAKEN
-    Fatigue:
-      PitchCount: 8
-      FatigueLevel: 0.06
-      VelocityPenaltyMph: 0.3
-      CommandPenaltyInches: 0.2
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.94
-      EV_Swing: +0.044
-      EV_Take: -0.044
-      AggressionModifier: +0.27
-      Decision: TAKE
     PitchIntent:
       IntentionCategory: strike_looking
-      IntendedZone: UP_IN
-      IntendedPitchType: fastball
-      CommandError:
-        XErrorInches: +1.6
-        ZErrorInches: +0.8
-    #2: slider 88.6->80.6 mph to (-0.36', 2.61') [0-1 -> 0-2] taken for strike
-    ZoneBucket: UP_IN
-    OutcomeCodePitch: STRIKE_TAKEN
-    Fatigue:
-      PitchCount: 9
-      FatigueLevel: 0.07
-      VelocityPenaltyMph: 0.3
-      CommandPenaltyInches: 0.2
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.90
-      EV_Swing: +0.040
-      EV_Take: -0.040
-      AggressionModifier: +0.27
-      Decision: TAKE
-    PitchIntent:
-      IntentionCategory: strike_competitive
-      IntendedZone: UP_IN
-      IntendedPitchType: slider
-      CommandError:
-        XErrorInches: +1.9
-        ZErrorInches: -0.3
-    #3: changeup 81.8->73.8 mph to (-0.44', 1.60') [0-2 -> 0-3] swing and miss
-    ZoneBucket: UP_IN
-    OutcomeCodePitch: STRIKE_SWING
-    Fatigue:
-      PitchCount: 10
-      FatigueLevel: 0.08
-      VelocityPenaltyMph: 0.3
-      CommandPenaltyInches: 0.2
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.95
-      EV_Swing: +0.045
-      EV_Take: -0.045
-      AggressionModifier: +0.27
-      Decision: SWING
-    PitchIntent:
-      IntentionCategory: strike_competitive
-      IntendedZone: UP_IN
-      IntendedPitchType: changeup
-      CommandError:
-        XErrorInches: -1.7
-        ZErrorInches: -0.5
-  ⚾ STRIKEOUT! 2 out(s)
-  OutcomeCodePA: STRIKEOUT_SWING
-  Pitch sequence:
-    #1: changeup 81.8->73.6 mph to (0.52', 2.61') [0-0 -> 0-0] put in play (contact: fair, EV 90.9 mph, LA 9.0°)
-    ZoneBucket: UP_AWAY
-    OutcomeCodePitch: INPLAY
-    Fatigue:
-      PitchCount: 11
-      FatigueLevel: 0.09
-      VelocityPenaltyMph: 0.4
-      CommandPenaltyInches: 0.3
-    SwingDecisionModel:
-      EstimatedStrikeProb: 0.87
-      EV_Swing: +0.037
-      EV_Take: -0.037
-      AggressionModifier: +0.27
-      Decision: SWING
-    PitchIntent:
-      IntentionCategory: strike_competitive
       IntendedZone: UP_AWAY
-      IntendedPitchType: changeup
+      IntendedPitchType: cutter
       CommandError:
-        XErrorInches: +0.4
-        ZErrorInches: -0.1
-  double_play
-    Physics: EV=90.9 mph, LA=9.0°, Dist=75.5 ft, Hang=0.69s, Peak=5.4 ft, Contact: fair
-    Pitch: changeup 73.6 mph at zone (0.5', 2.6')
-  OutcomeCodePA: DOUBLE_PLAY
+        XErrorInches: -0.6
+        ZErrorInches: -1.0
+  ground_out
+    Physics: EV=87.0 mph, LA=8.0°, Dist=59.2 ft, Hang=0.59s, Peak=4.5 ft, Contact: fair
+    Pitch: cutter 88.1 mph at zone (-0.0', 2.9')
+  OutcomeCodePA: OUT_GROUND
     Play timeline:
       [ 0.00s] Ball hit to infield (contact)
-      [ 0.00s] Ground ball coordinates: (11.7, 74.6) ft, distance 75.5 ft from home (ground_ball_analysis)
-      [ 0.10s] Interception: second_base travels 40.3 ft from (40.0, 55.0) to (13.3, 85.3), margin +1.86s (ground_ball_interception_analysis)
-      [ 0.79s] Ground ball fielded by second_base at (13.3, 85.3) in 0.79s (ground_ball_fielded)
-      [ 1.82s] Force out at second (margin: 3.25s) (force_out)
-      [ 3.50s] Double play! second_base to second to first (double_play)
+      [ 0.00s] Ground ball coordinates: (-31.7, 50.0) ft, distance 59.2 ft from home (ground_ball_analysis)
+      [ 0.10s] Interception: shortstop travels 3.8 ft from (-35.0, 55.0) to (-37.0, 58.2), margin +0.20s (ground_ball_interception_analysis)
+      [ 0.69s] Ground ball fielded by shortstop at (-37.0, 58.2) in 0.69s (ground_ball_fielded)
+      [ 1.26s] Throw to first base at 83.4 mph (release 1.26s, flight 1.17s) (throw_to_first)
+      [ 4.29s] Runner out at first base (runner 4.29s vs ball 2.43s) (play_at_first)
 
 ================================================================================
 FINAL SCORE
@@ -556,37 +289,49 @@ Visitors: 0
 Home: 0
 
 Game Statistics:
-  Total Pitches: 21
-  Total Hits: 3
+  Total Pitches: 10
+  Total Hits: 0
   Home Runs: 0
 
 --------------------------------------------------------------------------------
 SABERMETRIC SUMMARY – Visitors
-  PA: 4
-  AVG: 0.250
-  OBP: 0.250
-  SLG: 0.250
-  BABIP: 0.250
+  PA: 3
+  AVG: 0.000
+  OBP: 0.000
+  SLG: 0.000
+  BABIP: 0.000
   K%: 0.0%
   BB%: 0.0%
   ISO: 0.000
+
+  SABERMETRIC SNAPSHOT:
+    BABIP: 0.000 | K%: 0.0% | BB%: 0.0% | ISO: 0.000 | HR/FB: 0.0%
+    GB%: 0.0% | LD%: 66.7% | FB%: 33.3%
 --------------------------------------------------------------------------------
 SABERMETRIC SUMMARY – Home
-  PA: 5
-  AVG: 0.400
-  OBP: 0.400
-  SLG: 0.400
-  BABIP: 0.500
-  K%: 20.0%
+  PA: 3
+  AVG: 0.000
+  OBP: 0.000
+  SLG: 0.000
+  BABIP: 0.000
+  K%: 0.0%
   BB%: 0.0%
   ISO: 0.000
+
+  SABERMETRIC SNAPSHOT:
+    BABIP: 0.000 | K%: 0.0% | BB%: 0.0% | ISO: 0.000 | HR/FB: 0.0%
+    GB%: 33.3% | LD%: 33.3% | FB%: 33.3%
 ================================================================================
 
 MODEL DRIFT INDICATORS:
-  HR/FB: 0.0%
-  BABIP: 0.375 ⚠ too high; MLB ~.290-.310
-  K%: 11.1%
-  BB%: 0.0%
-  AvgExitVelo: 91.9 mph ok
+  HR/FB: 0.0% (sample size too small)
+  BABIP: 0.000 ⚠ too low; MLB ~.290-.310
+  K%: 0.0% (sample size too small)
+  BB%: 0.0% (sample size too small)
+  AvgExitVelo: 94.2 mph ⚠ too high; MLB ~87-89 mph
+  Contact Distribution:
+    GB%: 16.7% (MLB ~43%) ⚠ too low
+    LD%: 50.0% (MLB ~24%) ⚠ too high
+    FB%: 33.3% (MLB ~33%) ok
 ================================================================================
 
