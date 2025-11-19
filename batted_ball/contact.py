@@ -384,102 +384,6 @@ class ContactModel:
                         (1.0 + collision_efficiency_q) * bat_speed_mph)
         
         return max(exit_velocity, 10.0)  # Minimum exit velocity
-        """
-        Calculate exit velocity using physics-based collision model.
-
-        Uses conservation of momentum and energy with coefficient of
-        restitution (COR) to model the bat-ball collision. Accounts for:
-        - Bat and ball masses
-        - Effective bat mass at contact point
-        - Energy loss from vibrations (off sweet spot)
-        - Variable COR based on contact location
-
-        Physics:
-        In the collision frame (bat reference):
-        v_ball_after = -(1 + COR) × m_bat_eff / (m_ball + m_bat_eff) × v_ball_before
-
-        Transforming back to lab frame and accounting for energy losses.
-
-        Parameters
-        ----------
-        bat_speed_mph : float
-            Bat speed at contact (mph)
-        pitch_speed_mph : float
-            Incoming pitch speed (mph)
-        collision_angle_deg : float
-            Angle of collision (degrees). Affects component of velocities
-            used in collision. Default 0 = head-on collision.
-        distance_from_sweet_spot_inches : float
-            Distance from sweet spot (inches). Default 0 = sweet spot.
-
-        Returns
-        -------
-        float
-            Exit velocity in mph
-        """
-        # Convert to m/s for physics calculations
-        bat_speed_ms = bat_speed_mph * MPH_TO_MS
-        pitch_speed_ms = pitch_speed_mph * MPH_TO_MS
-
-        # Calculate COR based on contact location
-        cor = self.calculate_cor(distance_from_sweet_spot_inches)
-
-        # Calculate effective bat mass
-        # Sweet spot has optimal effective mass ratio
-        # Off sweet spot, more of bat vibrates = different effective mass
-        distance_abs = abs(distance_from_sweet_spot_inches)
-        # Effective mass increases slightly away from sweet spot (more bat involved)
-        mass_ratio_adjustment = 1.0 + 0.05 * distance_abs
-        m_bat_effective = BAT_MASS * BAT_EFFECTIVE_MASS_RATIO * mass_ratio_adjustment
-
-        # Empirical bat-ball collision formula (validated by MLB data and research):
-        # v_exit = a * v_bat + b * v_pitch
-        # where for wood bats: a ≈ 1.2, b ≈ 0.2 (for COR ≈ 0.5)
-        #
-        # These coefficients scale with COR:
-        # - Higher COR → more efficient energy transfer → higher exit velocity
-        # - Coefficients derived from momentum and energy conservation
-
-        # Bat coefficient: empirically ~1.15-1.23 for wood bats
-        # Scales with COR (normalized to COR=0.55)
-        bat_coefficient = 1.0 + 0.2 * (cor / 0.55)
-
-        # Pitch coefficient: empirically ~0.18-0.22 for wood bats
-        # Scales with COR (normalized to COR=0.55)
-        pitch_coefficient = 0.2 * (cor / 0.55)
-
-        # Calculate exit velocity
-        v_exit_ms = bat_coefficient * bat_speed_ms + pitch_coefficient * pitch_speed_ms
-
-        # Account for energy loss from vibrations
-        vibration_loss = self.calculate_vibration_energy_loss(distance_from_sweet_spot_inches)
-        # Energy loss reduces velocity (E ∝ v²)
-        v_exit_ms *= np.sqrt(1.0 - vibration_loss)
-
-        # Account for collision angle (non-head-on collision)
-        if abs(collision_angle_deg) > 0.1:
-            angle_rad = collision_angle_deg * np.pi / 180.0
-            # Only normal component transfers efficiently
-            efficiency = abs(np.cos(angle_rad))
-            v_exit_ms *= efficiency
-
-        # Convert back to mph
-        exit_velocity_mph = v_exit_ms * MS_TO_MPH
-        
-        # Apply progressive exit velocity penalty for off-center contact
-        # Test 2 formula (best balanced results): coefficient 0.15
-        # Threshold at 0.5" preserves close-to-perfect contact while reducing HR rate
-        contact_offset_total = abs(distance_from_sweet_spot_inches)
-        if contact_offset_total > 0.5:  # Start penalty at 0.5" from sweet spot
-            # Power-law penalty: offset^1.5 for smooth scaling
-            penalty_factor = (contact_offset_total - 0.5) ** 1.5 * 0.15
-            # Cap penalty at 60%
-            penalty_factor = min(penalty_factor, 0.60)
-            
-            # Apply penalty
-            exit_velocity_mph *= (1.0 - penalty_factor)
-
-        return exit_velocity_mph
 
     def calculate_launch_angle(
         self,
@@ -646,13 +550,13 @@ class ContactModel:
         )
         
         # Apply additional exit velocity reduction for off-center contact
-        # TUNED: Steeper penalty to reduce HR rate while allowing singles/doubles
-        # 0.5": ~5% penalty, 1.0": ~18% penalty, 1.5": ~34% penalty, 2.0": ~50% penalty
-        if contact_offset_total > 0.4:  # Start penalty at 0.4" offset
-            offset_beyond_sweet = max(0, contact_offset_total - 0.4)
-            # Power-law penalty: scales as offset^2.0 for steeper effect
-            penalty = offset_beyond_sweet ** 2.0 * 0.35
-            penalty = min(penalty, 0.60)  # Cap at 60% penalty
+        # TUNED: Gentle penalty to reduce extreme HR rate while preserving power hitting
+        # 0.7": ~0% penalty, 1.0": ~2% penalty, 1.5": ~8% penalty, 2.0": ~15% penalty
+        if contact_offset_total > 0.6:  # Start penalty at 0.6" offset (sweet spot zone)
+            offset_beyond_sweet = max(0, contact_offset_total - 0.6)
+            # Power-law penalty: scales as offset^1.15 for very gentle scaling
+            penalty = offset_beyond_sweet ** 1.15 * 0.08
+            penalty = min(penalty, 0.35)  # Cap at 35% penalty
             exit_velocity *= (1.0 - penalty)
             
         # Ensure minimum exit velocity for any contact
