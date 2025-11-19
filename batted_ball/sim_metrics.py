@@ -80,6 +80,9 @@ class PitchMetrics:
     pitch_outcome: str = "unknown"  # 'ball', 'called_strike', 'swinging_strike', 'foul', 'contact'
     is_strike: bool = False
 
+    # Zone classification
+    zone_classification: str = "unknown"  # 'in_zone', 'edge', 'chase', 'waste'
+
     # Flight physics
     flight_time_ms: float = 0.0
     perceived_velocity_mph: float = 0.0  # Adjusted for extension
@@ -97,6 +100,62 @@ class PitchMetrics:
         if self.release_extension_ft:
             extension_boost = self.release_extension_ft * 1.0
             self.perceived_velocity_mph = self.plate_velocity_mph + extension_boost
+
+        # Calculate zone classification
+        self.zone_classification = self._classify_zone()
+
+    def _classify_zone(self) -> str:
+        """
+        Classify pitch location into zone categories.
+
+        Strike zone (MLB规则):
+        - Horizontal: -8.5" to +8.5" (17" plate width)
+        - Vertical: ~18" to 42" (varies by batter height, using average)
+
+        Returns
+        -------
+        str
+            'in_zone', 'edge', 'chase', or 'waste'
+        """
+        h_loc = self.plate_location[0]
+        v_loc = self.plate_location[1]
+
+        # Strike zone boundaries
+        H_ZONE_MIN = -8.5
+        H_ZONE_MAX = 8.5
+        V_ZONE_MIN = 18.0
+        V_ZONE_MAX = 42.0
+
+        # Edge definition: within 2" of zone boundary
+        EDGE_MARGIN = 2.0
+        # Chase zone: 2-6" outside zone (pitches batters commonly chase)
+        CHASE_MIN = 2.0
+        CHASE_MAX = 6.0
+
+        # Calculate distances from zone
+        h_inside = max(0, H_ZONE_MIN - h_loc, h_loc - H_ZONE_MAX)
+        v_inside = max(0, V_ZONE_MIN - v_loc, v_loc - V_ZONE_MAX)
+
+        # Check if in strike zone
+        if H_ZONE_MIN <= h_loc <= H_ZONE_MAX and V_ZONE_MIN <= v_loc <= V_ZONE_MAX:
+            # Inside zone - check if on edge
+            h_dist_to_edge = min(abs(h_loc - H_ZONE_MIN), abs(h_loc - H_ZONE_MAX))
+            v_dist_to_edge = min(abs(v_loc - V_ZONE_MIN), abs(v_loc - V_ZONE_MAX))
+
+            if h_dist_to_edge < EDGE_MARGIN or v_dist_to_edge < EDGE_MARGIN:
+                return "edge"
+            else:
+                return "in_zone"
+
+        # Outside zone - determine how far
+        max_outside = max(h_inside, v_inside)
+
+        if max_outside < CHASE_MIN:
+            return "edge"  # Just outside, still borderline
+        elif max_outside < CHASE_MAX:
+            return "chase"  # Chase zone - commonly swung at
+        else:
+            return "waste"  # Too far outside, obvious ball
 
 
 @dataclass
@@ -211,6 +270,7 @@ class BattedBallMetrics:
 
     # Fielding context
     catch_probability: float = 0.0  # Probability fielder makes the play
+    gb_difficulty: str = "unknown"  # For ground balls: 'routine', 'average', 'tough', 'infield_hit'
 
     def __post_init__(self):
         """Calculate derived metrics"""
@@ -238,6 +298,10 @@ class BattedBallMetrics:
 
         # Calculate expected stats (xBA, xwOBA, xSLG) from EV/LA
         self._calculate_expected_stats()
+
+        # Calculate ground ball difficulty if applicable
+        if self.hit_type == "ground_ball":
+            self.gb_difficulty = self._calculate_gb_difficulty()
 
     def _calculate_expected_stats(self):
         """
@@ -319,6 +383,78 @@ class BattedBallMetrics:
         # For batted balls, assume mix based on EV/LA
         # Simplified: xwOBA ≈ 0.8 + (xSLG - xBA) * 0.5
         self.expected_woba = 0.80 * self.expected_batting_avg + 0.30 * self.expected_slg
+
+    def _calculate_gb_difficulty(self) -> str:
+        """
+        Calculate ground ball difficulty rating.
+
+        Based on:
+        - Exit velocity (faster = harder to field)
+        - Hang time (less time = harder)
+        - Launch angle (sharper = more hops, harder to field cleanly)
+
+        Returns
+        -------
+        str
+            'routine', 'average', 'tough', or 'infield_hit'
+        """
+        ev = self.exit_velocity_mph
+        hang_time = self.hang_time_sec
+        la = self.launch_angle_deg
+
+        # Difficulty factors
+        # EV: <80 = soft, 80-95 = medium, >95 = hard
+        # Hang time: >3.0s = slow roller, 2-3s = average, <2s = fast
+        # LA: 0-3° = sharp grounder (hard to field cleanly), 3-8° = normal GB
+
+        # Calculate difficulty score (0-100, higher = harder)
+        difficulty_score = 0
+
+        # Exit velocity contribution (0-40 points)
+        if ev < 70:
+            ev_points = 10  # Very soft
+        elif ev < 85:
+            ev_points = 20 + (ev - 70) * 0.67  # Soft to medium
+        elif ev < 95:
+            ev_points = 30 + (ev - 85) * 0.5  # Medium to hard
+        else:
+            ev_points = min(40, 35 + (ev - 95) * 1.0)  # Very hard
+
+        difficulty_score += ev_points
+
+        # Hang time contribution (0-30 points)
+        # Less time = harder to field
+        if hang_time > 3.0:
+            hang_points = 5  # Plenty of time (slow roller)
+        elif hang_time > 2.0:
+            hang_points = 15 + (3.0 - hang_time) * 10  # Average
+        else:
+            hang_points = min(30, 25 + (2.0 - hang_time) * 25)  # Fast
+
+        difficulty_score += hang_points
+
+        # Launch angle contribution (0-30 points)
+        # Sharp grounders (low LA) are harder to field cleanly
+        if la < 1.0:
+            la_points = 30  # Bullet, very sharp
+        elif la < 3.0:
+            la_points = 25 - (la - 1.0) * 2.5  # Sharp
+        elif la < 6.0:
+            la_points = 15 - (la - 3.0) * 2  # Normal
+        else:
+            la_points = max(5, 9 - (la - 6.0) * 1)  # High bounce
+
+        difficulty_score += la_points
+
+        # Classify based on total difficulty score
+        if difficulty_score < 35:
+            return "routine"      # Easy play, slow roller or soft contact
+        elif difficulty_score < 60:
+            return "average"      # Standard GB, should be fielded
+        elif difficulty_score < 80:
+            return "tough"        # Hard-hit or fast, challenging play
+        else:
+            return "infield_hit"  # Extremely difficult, likely a hit
 
 
 # ============================================================================
@@ -834,6 +970,8 @@ class SimMetricsCollector:
         """Record baserunning metrics"""
         if self.enabled:
             self.baserunning_metrics.append(metrics)
+            if self.debug_level.value >= DebugLevel.DETAILED.value:
+                self._print_baserunning_debug(metrics)
 
     def record_fatigue(self, metrics: PitcherFatigueMetrics):
         """Record pitcher fatigue metrics"""
@@ -852,6 +990,11 @@ class SimMetricsCollector:
         print(f"   Release: {m.release_velocity_mph:.1f} mph, {m.spin_rpm:.0f} rpm")
         print(f"   Plate: {m.plate_velocity_mph:.1f} mph @ ({m.plate_location[0]:+.1f}\", {m.plate_location[1]:.1f}\")")
         print(f"   Break: V={m.vertical_break_inches:+.1f}\", H={m.horizontal_break_inches:+.1f}\"")
+
+        # Zone classification
+        zone_icon = {"in_zone": "🎯", "edge": "⚡", "chase": "🎣", "waste": "🗑️"}
+        zone_display = zone_icon.get(m.zone_classification, "❓")
+        print(f"   Zone: {m.zone_classification.upper()} {zone_display}")
 
         # Format target location cleanly (avoid numpy type noise)
         target_h = float(m.target_location[0]) if m.target_location else 0.0
@@ -884,6 +1027,12 @@ class SimMetricsCollector:
         print(f"   Landing: ({m.landing_x_ft:.1f}, {m.landing_y_ft:.1f})")
         print(f"   Quality: {'BARREL' if m.barrel else 'HARD' if m.hard_hit else 'MEDIUM'}")
 
+        # Ground ball difficulty rating
+        if m.hit_type == "ground_ball" and m.gb_difficulty != "unknown":
+            gb_icons = {"routine": "✓", "average": "↔", "tough": "⚠", "infield_hit": "🔥"}
+            gb_icon = gb_icons.get(m.gb_difficulty, "?")
+            print(f"   GB Difficulty: {m.gb_difficulty.upper()} {gb_icon}")
+
         # Expected outcomes (xStats)
         print(f"   Expected: xBA={m.expected_batting_avg:.3f}, xSLG={m.expected_slg:.3f}, xwOBA={m.expected_woba:.3f}")
 
@@ -906,6 +1055,28 @@ class SimMetricsCollector:
         print(f"   Timing: {m.time_margin_sec:+.2f}s margin")
         print(f"   Catch prob: {m.expected_catch_probability:.1%}")
         print(f"   Result: {'SUCCESS' if m.catch_successful else f'FAIL ({m.failure_reason})'}")
+
+    def _print_baserunning_debug(self, m: BaserunningMetrics):
+        """Print baserunning debug output"""
+        print(f"\n🏃 BASERUNNING: {m.runner_name} ({m.starting_base} → {m.target_base})")
+
+        # Decision context
+        decision_icon = {"aggressive": "⚡", "conservative": "🛡️", "auto": "🤖", "coach_send": "👋", "coach_hold": "🛑"}
+        decision_display = decision_icon.get(m.send_decision, "")
+        print(f"   Decision: {m.send_decision.upper()} {decision_display} (risk: {m.risk_score:.2f})")
+        print(f"   Expected success: {m.expected_success_probability:.1%}")
+
+        # Speed and timing
+        print(f"   Sprint speed: {m.top_sprint_speed_fps:.1f} fps")
+        print(f"   Run time: {m.actual_run_time_sec:.2f}s (distance: {m.distance_to_run_ft:.0f} ft)")
+        print(f"   Jump: {m.jump_quality} ({m.jump_time_sec:.2f}s reaction)")
+
+        # Outcome timing
+        print(f"   Arrival margin: {m.time_margin_sec:+.2f}s ({m.runner_arrival_time_sec:.2f}s vs {m.ball_arrival_time_sec:.2f}s)")
+
+        # Result
+        result_icon = "✓" if m.advance_successful else "✗"
+        print(f"   Result: {m.outcome.upper()} {result_icon}")
 
     def print_summary(self):
         """Print complete summary of collected metrics"""
