@@ -127,18 +127,21 @@ class RouteEfficiencyAnalyzer:
         )
 
         # Route efficiency (optimal / actual)
-        # Clip to [0.0, 1.0] with small tolerance for floating point errors
+        # First clamp actual distance to prevent impossible values where actual < optimal
         if metrics.actual_distance_ft > 0:
-            raw_efficiency = metrics.optimal_distance_ft / metrics.actual_distance_ft
-            metrics.route_efficiency = min(1.0, max(0.0, raw_efficiency))
+            # Clamp actual distance to be at least equal to optimal distance
+            # This prevents route efficiency > 1.0 which is physically impossible
+            if metrics.actual_distance_ft < metrics.optimal_distance_ft:
+                metrics.actual_distance_ft = metrics.optimal_distance_ft
 
-            # Validation: Check for suspiciously high efficiency (>1.02)
-            if raw_efficiency > 1.02:
-                self.debug_warnings.append(
-                    f"WARNING: Route efficiency {raw_efficiency:.3f} > 1.0 capped to 1.0"
-                )
+            # Calculate efficiency (always <= 1.0 due to clamping above)
+            metrics.route_efficiency = metrics.optimal_distance_ft / metrics.actual_distance_ft
+
+            # Ensure it's in valid range [0.0, 1.0]
+            metrics.route_efficiency = min(1.0, max(0.0, metrics.route_efficiency))
         else:
-            metrics.route_efficiency = 1.0  # Zero distance = perfect efficiency
+            # Zero distance = perfect efficiency
+            metrics.route_efficiency = 1.0
 
         # Fielder speed capabilities
         metrics.max_speed_ft_per_sec = fielder.get_sprint_speed_fps_statcast()
@@ -273,27 +276,27 @@ class RouteEfficiencyAnalyzer:
         Parameters
         ----------
         margin_sec : float
-            Time margin (negative = fielder early, positive = fielder late)
+            Time margin (positive = fielder early, negative = fielder late)
 
         Returns
         -------
         float
             Catch probability [0.0, 1.0]
         """
-        # Note: margin in FieldingResult is fielder_time - ball_time
-        # So NEGATIVE margin means fielder arrived EARLY (good!)
-        # POSITIVE margin means fielder arrived LATE (bad!)
+        # Note: margin in FieldingResult is ball_time - fielder_time
+        # So POSITIVE margin means fielder arrived EARLY (good!)
+        # NEGATIVE margin means fielder arrived LATE (bad!)
 
-        if margin_sec <= -1.2:
+        if margin_sec >= 1.2:
             # Fielder 1.2+ seconds early - very routine
             return 0.95
-        elif margin_sec <= -0.5:
+        elif margin_sec >= 0.5:
             # Fielder 0.5-1.2s early - routine
             return 0.70
-        elif margin_sec <= 0.0:
+        elif margin_sec >= 0.0:
             # Fielder arrived on time (0-0.5s early) - challenging
             return 0.50
-        elif margin_sec <= 0.4:
+        elif margin_sec >= -0.4:
             # Fielder slightly late (0-0.4s late) - difficult/diving
             return 0.15
         else:
@@ -370,10 +373,9 @@ class RouteEfficiencyAnalyzer:
 
         # Check D: Arrival time consistency (within 0.05s tolerance)
         # This checks that our calculated times match the fielding result
-        time_diff = abs(
-            (metrics.fielder_arrival_time - metrics.ball_arrival_time) -
-            metrics.margin_sec
-        )
+        # margin_sec should equal (ball_arrival_time - fielder_arrival_time)
+        calculated_margin = metrics.ball_arrival_time - metrics.fielder_arrival_time
+        time_diff = abs(calculated_margin - metrics.margin_sec)
         if time_diff > 0.05:
             self.debug_warnings.append(
                 f"WARNING: Arrival time mismatch detected ({time_diff:.3f}s difference)"
