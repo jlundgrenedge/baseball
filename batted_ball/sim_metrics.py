@@ -991,16 +991,60 @@ class SimMetricsCollector:
         """Record pitcher fatigue metrics"""
         if self.enabled:
             self.fatigue_metrics.append(metrics)
+            if self.debug_level.value >= DebugLevel.DETAILED.value:
+                self._print_fatigue_debug(metrics)
 
     def record_expected_outcome(self, metrics: ExpectedOutcomeMetrics):
         """Record expected vs actual outcome"""
         if self.enabled:
             metrics.calculate_delta()
             self.expected_outcome_metrics.append(metrics)
+            if self.debug_level.value >= DebugLevel.DETAILED.value:
+                self._print_expected_outcome_debug(metrics)
+
+    def _print_expected_outcome_debug(self, m: ExpectedOutcomeMetrics):
+        """Print expected vs actual run value for plate appearance"""
+        print(f"\n📈 EXPECTED vs ACTUAL OUTCOME:")
+        print(f"   Matchup: {m.batter_name} vs {m.pitcher_name} ({m.count[0]}-{m.count[1]})")
+        print(f"   Expected Stats (before PA):")
+        print(f"     - xBA: {m.xBA:.3f}")
+        print(f"     - xSLG: {m.xSLG:.3f}")
+        print(f"     - xwOBA: {m.xwOBA:.3f}")
+        print(f"     - xISO: {m.xISO:.3f}")
+
+        print(f"   Expected Probabilities:")
+        print(f"     - Strikeout: {m.expected_k_prob:.1%}")
+        print(f"     - Walk: {m.expected_bb_prob:.1%}")
+        print(f"     - Contact: {m.expected_contact_prob:.1%}")
+
+        if m.expected_contact_prob > 0.01:
+            print(f"   Expected Batted Ball Outcomes (if contact):")
+            print(f"     - Home run: {m.expected_hr_prob:.1%}")
+            print(f"     - Extra-base hit: {m.expected_xbh_prob:.1%}")
+            print(f"     - BABIP: {m.expected_babip:.3f}")
+            print(f"   Expected Batted Ball Quality:")
+            print(f"     - EV: {m.expected_exit_velocity:.1f} mph")
+            print(f"     - LA: {m.expected_launch_angle:.1f}°")
+            print(f"     - Barrel prob: {m.expected_barrel_prob:.1%}")
+            print(f"     - Hard hit prob: {m.expected_hard_hit_prob:.1%}")
+
+        print(f"   Actual Outcome: {m.actual_outcome.upper()}")
+        if m.actual_exit_velocity:
+            print(f"   Actual Batted Ball: EV={m.actual_exit_velocity:.1f} mph, LA={m.actual_launch_angle:.1f}°, Dist={m.actual_distance:.1f} ft")
+
+        # Run value comparison
+        outcome_icons = {"much_better": "🔥", "better": "✓", "expected": "=", "worse": "↓", "much_worse": "❌"}
+        outcome_icon = outcome_icons.get(m.outcome_vs_expected, "?")
+        print(f"   xRunValue (based on contact): {m.xwOBA:.3f}")
+        print(f"   Performance: {m.outcome_vs_expected.upper()} {outcome_icon}")
+        print(f"   Luck/Performance Delta: {m.performance_delta:+.3f}")
 
     def _print_pitch_debug(self, m: PitchMetrics):
         """Print pitch debug output"""
-        print(f"\n📊 PITCH #{m.sequence_index}: {m.pitch_type} ({m.count_before[0]}-{m.count_before[1]})")
+        # Machine-readable outcome code
+        outcome_code = self._get_outcome_code(m.pitch_outcome, m.batter_swung)
+
+        print(f"\n📊 PITCH #{m.sequence_index}: {m.pitch_type} ({m.count_before[0]}-{m.count_before[1]}) [CODE: {outcome_code}]")
         print(f"   Release: {m.release_velocity_mph:.1f} mph, {m.spin_rpm:.0f} rpm")
         print(f"   Plate: {m.plate_velocity_mph:.1f} mph @ ({m.plate_location[0]:+.1f}\", {m.plate_location[1]:.1f}\")")
         print(f"   Break: V={m.vertical_break_inches:+.1f}\", H={m.horizontal_break_inches:+.1f}\"")
@@ -1010,10 +1054,18 @@ class SimMetricsCollector:
         zone_display = zone_icon.get(m.zone_classification, "❓")
         print(f"   Zone: {m.zone_classification.upper()} {zone_display}")
 
-        # Format target location cleanly (avoid numpy type noise)
+        # Enhanced Intent vs Actual section
         target_h = float(m.target_location[0]) if m.target_location else 0.0
         target_v = float(m.target_location[1]) if m.target_location else 0.0
-        print(f"   Command error: {m.command_error_magnitude:.2f}\" (target: {target_h:+.1f}\", {target_v:.1f}\")")
+        h_err = m.plate_location[0] - target_h
+        v_err = m.plate_location[1] - target_v
+
+        # Determine target zone description
+        target_zone_desc = self._describe_target_zone(target_h, target_v)
+        miss_direction = self._describe_miss_direction(h_err, v_err)
+
+        print(f"   Intent: {target_zone_desc} (target: {target_h:+.1f}\", {target_v:.1f}\")")
+        print(f"   Result: Miss {miss_direction} (error: {abs(h_err):.1f}\" H, {abs(v_err):.1f}\" V, total {m.command_error_magnitude:.2f}\")")
 
         # Only show expected probabilities if they're actually computed (non-zero)
         if m.expected_swing_prob > 0.01 or m.expected_whiff_prob > 0.01:
@@ -1021,25 +1073,137 @@ class SimMetricsCollector:
 
         print(f"   Outcome: {m.pitch_outcome} {'(swung)' if m.batter_swung else '(taken)'}")
 
+    def _get_outcome_code(self, outcome: str, swung: bool) -> str:
+        """Generate machine-readable outcome code"""
+        if swung:
+            if outcome == 'swinging_strike':
+                return 'STRIKE_SWING'
+            elif outcome == 'foul':
+                return 'FOUL'
+            elif outcome in ['contact', 'ball_in_play']:
+                return 'INPLAY'
+            elif outcome == 'ball':
+                return 'BALL_SWING'  # Edge case
+        else:
+            if outcome == 'called_strike':
+                return 'STRIKE_TAKEN'
+            elif outcome == 'ball':
+                return 'BALL'
+        return 'UNKNOWN'
+
+    def _describe_target_zone(self, h: float, v: float) -> str:
+        """Describe the pitcher's intended target zone"""
+        # Horizontal zones
+        if h < -5:
+            h_zone = "inside"
+        elif h < -2:
+            h_zone = "inside-corner"
+        elif h < 2:
+            h_zone = "middle"
+        elif h < 5:
+            h_zone = "outside-corner"
+        else:
+            h_zone = "outside"
+
+        # Vertical zones
+        if v < 22:
+            v_zone = "low"
+        elif v < 28:
+            v_zone = "low-middle"
+        elif v < 34:
+            v_zone = "middle"
+        elif v < 40:
+            v_zone = "high-middle"
+        else:
+            v_zone = "high"
+
+        return f"{v_zone}, {h_zone}"
+
+    def _describe_miss_direction(self, h_err: float, v_err: float) -> str:
+        """Describe the direction of command miss"""
+        h_dir = "arm-side" if h_err > 0 else "glove-side" if h_err < 0 else ""
+        v_dir = "high" if v_err > 0 else "low" if v_err < 0 else ""
+
+        if abs(h_err) > abs(v_err) * 1.5:
+            return f"{abs(h_err):.1f}\" {h_dir}"
+        elif abs(v_err) > abs(h_err) * 1.5:
+            return f"{abs(v_err):.1f}\" {v_dir}"
+        elif h_dir and v_dir:
+            return f"{abs(h_err):.1f}\" {h_dir}, {abs(v_err):.1f}\" {v_dir}"
+        else:
+            return "on target"
+
     def _print_swing_debug(self, m: SwingDecisionMetrics):
-        """Print swing decision debug output"""
+        """Print swing decision debug output with full reasoning"""
         print(f"\n🎯 SWING DECISION:")
-        print(f"   Location: {m.pitch_location} ({m.pitch_zone_rating})")
-        print(f"   Swing prob: {m.swing_probability:.1%}")
-        print(f"   Expected outcomes: Whiff={m.expected_whiff_pct:.1%}, Solid={m.expected_solid_pct:.1%}")
+        print(f"   Pitch location: ({m.pitch_location[0]:+.1f}\", {m.pitch_location[1]:.1f}\") - Zone: {m.pitch_zone_rating.upper()}")
+        print(f"   Pitch type: {m.pitch_type} @ {m.pitch_velocity_mph:.1f} mph")
+
+        # Decision model
+        print(f"   Swing Decision Model:")
+        print(f"     - Swing probability: {m.swing_probability:.1%}")
+        print(f"     - Take probability: {m.take_probability:.1%}")
+        if m.pitch_zone_rating == 'chase':
+            print(f"     - Chase probability: {m.chase_probability:.1%}")
+        print(f"     - Batter discipline rating: {m.batter_discipline_rating:,}")
+        print(f"     - Count: {m.count[0]}-{m.count[1]}")
+
+        # Decision made
+        print(f"   Decision: {'SWING' if m.swung else 'TAKE'}")
+
+        # If swung, show contact quality breakdown
         if m.swung:
-            print(f"   Timing error: {m.swing_timing_error_ms:+.1f} ms")
-            print(f"   Contact offset: {m.total_contact_offset:.2f}\"")
-            print(f"   Result: {m.contact_quality if m.contact_made else 'WHIFF'}")
+            print(f"   Expected Contact Outcomes (before swing):")
+            print(f"     - Whiff: {m.expected_whiff_pct:.1%}")
+            print(f"     - Foul: {m.expected_foul_pct:.1%}")
+            print(f"     - Weak contact: {m.expected_weak_pct:.1%}")
+            print(f"     - Fair contact: {m.expected_fair_pct:.1%}")
+            print(f"     - Solid contact: {m.expected_solid_pct:.1%}")
+            print(f"     - Barrel: {m.expected_barrel_pct:.1%}")
+
+            print(f"   Swing Execution:")
+            print(f"     - Timing error: {m.swing_timing_error_ms:+.1f} ms {'(late)' if m.swing_timing_error_ms > 0 else '(early)' if m.swing_timing_error_ms < 0 else '(perfect)'}")
+            print(f"     - Contact offset: {m.total_contact_offset:.2f}\" from sweet spot")
+            if m.bat_ball_contact_offset_inches != (0.0, 0.0):
+                print(f"     - Offset breakdown: ({m.bat_ball_contact_offset_inches[0]:+.2f}\", {m.bat_ball_contact_offset_inches[1]:+.2f}\")")
+            print(f"   Result: {m.contact_quality.upper() if m.contact_made else 'WHIFF'}")
 
     def _print_batted_ball_debug(self, m: BattedBallMetrics):
-        """Print batted ball debug output"""
+        """Print batted ball debug output with physics validation"""
         print(f"\n⚾ BATTED BALL: {m.hit_type.upper()}")
-        print(f"   EV: {m.exit_velocity_mph:.1f} mph, LA: {m.launch_angle_deg:.1f}°")
+        print(f"   EV: {m.exit_velocity_mph:.1f} mph, LA: {m.launch_angle_deg:.1f}°, Spray: {m.spray_angle_deg:+.1f}°")
         print(f"   Spin: {m.backspin_rpm:.0f} rpm backspin, {m.sidespin_rpm:+.0f} rpm sidespin")
+
+        # Contact Quality Model Inputs
+        if m.bat_speed_mph > 0 or m.pitch_speed_mph > 0:
+            print(f"   Contact Model Inputs:")
+            if m.bat_speed_mph > 0:
+                print(f"     - Bat speed: {m.bat_speed_mph:.1f} mph")
+            if m.pitch_speed_mph > 0:
+                print(f"     - Pitch speed: {m.pitch_speed_mph:.1f} mph")
+            if m.collision_efficiency_q > 0:
+                print(f"     - Collision efficiency (q): {m.collision_efficiency_q:.3f}")
+                print(f"     - Resulting EV: {m.exit_velocity_mph:.1f} mph")
+
         print(f"   Distance: {m.distance_ft:.1f} ft (apex: {m.apex_height_ft:.1f} ft)")
+        print(f"   Hang time: {m.hang_time_sec:.2f} s")
         print(f"   Landing: ({m.landing_x_ft:.1f}, {m.landing_y_ft:.1f})")
-        print(f"   Quality: {'BARREL' if m.barrel else 'HARD' if m.hard_hit else 'MEDIUM'}")
+        print(f"   Quality: {'BARREL ⭐' if m.barrel else 'HARD 💪' if m.hard_hit else 'MEDIUM'}")
+
+        # Physics Validation Sub-Block
+        if m.expected_distance_ft > 0:
+            distance_delta = m.distance_ft - m.expected_distance_ft
+            hang_time_predicted = self._predict_hang_time(m.exit_velocity_mph, m.launch_angle_deg)
+            hang_time_delta = m.hang_time_sec - hang_time_predicted if hang_time_predicted > 0 else 0
+
+            print(f"   Physics Consistency Check:")
+            print(f"     - Predicted distance: {m.expected_distance_ft:.1f} ft")
+            print(f"     - Actual simulated: {m.distance_ft:.1f} ft")
+            print(f"     - Delta: {distance_delta:+.1f} ft ({100*distance_delta/m.expected_distance_ft:+.1f}%)")
+            if hang_time_predicted > 0:
+                print(f"     - Predicted hang time: {hang_time_predicted:.2f} s")
+                print(f"     - Actual hang time: {m.hang_time_sec:.2f} s")
+                print(f"     - Delta: {hang_time_delta:+.3f} s")
 
         # Ground ball difficulty rating
         if m.hit_type == "ground_ball" and m.gb_difficulty != "unknown":
@@ -1048,49 +1212,173 @@ class SimMetricsCollector:
             print(f"   GB Difficulty: {m.gb_difficulty.upper()} {gb_icon}")
 
         # Expected outcomes (xStats)
-        print(f"   Expected: xBA={m.expected_batting_avg:.3f}, xSLG={m.expected_slg:.3f}, xwOBA={m.expected_woba:.3f}")
+        print(f"   Expected Stats: xBA={m.expected_batting_avg:.3f}, xSLG={m.expected_slg:.3f}, xwOBA={m.expected_woba:.3f}")
 
         # Show actual outcome if available
         if m.actual_outcome != "unknown":
-            print(f"   Actual: {m.actual_outcome}")
+            print(f"   Actual Outcome: {m.actual_outcome}")
 
         # Show catch probability if available
         if m.catch_probability > 0.0:
             catch_rating = "routine" if m.catch_probability > 0.90 else "likely" if m.catch_probability > 0.70 else "50-50" if m.catch_probability > 0.40 else "tough" if m.catch_probability > 0.15 else "nearly impossible"
-            print(f"   Catch probability: {m.catch_probability:.1%} ({catch_rating})")
+            print(f"   Catch Probability: {m.catch_probability:.1%} ({catch_rating})")
+
+    def _predict_hang_time(self, ev_mph: float, la_deg: float) -> float:
+        """Simple hang time prediction based on EV and LA"""
+        if la_deg < 10:
+            return 0  # Ground balls don't have meaningful hang time
+        # Simplified physics: t = 2 * v_z / g
+        # v_z = v * sin(LA)
+        import math
+        v_fps = ev_mph * 1.467  # mph to fps
+        v_z = v_fps * math.sin(math.radians(la_deg))
+        g = 32.174  # ft/s^2
+        hang_time = 2 * v_z / g
+        return max(0, hang_time)
 
     def _print_fielding_debug(self, m: FieldingMetrics):
-        """Print fielding debug output"""
+        """Print fielding debug output with enhanced route efficiency"""
         print(f"\n🧤 FIELDING: {m.fielder_name} ({m.fielder_position})")
-        print(f"   Starting: ({m.starting_position[0]:.1f}, {m.starting_position[1]:.1f})")
-        print(f"   Distance: {m.distance_to_ball_ft:.1f} ft")
-        print(f"   Route: {m.route_efficiency_pct:.0f}% efficient")
-        print(f"   Speed: {m.actual_avg_speed_fps:.1f} fps (max: {m.top_sprint_speed_fps:.1f})")
-        print(f"   Timing: {m.time_margin_sec:+.2f}s margin")
-        print(f"   Catch prob: {m.expected_catch_probability:.1%}")
-        print(f"   Result: {'SUCCESS' if m.catch_successful else f'FAIL ({m.failure_reason})'}")
+        print(f"   Starting position: ({m.starting_position[0]:.1f}, {m.starting_position[1]:.1f})")
+        print(f"   Ball landing: ({m.ball_landing_position[0]:.1f}, {m.ball_landing_position[1]:.1f}, {m.ball_landing_position[2]:.1f})")
+
+        # Reaction and route
+        print(f"   Fielder Reaction:")
+        print(f"     - Reaction time: {m.reaction_time_ms:.0f} ms")
+        optimal_distance = m.distance_to_ball_ft
+        actual_distance = optimal_distance / (m.route_efficiency_pct / 100.0) if m.route_efficiency_pct > 0 else optimal_distance
+        inefficiency_distance = actual_distance - optimal_distance
+        print(f"     - Optimal route distance: {optimal_distance:.1f} ft")
+        if inefficiency_distance > 0.5:
+            print(f"     - Actual path taken: {actual_distance:.1f} ft (+{inefficiency_distance:.1f} ft inefficiency)")
+        print(f"     - Route efficiency: {m.route_efficiency_pct:.1f}%")
+
+        # Sprint physics
+        print(f"   Sprint Physics:")
+        print(f"     - Top sprint speed: {m.top_sprint_speed_fps:.1f} ft/s ({m.top_sprint_speed_fps * 0.681818:.1f} mph)")
+        print(f"     - Time to top speed: {m.time_to_top_speed_sec:.2f} s")
+        print(f"     - Actual avg speed: {m.actual_avg_speed_fps:.1f} ft/s ({m.actual_avg_speed_fps * 0.681818:.1f} mph)")
+
+        # Timing
+        print(f"   Timing:")
+        print(f"     - Ball hang time: {m.ball_hang_time_sec:.2f} s")
+        print(f"     - Fielder ETA: {m.fielder_eta_sec:.2f} s")
+        print(f"     - Time margin: {m.time_margin_sec:+.2f} s {'(makes it)' if m.time_margin_sec < 0 else '(too slow)'}")
+
+        # Outcome
+        print(f"   Expected catch probability: {m.expected_catch_probability:.1%}")
+        print(f"   Opportunity difficulty: {m.opportunity_difficulty:.0f}/100 {'(routine)' if m.opportunity_difficulty < 30 else '(average)' if m.opportunity_difficulty < 60 else '(difficult)'}")
+        print(f"   Result: {'✓ SUCCESS' if m.catch_successful else f'✗ FAIL ({m.failure_reason})'}")
+
+        # Throwing (if successful)
+        if m.catch_successful and m.throw_velocity_mph:
+            print(f"   Throw:")
+            print(f"     - Exchange time: {m.exchange_time_sec:.2f} s")
+            print(f"     - Throw velocity: {m.throw_velocity_mph:.1f} mph")
+            print(f"     - Throw flight time: {m.throw_flight_time_sec:.2f} s")
+            if m.throw_accuracy_error_ft:
+                print(f"     - Accuracy error: {m.throw_accuracy_error_ft:.1f} ft from target")
 
     def _print_baserunning_debug(self, m: BaserunningMetrics):
-        """Print baserunning debug output"""
+        """Print baserunning debug output with enhanced speed diagnostics"""
         print(f"\n🏃 BASERUNNING: {m.runner_name} ({m.starting_base} → {m.target_base})")
+
+        # Runner physical profile
+        print(f"   Runner Speed Profile:")
+        print(f"     - Top sprint speed: {m.top_sprint_speed_fps:.1f} ft/s ({m.top_sprint_speed_fps * 0.681818:.1f} mph)")
+        statcast_rating = "elite" if m.top_sprint_speed_fps > 29 else "above avg" if m.top_sprint_speed_fps > 27 else "average" if m.top_sprint_speed_fps > 25 else "below avg"
+        print(f"     - Speed rating: {statcast_rating} (Statcast percentile estimate)")
+        print(f"     - Acceleration: {m.acceleration_fps2:.1f} ft/s²")
+
+        # Starting conditions
+        print(f"   Starting Conditions:")
+        print(f"     - Lead distance: {m.lead_distance_ft:.1f} ft off base")
+        print(f"     - Jump time: {m.jump_time_sec:.2f} s (reaction)")
+        print(f"     - Jump quality: {m.jump_quality.upper()}")
+
+        # Route and efficiency
+        print(f"   Route:")
+        print(f"     - Distance to run: {m.distance_to_run_ft:.1f} ft")
+        print(f"     - Turn efficiency: {m.turn_efficiency_pct:.1f}% (speed retention through turn)")
+        avg_speed = m.distance_to_run_ft / m.actual_run_time_sec if m.actual_run_time_sec > 0 else 0
+        print(f"     - Average speed: {avg_speed:.1f} ft/s during run")
+        print(f"     - Actual run time: {m.actual_run_time_sec:.2f} s")
 
         # Decision context
         decision_icon = {"aggressive": "⚡", "conservative": "🛡️", "auto": "🤖", "coach_send": "👋", "coach_hold": "🛑"}
         decision_display = decision_icon.get(m.send_decision, "")
-        print(f"   Decision: {m.send_decision.upper()} {decision_display} (risk: {m.risk_score:.2f})")
-        print(f"   Expected success: {m.expected_success_probability:.1%}")
+        print(f"   Decision: {m.send_decision.upper()} {decision_display}")
+        print(f"     - Risk score: {m.risk_score:.2f} (0=safe, 1=risky)")
+        print(f"     - Expected success probability: {m.expected_success_probability:.1%}")
 
-        # Speed and timing
-        print(f"   Sprint speed: {m.top_sprint_speed_fps:.1f} fps")
-        print(f"   Run time: {m.actual_run_time_sec:.2f}s (distance: {m.distance_to_run_ft:.0f} ft)")
-        print(f"   Jump: {m.jump_quality} ({m.jump_time_sec:.2f}s reaction)")
+        # Timing outcome
+        print(f"   Timing Outcome:")
+        print(f"     - Runner arrival: {m.runner_arrival_time_sec:.2f} s")
+        print(f"     - Ball arrival: {m.ball_arrival_time_sec:.2f} s")
+        print(f"     - Margin: {m.time_margin_sec:+.2f} s {'(SAFE)' if m.time_margin_sec > 0 else '(OUT)'}")
 
-        # Outcome timing
-        print(f"   Arrival margin: {m.time_margin_sec:+.2f}s ({m.runner_arrival_time_sec:.2f}s vs {m.ball_arrival_time_sec:.2f}s)")
+        # Defensive play (if applicable)
+        if m.throw_velocity_mph:
+            print(f"   Defensive Throw:")
+            print(f"     - Outfielder exchange: {m.outfielder_exchange_time_sec:.2f} s")
+            print(f"     - Throw velocity: {m.throw_velocity_mph:.1f} mph")
+            if m.throw_accuracy_error_ft:
+                print(f"     - Accuracy error: {m.throw_accuracy_error_ft:.1f} ft")
 
-        # Result
+        # Final result
         result_icon = "✓" if m.advance_successful else "✗"
         print(f"   Result: {m.outcome.upper()} {result_icon}")
+
+    def _print_fatigue_debug(self, m: PitcherFatigueMetrics):
+        """Print pitcher fatigue diagnostics"""
+        print(f"\n⚡ PITCHER FATIGUE: {m.pitcher_name}")
+        print(f"   Pitch Count: {m.pitches_thrown} (Inning {m.current_inning}, {m.outs_recorded} outs recorded)")
+        print(f"   Stamina rating: {m.stamina_rating:,}")
+
+        # Fatigue level
+        fatigue_pct = m.current_fatigue_pct
+        fatigue_status = "fresh" if fatigue_pct < 20 else "good" if fatigue_pct < 40 else "tiring" if fatigue_pct < 60 else "fatigued" if fatigue_pct < 80 else "exhausted"
+        print(f"   Fatigue: {fatigue_pct:.1f}% ({fatigue_status})")
+
+        # Velocity degradation
+        print(f"   Velocity:")
+        print(f"     - Base (fresh): {m.base_velocity_mph:.1f} mph")
+        print(f"     - Current: {m.current_velocity_mph:.1f} mph")
+        print(f"     - Loss: -{m.velocity_loss_mph:.1f} mph")
+
+        # Spin degradation
+        print(f"   Spin:")
+        print(f"     - Base (fresh): {m.base_spin_rpm:.0f} rpm")
+        print(f"     - Current: {m.current_spin_rpm:.0f} rpm")
+        print(f"     - Loss: -{m.spin_loss_rpm:.0f} rpm")
+
+        # Command degradation
+        print(f"   Command:")
+        print(f"     - Base control (fresh): {m.base_command_sigma:.2f}\" std dev")
+        print(f"     - Current control: {m.current_command_sigma:.2f}\" std dev")
+        print(f"     - Penalty: +{m.command_penalty_pct:.1f}% worse")
+
+        # Situational stress
+        if m.runners_on_base > 0 or m.is_high_leverage:
+            print(f"   Situational Factors:")
+            if m.runners_on_base > 0:
+                print(f"     - Runners on base: {m.runners_on_base}")
+            if m.is_high_leverage:
+                print(f"     - High leverage situation: YES")
+            if m.stress_inning:
+                print(f"     - Stress inning (>20 pitches): YES")
+
+        # Times through order
+        if m.times_through_order > 1:
+            print(f"   Times Through Order: {m.times_through_order}")
+            print(f"     - TTO penalty multiplier: {m.tto_penalty_multiplier:.2f}x")
+
+        # Predicted performance
+        if m.expected_whiff_rate > 0:
+            print(f"   Expected Performance (with current fatigue):")
+            print(f"     - Whiff rate: {m.expected_whiff_rate:.1%}")
+            print(f"     - Walk rate: {m.expected_walk_rate:.1%}")
+            print(f"     - Hard contact rate: {m.expected_hard_contact_rate:.1%}")
 
     def print_summary(self):
         """Print comprehensive summary with team splits and per-player breakdowns"""
@@ -1109,6 +1397,9 @@ class SimMetricsCollector:
 
         # Per-batter breakdowns
         self._print_batter_summaries()
+
+        # Model drift metrics
+        self._print_model_drift_summary()
 
         print("="*80 + "\n")
 
@@ -1257,6 +1548,99 @@ class SimMetricsCollector:
                 hard_hit = sum(1 for b in balls if b.hard_hit)
 
                 print(f"    {batter_name:20s}: {len(balls):2d} BIP | EV: {avg_ev:5.1f} mph | LA: {avg_la:5.1f}° | xBA: {avg_xba:.3f} | xSLG: {avg_xslg:.3f} | Barrels: {barrels} | Hard: {hard_hit}")
+
+    def _print_model_drift_summary(self):
+        """Print game-level model drift indicators"""
+        if not self.batted_ball_metrics and not self.expected_outcome_metrics:
+            return
+
+        print(f"\n📉 MODEL DRIFT INDICATORS (Physics Validation):")
+        print("-" * 80)
+
+        # Expected vs actual distance drift
+        if self.batted_ball_metrics:
+            balls_with_expected = [b for b in self.batted_ball_metrics if b.expected_distance_ft > 0]
+            if balls_with_expected:
+                actual_distances = [b.distance_ft for b in balls_with_expected]
+                expected_distances = [b.expected_distance_ft for b in balls_with_expected]
+                distance_deltas = [actual - expected for actual, expected in zip(actual_distances, expected_distances)]
+
+                avg_expected = np.mean(expected_distances)
+                avg_actual = np.mean(actual_distances)
+                avg_delta = np.mean(distance_deltas)
+                std_delta = np.std(distance_deltas)
+
+                print(f"  Distance Prediction:")
+                print(f"    - Mean predicted distance: {avg_expected:.1f} ft")
+                print(f"    - Mean simulated distance: {avg_actual:.1f} ft")
+                print(f"    - Average delta: {avg_delta:+.1f} ft ({100*avg_delta/avg_expected:+.1f}%)")
+                print(f"    - Std dev of deltas: {std_delta:.1f} ft")
+                print(f"    - Sample size: {len(balls_with_expected)} batted balls")
+
+                # Identify systematic biases
+                if abs(avg_delta) > 5:
+                    bias_dir = "over-predicting" if avg_delta < 0 else "under-predicting"
+                    print(f"    - ⚠ Systematic bias detected: {bias_dir} distance by {abs(avg_delta):.1f} ft")
+
+        # Expected outcomes vs actual
+        if self.expected_outcome_metrics:
+            total_xwoba = sum(m.xwOBA for m in self.expected_outcome_metrics)
+            avg_xwoba = total_xwoba / len(self.expected_outcome_metrics) if self.expected_outcome_metrics else 0
+
+            # Calculate actual wOBA equivalent
+            outcome_values = {
+                'home_run': 2.0,
+                'triple': 1.5,
+                'double': 1.2,
+                'single': 0.9,
+                'walk': 0.7,
+                'error': 0.5,
+                'fly_out': 0.0,
+                'ground_out': 0.0,
+                'line_out': 0.0,
+                'strikeout': -0.3,
+            }
+            actual_values = [outcome_values.get(m.actual_outcome, 0.0) for m in self.expected_outcome_metrics]
+            avg_actual_value = np.mean(actual_values) if actual_values else 0
+
+            print(f"\n  Expected vs Actual Outcomes:")
+            print(f"    - Average xwOBA: {avg_xwoba:.3f}")
+            print(f"    - Average actual value: {avg_actual_value:.3f}")
+            print(f"    - Delta: {avg_actual_value - avg_xwoba:+.3f}")
+            print(f"    - Sample size: {len(self.expected_outcome_metrics)} PAs")
+
+            # Count outcome mismatches
+            better_count = sum(1 for m in self.expected_outcome_metrics if m.outcome_vs_expected in ['better', 'much_better'])
+            worse_count = sum(1 for m in self.expected_outcome_metrics if m.outcome_vs_expected in ['worse', 'much_worse'])
+            expected_count = sum(1 for m in self.expected_outcome_metrics if m.outcome_vs_expected == 'expected')
+
+            print(f"    - Better than expected: {better_count} ({100*better_count/len(self.expected_outcome_metrics):.1f}%)")
+            print(f"    - As expected: {expected_count} ({100*expected_count/len(self.expected_outcome_metrics):.1f}%)")
+            print(f"    - Worse than expected: {worse_count} ({100*worse_count/len(self.expected_outcome_metrics):.1f}%)")
+
+        # Fielding performance checks
+        if self.fielding_metrics:
+            routine_plays = [f for f in self.fielding_metrics if f.expected_catch_probability > 0.90]
+            if routine_plays:
+                routine_success = sum(1 for f in routine_plays if f.catch_successful)
+                routine_total = len(routine_plays)
+                routine_pct = 100 * routine_success / routine_total if routine_total > 0 else 0
+
+                print(f"\n  Fielding Performance:")
+                print(f"    - Routine plays (>90% catch prob): {routine_success}/{routine_total} ({routine_pct:.1f}%)")
+
+                if routine_pct < 95:
+                    print(f"    - ⚠ Warning: Fielders missing routine plays at high rate")
+
+            # Outlier high-EV outs
+            high_ev_outs = [b for b in self.batted_ball_metrics
+                           if b.exit_velocity_mph > 105 and b.actual_outcome in ['fly_out', 'line_out', 'ground_out']]
+            if high_ev_outs:
+                print(f"    - Outlier high-EV outs (>105 mph EV): {len(high_ev_outs)}")
+                if len(high_ev_outs) > 2:
+                    print(f"    - ℹ Notable: {len(high_ev_outs)} very hard-hit balls resulted in outs")
+
+        print()
 
     def export_csv(self, filename: str):
         """Export all metrics to CSV file for external analysis"""
