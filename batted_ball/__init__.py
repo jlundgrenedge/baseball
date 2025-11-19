@@ -88,6 +88,12 @@ from .game_simulation import (
     PlayByPlayEvent,
     create_test_team,
 )
+from .ballpark import (
+    BallparkDimensions,
+    get_ballpark,
+    list_available_parks,
+    MLB_BALLPARKS,
+)
 
 from .constants import *
 
@@ -210,6 +216,12 @@ __all__ = [
     'BaseState',
     'PlayByPlayEvent',
     'create_test_team',
+
+    # Ballpark dimensions
+    'BallparkDimensions',
+    'get_ballpark',
+    'list_available_parks',
+    'MLB_BALLPARKS',
 ]
 
 # Add performance modules if available
