@@ -228,27 +228,43 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
             log_file.write(f"{'#'*80}\n\n")
             log_file.flush()
 
-            # Create simulator with verbose=True and log_file
-            # Note: We always set verbose=True to generate logs, even if not showing in console
-            sim = GameSimulator(away_team, home_team, verbose=True, log_file=str(log_path))
+            # Create simulator with verbose=True (no log_file to avoid truncation)
+            sim = GameSimulator(away_team, home_team, verbose=True)
 
-            # If we don't want console output, suppress stdout temporarily
-            if not show_in_console:
-                import io
-                import sys
-                old_stdout = sys.stdout
-                sys.stdout = io.StringIO()
+            # Capture stdout to write to log file
+            import io
+            import sys
+            old_stdout = sys.stdout
+            captured_output = io.StringIO()
+
+            # If we want console output, use a Tee to write to both
+            if show_in_console:
+                class Tee:
+                    def __init__(self, *streams):
+                        self.streams = streams
+                    def write(self, data):
+                        for stream in self.streams:
+                            stream.write(data)
+                    def flush(self):
+                        for stream in self.streams:
+                            stream.flush()
+
+                sys.stdout = Tee(old_stdout, captured_output)
+            else:
+                # Only capture, don't show in console
+                sys.stdout = captured_output
 
             try:
                 # Simulate game
                 final_state = sim.simulate_game(num_innings=9)
             finally:
-                # Restore stdout if we suppressed it
-                if not show_in_console:
-                    sys.stdout = old_stdout
+                # Restore stdout
+                sys.stdout = old_stdout
 
-                # Always close the simulator's log handle to avoid conflicts
-                sim.close_log()
+                # Write captured output to log file
+                game_output = captured_output.getvalue()
+                log_file.write(game_output)
+                log_file.flush()
 
             # Track results
             total_away_runs += final_state.away_score
