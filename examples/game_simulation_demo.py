@@ -18,6 +18,28 @@ from batted_ball import (
 )
 
 
+def get_debug_level():
+    """Ask user for debug metrics level"""
+    print("\n" + "=" * 50)
+    print("DEBUG METRICS LEVEL")
+    print("=" * 50)
+    print("Enable simulation metrics tracking?")
+    print()
+    print("0 = OFF       (no overhead, production speed)")
+    print("1 = BASIC     (summary stats only)")
+    print("2 = DETAILED  (every pitch/play logged)")
+    print("3 = EXHAUSTIVE (all internal calculations)")
+    print()
+    print("Recommended: 0 for speed, 1 for quick insights, 2 for analysis")
+
+    debug_level = input("\nEnter debug level (0-3, default 0): ").strip()
+    try:
+        level = int(debug_level) if debug_level else 0
+        return max(0, min(3, level))  # Clamp to 0-3
+    except ValueError:
+        return 0
+
+
 def main():
     """Run the game simulation demonstration"""
     print("BASEBALL GAME SIMULATION DEMO")
@@ -26,129 +48,133 @@ def main():
     print("This demonstration shows the complete game simulation system")
     print("that integrates all physics components:")
     print("- Realistic pitch simulation")
-    print("- Bat-ball collision physics") 
+    print("- Bat-ball collision physics")
     print("- Fielding mechanics with reaction time and range")
     print("- Baserunning physics and timing")
     print("- Complete play outcomes based on timing comparisons")
     print()
-    
+
+    # Get debug metrics level first
+    debug_level = get_debug_level()
+
     # Ask user for simulation type
+    print("\n" + "=" * 50)
     print("Choose simulation type:")
     print("1. Quick Game (3 innings)")
     print("2. Full Game (9 innings)")
     print("3. Custom Team Matchup")
     print("4. Quality Comparison Game")
-    
+
     choice = input("\nEnter choice (1-4): ").strip()
-    
+
     if choice == "1":
-        run_quick_game()
+        run_quick_game(debug_level)
     elif choice == "2":
-        run_full_game()
+        run_full_game(debug_level)
     elif choice == "3":
-        run_custom_matchup()
+        run_custom_matchup(debug_level)
     elif choice == "4":
-        run_quality_comparison()
+        run_quality_comparison(debug_level)
     else:
         print("Invalid choice, running quick game...")
-        run_quick_game()
+        run_quick_game(debug_level)
 
 
-def run_quick_game():
+def run_quick_game(debug_level=0):
     """Run a quick 3-inning demonstration game"""
     print("\n" + "=" * 60)
     print("QUICK GAME DEMO - 3 INNINGS")
     print("=" * 60)
-    
+
     # Create two average teams
     away_team = create_test_team("Visitors", "average")
     home_team = create_test_team("Home Team", "average")
-    
-    # Create and run simulation
-    simulator = GameSimulator(away_team, home_team, verbose=True)
+
+    # Create and run simulation with metrics
+    simulator = GameSimulator(away_team, home_team, verbose=True, debug_metrics=debug_level)
     final_state = simulator.simulate_game(num_innings=3)
-    
+
     print_game_summary(simulator, final_state)
 
 
-def run_full_game():
+def run_full_game(debug_level=0):
     """Run a complete 9-inning game"""
     print("\n" + "=" * 60)
     print("FULL GAME SIMULATION - 9 INNINGS")
     print("=" * 60)
-    
+
     # Create two teams with slightly different qualities
     away_team = create_test_team("Road Warriors", "good")
     home_team = create_test_team("Home Heroes", "average")
-    
-    # Create and run simulation
-    simulator = GameSimulator(away_team, home_team, verbose=True)
+
+    # Create and run simulation with metrics
+    simulator = GameSimulator(away_team, home_team, verbose=True, debug_metrics=debug_level)
     final_state = simulator.simulate_game(num_innings=9)
-    
+
     print_game_summary(simulator, final_state)
 
 
-def run_custom_matchup():
+def run_custom_matchup(debug_level=0):
     """Let user create custom team matchup"""
     print("\n" + "=" * 60)
     print("CUSTOM TEAM MATCHUP")
     print("=" * 60)
-    
+
     print("Team quality options: poor, average, good, elite")
-    
+
     away_name = input("Away team name: ").strip() or "Visitors"
     away_quality = input("Away team quality: ").strip() or "average"
-    
+
     home_name = input("Home team name: ").strip() or "Home Team"
     home_quality = input("Home team quality: ").strip() or "average"
-    
+
     innings = input("Number of innings (default 9): ").strip()
     try:
         innings = int(innings) if innings else 9
     except ValueError:
         innings = 9
-    
+
     # Create teams
     away_team = create_test_team(away_name, away_quality)
     home_team = create_test_team(home_name, home_quality)
-    
+
     print(f"\nSimulating {innings}-inning game:")
     print(f"{away_name} ({away_quality}) @ {home_name} ({home_quality})")
-    
-    # Create and run simulation
-    simulator = GameSimulator(away_team, home_team, verbose=True)
+
+    # Create and run simulation with metrics
+    simulator = GameSimulator(away_team, home_team, verbose=True, debug_metrics=debug_level)
     final_state = simulator.simulate_game(num_innings=innings)
-    
+
     print_game_summary(simulator, final_state)
 
 
-def run_quality_comparison():
+def run_quality_comparison(debug_level=0):
     """Run games between teams of different quality levels"""
     print("\n" + "=" * 60)
     print("TEAM QUALITY COMPARISON")
     print("=" * 60)
-    
+
     print("This will simulate multiple short games between teams of different qualities")
     print("to demonstrate how player attributes affect game outcomes.\n")
-    
+
     qualities = ["poor", "average", "good", "elite"]
-    
+
     for away_quality in ["poor", "elite"]:
         for home_quality in ["poor", "elite"]:
             print(f"\n{'-' * 40}")
             print(f"{away_quality.upper()} Team @ {home_quality.upper()} Team")
             print(f"{'-' * 40}")
-            
+
             away_team = create_test_team(f"{away_quality.title()} Visitors", away_quality)
             home_team = create_test_team(f"{home_quality.title()} Home", home_quality)
-            
-            # Run short 3-inning game with less verbose output
-            simulator = GameSimulator(away_team, home_team, verbose=False)
+
+            # Run short 3-inning game with less verbose output but with metrics
+            simulator = GameSimulator(away_team, home_team, verbose=False, debug_metrics=debug_level)
             final_state = simulator.simulate_game(num_innings=3)
-            
+
             print(f"RESULT: {away_team.name} {final_state.away_score} - {final_state.home_score} {home_team.name}")
             print(f"Total Hits: {final_state.total_hits}, Home Runs: {final_state.total_home_runs}")
-            
+
             # Show a few key plays
             hits = [play for play in simulator.play_by_play if 'SINGLE' in play.description or 'DOUBLE' in play.description or 'HOME RUN' in play.description]
             if hits:
