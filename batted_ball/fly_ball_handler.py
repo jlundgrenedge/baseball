@@ -27,6 +27,7 @@ from .baserunning import (
 from .trajectory import BattedBallResult
 from .outfield_interception import OutfieldInterceptor
 from .play_outcome import PlayEvent, PlayResult, PlayOutcome
+from .route_efficiency import RouteEfficiencyAnalyzer
 
 
 class FlyBallHandler:
@@ -63,6 +64,11 @@ class FlyBallHandler:
         # FIX FOR DATA CLEANLINESS (Priority 5): Debug flag for verbose fielder assignment logs
         # Set to False to clean up play-by-play logs from clutter
         self.DEBUG_FIELDING_ASSIGNMENT = False
+
+        # Route efficiency analyzer for detailed fielding metrics
+        self.route_efficiency_analyzer = RouteEfficiencyAnalyzer()
+        # Enable route efficiency logging for airborne balls (can be toggled)
+        self.ENABLE_ROUTE_EFFICIENCY_LOGGING = True
 
         # These will be set externally by the play simulation
         self.play_analyzer = None
@@ -173,6 +179,16 @@ class FlyBallHandler:
                     hang_time, "ball_drops",
                     f"Ball drops in {self.describe_field_location(ball_position)}"
                 ))
+
+        # ROUTE EFFICIENCY LOGGING: Generate detailed fielding metrics for airborne balls
+        if self.ENABLE_ROUTE_EFFICIENCY_LOGGING:
+            self._log_route_efficiency(
+                responsible_position,
+                ball_position,
+                hang_time,
+                catch_result,
+                result
+            )
 
         return catch_result
 
@@ -1154,6 +1170,66 @@ class FlyBallHandler:
                     result.final_runner_positions[base] = other_runner
 
             return True
+
+    def _log_route_efficiency(self,
+                              responsible_position: str,
+                              ball_position: FieldPosition,
+                              hang_time: float,
+                              catch_result: FieldingResult,
+                              result: PlayResult):
+        """
+        Log detailed route efficiency metrics for fielding play.
+
+        Parameters
+        ----------
+        responsible_position : str
+            Position key of fielder (e.g., 'center_field')
+        ball_position : FieldPosition
+            Where ball landed/was caught
+        hang_time : float
+            Ball hang time in seconds
+        catch_result : FieldingResult
+            Result of the fielding attempt
+        result : PlayResult
+            Play result to add events to
+        """
+        # Get the fielder object
+        if responsible_position not in self.fielding_simulator.fielders:
+            # Can't analyze if fielder doesn't exist
+            return
+
+        fielder = self.fielding_simulator.fielders[responsible_position]
+
+        # Get fielder's starting position from field layout
+        fielder_start_position = self.field_layout.get_defensive_position(responsible_position)
+
+        # Analyze the play
+        metrics = self.route_efficiency_analyzer.analyze_fielding_play(
+            fielder=fielder,
+            fielder_start_position=fielder_start_position,
+            ball_intercept_position=ball_position,
+            ball_hang_time=hang_time,
+            fielding_result=catch_result
+        )
+
+        # Add formatted metrics to play result as an event
+        # Use a special event type "route_efficiency" so it can be filtered if needed
+        result.add_event(PlayEvent(
+            hang_time, "route_efficiency",
+            metrics.to_log_format()
+        ))
+
+        # If there are any validation warnings, log them (for debugging)
+        warnings = self.route_efficiency_analyzer.get_warnings()
+        if warnings:
+            for warning in warnings:
+                result.add_event(PlayEvent(
+                    hang_time, "route_efficiency_warning",
+                    warning
+                ))
+
+        # Clear warnings for next play
+        self.route_efficiency_analyzer.clear_warnings()
 
     def _get_error_number(self, position: str) -> int:
         """Get the error number (1-9) for a fielding position."""
