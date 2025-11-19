@@ -252,6 +252,7 @@ class TeamDatabase:
             max_exit_velo=clean_value(stats.get('max_exit_velo')),
             barrel_pct=clean_value(stats.get('barrel_pct')),
             sprint_speed=clean_value(stats.get('sprint_speed')),
+            stolen_bases=clean_value(stats.get('stolen_bases')),
         )
 
         cursor = self.conn.cursor()

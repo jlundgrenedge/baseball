@@ -294,6 +294,7 @@ class StatsConverter:
         max_exit_velo: Optional[float] = None,
         barrel_pct: Optional[float] = None,
         sprint_speed: Optional[float] = None,
+        stolen_bases: Optional[int] = None,
     ) -> Dict[str, int]:
         """
         Convert MLB hitter statistics to game attributes.
@@ -324,6 +325,8 @@ class StatsConverter:
             Barrel percentage
         sprint_speed : float, optional
             Sprint speed (ft/s)
+        stolen_bases : int, optional
+            Total stolen bases (used for speed estimation when sprint_speed unavailable)
 
         Returns
         -------
@@ -471,8 +474,21 @@ class StatsConverter:
                 inverse=False
             )
             attributes['speed'] = speed_rating
+        elif stolen_bases is not None and at_bats is not None and at_bats > 0:
+            # Estimate from stolen bases when sprint speed not available
+            # SB per 600 AB: Elite 30+, Good 15-25, Avg 5-15, Poor <5
+            sb_per_600 = (stolen_bases / at_bats) * 600
+            speed_rating = cls.percentile_to_rating(
+                sb_per_600,
+                30.0,   # Elite (30+ SB per 600 AB)
+                20.0,   # Good (20 SB)
+                10.0,   # Average (10 SB)
+                5.0,    # Poor (5 SB)
+                inverse=False
+            )
+            attributes['speed'] = speed_rating
         else:
-            # Estimate from stolen bases
+            # No speed data available
             attributes['speed'] = 50000  # Default average
 
         return attributes
