@@ -12,14 +12,23 @@ import numpy as np
 from numba import njit
 from .constants import (
     BALL_CROSS_SECTIONAL_AREA,
+    BALL_DIAMETER,
     BALL_MASS,
     CD_BASE,
+    CD_MIN,
+    CD_MAX,
     CL_BASE,
     SPIN_FACTOR,
     SPIN_SATURATION,
     SPIN_DRAG_FACTOR,
     SPIN_DRAG_MAX_INCREASE,
     TILTED_SPIN_DRAG_FACTOR,
+    REYNOLDS_DRAG_ENABLED,
+    RE_CRITICAL_LOW,
+    RE_CRITICAL_HIGH,
+    CD_SUBCRITICAL_INCREASE,
+    CD_SUPERCRITICAL_DECREASE,
+    AIR_DYNAMIC_VISCOSITY,
 )
 
 
@@ -47,6 +56,90 @@ def _cross_3d(a, b):
     return result
 
 @njit(cache=True)
+def _calculate_reynolds_number(velocity_magnitude, air_density, ball_diameter=BALL_DIAMETER,
+                                 air_viscosity=AIR_DYNAMIC_VISCOSITY):
+    """
+    Calculate Reynolds number for the baseball.
+
+    Re = ρVD/μ
+
+    Parameters
+    ----------
+    velocity_magnitude : float
+        Speed in m/s
+    air_density : float
+        Air density in kg/m³
+    ball_diameter : float
+        Ball diameter in m
+    air_viscosity : float
+        Dynamic viscosity in kg/(m·s)
+
+    Returns
+    -------
+    float
+        Reynolds number (dimensionless)
+    """
+    if velocity_magnitude < 1e-6:
+        return 0.0
+
+    return (air_density * velocity_magnitude * ball_diameter) / air_viscosity
+
+
+@njit(cache=True)
+def _calculate_reynolds_dependent_cd(velocity_magnitude, air_density, base_cd=CD_BASE):
+    """
+    Calculate drag coefficient based on Reynolds number.
+
+    Implements velocity-dependent drag to account for aerodynamic regime transitions:
+    - Subcritical (Re < 200k): Higher drag (CD increases)
+    - Critical (200k < Re < 250k): Baseline drag (CD ≈ 0.32)
+    - Supercritical (Re > 250k): Lower drag (CD decreases)
+
+    This matches baseball aerodynamics research showing "drag crisis" effects.
+
+    Parameters
+    ----------
+    velocity_magnitude : float
+        Speed in m/s
+    air_density : float
+        Air density in kg/m³
+    base_cd : float
+        Baseline drag coefficient for critical regime
+
+    Returns
+    -------
+    float
+        Reynolds-adjusted drag coefficient
+    """
+    if not REYNOLDS_DRAG_ENABLED:
+        return base_cd
+
+    # Calculate Reynolds number
+    reynolds = _calculate_reynolds_number(velocity_magnitude, air_density)
+
+    if reynolds < RE_CRITICAL_LOW:
+        # Subcritical regime: increase drag
+        # Linear interpolation from base to base + increase
+        re_diff = RE_CRITICAL_LOW - reynolds
+        re_range = 50000.0  # Transition range
+        cd_increase = CD_SUBCRITICAL_INCREASE * min(re_diff / re_range, 1.0)
+        cd = base_cd + cd_increase
+    elif reynolds > RE_CRITICAL_HIGH:
+        # Supercritical regime: decrease drag
+        # Linear interpolation from base to base - decrease
+        re_diff = reynolds - RE_CRITICAL_HIGH
+        re_range = 50000.0  # Transition range
+        cd_decrease = CD_SUPERCRITICAL_DECREASE * min(re_diff / re_range, 1.0)
+        cd = base_cd - cd_decrease
+    else:
+        # Critical regime: use baseline
+        cd = base_cd
+
+    # Clip to physical bounds
+    return min(max(cd, CD_MIN), CD_MAX)
+
+
+@njit(cache=True)
 def _calculate_lift_coefficient_fast(spin_rate_rpm):
     """Fast lift coefficient calculation."""
     if spin_rate_rpm <= SPIN_SATURATION:
@@ -57,9 +150,37 @@ def _calculate_lift_coefficient_fast(spin_rate_rpm):
         return cl_at_saturation + SPIN_FACTOR * excess_spin * 0.2
 
 @njit(cache=True)
-def _calculate_spin_adjusted_cd_fast(base_cd, spin_rate_rpm, velocity_unit, spin_axis_unit, v_mag):
-    """Fast spin-adjusted drag coefficient."""
-    cd_adjusted = base_cd
+def _calculate_spin_adjusted_cd_fast(base_cd, spin_rate_rpm, velocity_unit, spin_axis_unit, v_mag, air_density):
+    """
+    Calculate spin-adjusted drag coefficient.
+
+    Includes:
+    1. Reynolds-dependent base CD (velocity effects)
+    2. Spin-induced drag increase
+    3. Asymmetric drag for tilted spin axis
+
+    Parameters
+    ----------
+    base_cd : float
+        Base drag coefficient (before Reynolds adjustment)
+    spin_rate_rpm : float
+        Spin rate in RPM
+    velocity_unit : np.ndarray
+        Normalized velocity vector
+    spin_axis_unit : np.ndarray
+        Normalized spin axis vector
+    v_mag : float
+        Velocity magnitude in m/s
+    air_density : float
+        Air density in kg/m³
+
+    Returns
+    -------
+    float
+        Effective drag coefficient
+    """
+    # Start with Reynolds-dependent base CD
+    cd_adjusted = _calculate_reynolds_dependent_cd(v_mag, air_density, base_cd)
 
     # Add drag increase from total spin rate
     if spin_rate_rpm > 0:
@@ -91,6 +212,9 @@ def calculate_aerodynamic_forces_fast(velocity, spin_axis, spin_rate_rpm, cd_bas
     This function is JIT-compiled with numba for maximum performance.
     Used in the hot loop during trajectory integration.
 
+    Now includes Reynolds-number dependent drag coefficient for improved accuracy
+    across different exit velocities (Statcast calibration, Nov 2025).
+
     Returns: (total_force, drag_force, magnus_force)
     """
     # Normalize velocity
@@ -102,9 +226,9 @@ def calculate_aerodynamic_forces_fast(velocity, spin_axis, spin_rate_rpm, cd_bas
     # Normalize spin axis
     spin_axis_unit, spin_mag = _normalize_3d(spin_axis)
 
-    # Calculate spin-adjusted drag coefficient
+    # Calculate spin-adjusted drag coefficient (includes Reynolds effects)
     cd_effective = _calculate_spin_adjusted_cd_fast(
-        cd_base, spin_rate_rpm, velocity_unit, spin_axis_unit, v_mag
+        cd_base, spin_rate_rpm, velocity_unit, spin_axis_unit, v_mag, air_density
     )
 
     # Drag force: F_d = 0.5 * C_d * rho * A * v²

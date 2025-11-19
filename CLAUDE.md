@@ -3,7 +3,7 @@
 **Last Updated**: 2025-11-19
 **Repository**: Baseball Physics Simulation Engine
 **Purpose**: Guide AI assistants in understanding and working with this codebase
-**Version**: 1.1.0
+**Version**: 1.1.1 (Reynolds Enhancement)
 
 ---
 
@@ -1232,9 +1232,36 @@ rover = Fielder(name="Rover", position="Rover", ...)
 
 ---
 
-## Recent Changes (v1.1.0 - 2025-11-19)
+## Recent Changes
 
-### Major Additions
+### v1.1.1 - 2025-11-19 (Reynolds Number Enhancement)
+
+**Major Physics Improvement**: Velocity-dependent drag coefficient modeling
+
+1. **Reynolds-Dependent Aerodynamics**
+   - Implemented velocity-dependent drag coefficient based on Reynolds number
+   - Reduces systematic distance errors from 6.13% to 1.80%
+   - All 7 validation benchmarks still passing
+   - Zero performance overhead (JIT-compiled)
+
+2. **Statcast Calibration Module**
+   - `batted_ball/statcast_calibration.py` - Fetch and compare real MLB data
+   - `batted_ball/statcast_calibration_demo.py` - Demo with synthetic data
+   - Automated calibration reports showing model accuracy
+
+3. **Enhanced Documentation**
+   - `docs/STATCAST_CALIBRATION_FINDINGS.md` - Detailed analysis
+   - `docs/REYNOLDS_NUMBER_ENHANCEMENT.md` - Implementation guide
+   - `examples/statcast_physics_calibration_example.py` - Usage examples
+
+**Physics Constants Added**:
+- `REYNOLDS_DRAG_ENABLED` - Feature flag (default: True)
+- `RE_CRITICAL_LOW/HIGH` - Reynolds regime boundaries
+- `CD_SUBCRITICAL_INCREASE` - Low-velocity drag adjustment
+- `CD_SUPERCRITICAL_DECREASE` - High-velocity drag adjustment
+
+### v1.1.0 - 2025-11-19 (MLB Database Integration)
+
 1. **MLB Database System** - Complete integration with pybaseball for real player data
    - SQLite database for storing teams
    - Automatic stat conversion from MLB to game attributes
