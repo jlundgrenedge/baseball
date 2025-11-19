@@ -21,6 +21,7 @@ try:
         playerid_lookup,
         team_pitching,
         team_batting,
+        statcast_sprint_speed,
     )
     PYBASEBALL_AVAILABLE = True
 except ImportError:
@@ -202,6 +203,38 @@ class PybaseballFetcher:
                     hitter_df['max_exit_velo'] = team_stats['maxEV']
                 if 'Sprint Speed' in team_stats.columns:
                     hitter_df['sprint_speed'] = team_stats['Sprint Speed']
+
+                # Try to fetch Statcast sprint speed data (only available 2015+)
+                if self.season >= 2015:
+                    try:
+                        print(f"  Fetching Statcast sprint speed data...")
+                        sprint_data = statcast_sprint_speed(self.season, min_opp=10)
+
+                        if sprint_data is not None and len(sprint_data) > 0:
+                            # Merge sprint speed by player name
+                            # Note: Name matching can be tricky, so we'll do our best
+                            sprint_data = sprint_data.rename(columns={
+                                'last_name, first_name': 'full_name',
+                                'sprint_speed': 'sprint_speed_statcast'
+                            })
+
+                            # Try to match players by name
+                            for idx, row in hitter_df.iterrows():
+                                player_name = row['player_name']
+                                # Try exact match first
+                                match = sprint_data[sprint_data['full_name'] == player_name]
+                                if len(match) == 0:
+                                    # Try partial match (last name)
+                                    last_name = player_name.split()[-1] if ' ' in player_name else player_name
+                                    match = sprint_data[sprint_data['full_name'].str.contains(last_name, case=False, na=False)]
+
+                                if len(match) > 0:
+                                    # Take first match
+                                    hitter_df.at[idx, 'sprint_speed'] = match.iloc[0]['sprint_speed_statcast']
+
+                            print(f"  Added sprint speed for {hitter_df['sprint_speed'].notna().sum()} players")
+                    except Exception as e:
+                        print(f"  Could not fetch Statcast sprint speed: {e}")
 
             print(f"  Found {len(hitter_df)} hitters")
             return hitter_df.reset_index(drop=True)
