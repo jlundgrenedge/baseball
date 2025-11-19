@@ -28,14 +28,18 @@ BALL_CROSS_SECTIONAL_AREA = math.pi * (BALL_RADIUS ** 2)  # m²
 # Drag coefficient (dimensionless)
 # Varies with Reynolds number, but typically 0.3-0.5 for baseball
 # Calibrated to match empirical distance data
-CD_BASE = 0.32  # Base drag coefficient (calibrated)
+CD_BASE = 0.32  # Base drag coefficient (calibrated - DO NOT INCREASE)
+                 # Tested CD=0.35 but it reduced HR rate from 3.5/game to 0.33/game
+                 # Fly ball hang time issue is better addressed via fielder speed/positioning
 CD_MIN = 0.25    # Minimum drag coefficient
 CD_MAX = 0.5    # Maximum drag coefficient
 
 # Lift coefficient (Magnus effect)
 # Relates to spin rate and velocity
 CL_BASE = 0.0001  # Base lift coefficient per rpm
-CL_MAX = 0.6      # Maximum lift coefficient (high spin saturation)
+CL_MAX = 0.45     # Maximum lift coefficient (REDUCED from 0.6 to reduce fly ball "float")
+                   # Previous value caused excessive hang times with 2-3s fielder margins
+                   # New value makes balls drop faster, creating realistic "dying quail" hits
 
 # Spin factor for Magnus effect (empirically derived)
 # This relates spin rate to lift coefficient
