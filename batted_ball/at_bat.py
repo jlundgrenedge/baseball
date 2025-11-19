@@ -315,7 +315,8 @@ class AtBatSimulator:
         self,
         count: Tuple[int, int],
         pitch_type: str,
-    ) -> Tuple[float, float]:
+        return_intention: bool = False,
+    ):
         """
         Select target location for pitch with realistic strike/ball distribution.
 
@@ -325,17 +326,20 @@ class AtBatSimulator:
             (balls, strikes)
         pitch_type : str
             Type of pitch being thrown
+        return_intention : bool
+            If True, return (location, intention) tuple
 
         Returns
         -------
         tuple
-            (horizontal_inches, vertical_inches) target location
+            If return_intention=False: (horizontal_inches, vertical_inches) target location
+            If return_intention=True: ((horizontal, vertical), intention_string)
         """
         balls, strikes = count
-        
+
         # MLB strike rate is typically 62-65%. We need to intentionally target
         # outside the zone more often to achieve realistic ball rates.
-        
+
         # Determine pitcher's intention for this pitch
         intention = self._determine_pitch_intention(balls, strikes, pitch_type)
         
@@ -391,6 +395,8 @@ class AtBatSimulator:
             horizontal_target = corner_h + np.random.normal(0, 1.0)
             vertical_target = corner_v + np.random.normal(0, 1.0)
 
+        if return_intention:
+            return (horizontal_target, vertical_target), intention
         return horizontal_target, vertical_target
     
     def _determine_pitch_intention(self, balls: int, strikes: int, pitch_type: str) -> str:
@@ -825,10 +831,33 @@ class AtBatSimulator:
             # Select pitch with sequencing
             count_before_pitch = (balls, strikes)
             pitch_type = self.select_pitch_type(count_before_pitch, recent_pitch_types)
-            target_location = self.select_target_location(count_before_pitch, pitch_type)
+            target_location, pitch_intention = self.select_target_location(count_before_pitch, pitch_type, return_intention=True)
 
             # Simulate pitch
             pitch_data = self.simulate_pitch(pitch_type, target_location)
+
+            # Add pitch intent diagnostics
+            actual_location = pitch_data['final_location']
+            target_h, target_v = target_location
+            actual_h, actual_v = actual_location
+
+            # Calculate command error
+            x_error = actual_h - target_h
+            z_error = actual_v - target_v
+
+            # Map target to zone label
+            from .game_simulation import get_zone_bucket
+            intended_zone = get_zone_bucket((target_h, target_v))
+            missed_into_zone = get_zone_bucket(actual_location) if abs(x_error) > 2 or abs(z_error) > 2 else intended_zone
+
+            pitch_data['pitch_intent'] = {
+                'intended_zone': intended_zone,
+                'intended_pitch_type': pitch_type,
+                'intention_category': pitch_intention,
+                'x_error_inches': x_error,
+                'z_error_inches': z_error,
+                'missed_into_zone': missed_into_zone
+            }
 
             # Annotate pitch with contextual data for downstream logging/debugging
             pitch_data['sequence_index'] = len(pitches) + 1
@@ -847,14 +876,18 @@ class AtBatSimulator:
                       f"{pitch_data['final_location'][1]:.1f}\") - "
                       f"{pitch_data['velocity_plate']:.1f} mph")
 
-            # Hitter decides whether to swing
-            should_swing = self.hitter.decide_to_swing(
+            # Hitter decides whether to swing (with diagnostics)
+            should_swing, swing_diagnostics = self.hitter.decide_to_swing(
                 pitch_data['final_location'],
                 pitch_data['is_strike'],
                 (balls, strikes),
                 pitch_velocity=pitch_data['velocity_plate'],
                 pitch_type=pitch_data['pitch_type'],
+                return_diagnostics=True,
             )
+
+            # Store swing decision diagnostics in pitch data
+            pitch_data['swing_decision'] = swing_diagnostics
 
             if not should_swing:
                 # Pitch taken

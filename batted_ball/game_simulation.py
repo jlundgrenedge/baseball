@@ -998,6 +998,29 @@ class GameSimulator:
                 self.log(f"      VelocityPenaltyMph: {velo_penalty:.1f}")
                 self.log(f"      CommandPenaltyInches: {command_penalty:.1f}")
 
+            # Add swing decision diagnostics if available
+            if 'swing_decision' in pitch:
+                sd = pitch['swing_decision']
+                self.log(f"    SwingDecisionModel:")
+                self.log(f"      EstimatedStrikeProb: {sd['estimated_strike_prob']:.2f}")
+                self.log(f"      EV_Swing: {sd['ev_swing']:+.3f}")
+                self.log(f"      EV_Take: {sd['ev_take']:+.3f}")
+                self.log(f"      AggressionModifier: {sd['aggression_modifier']:+.2f}")
+                self.log(f"      Decision: {sd['decision']}")
+
+            # Add pitch intent diagnostics if available
+            if 'pitch_intent' in pitch:
+                pi = pitch['pitch_intent']
+                self.log(f"    PitchIntent:")
+                self.log(f"      IntentionCategory: {pi['intention_category']}")
+                self.log(f"      IntendedZone: {pi['intended_zone']}")
+                self.log(f"      IntendedPitchType: {pi['intended_pitch_type']}")
+                self.log(f"      CommandError:")
+                self.log(f"        XErrorInches: {pi['x_error_inches']:+.1f}")
+                self.log(f"        ZErrorInches: {pi['z_error_inches']:+.1f}")
+                if pi['missed_into_zone'] != pi['intended_zone']:
+                    self.log(f"      MissedIntoZone: {pi['missed_into_zone']}")
+
     def print_play_breakdown(self, play_result: PlayResult):
         """Print detailed physics/fielding/baserunning breakdown for a play."""
         events = play_result.get_events_chronological()
@@ -1043,6 +1066,10 @@ class GameSimulator:
         self.print_sabermetric_summary(self.away_team.name, is_away=True)
         self.log(f"{'-'*80}")
         self.print_sabermetric_summary(self.home_team.name, is_away=False)
+        self.log(f"{'='*80}")
+
+        # Print model drift indicators (combined for both teams)
+        self.print_model_drift_indicators()
         self.log(f"{'='*80}\n")
 
     def print_sabermetric_summary(self, team_name: str, is_away: bool):
@@ -1104,6 +1131,93 @@ class GameSimulator:
         self.log(f"  K%: {k_pct:.1f}%")
         self.log(f"  BB%: {bb_pct:.1f}%")
         self.log(f"  ISO: {iso:.3f}")
+
+    def print_model_drift_indicators(self):
+        """Print model drift indicators to flag unrealistic stat distributions"""
+        gs = self.game_state
+
+        # Combine both teams for model drift analysis
+        total_hr = gs.away_home_runs + gs.home_home_runs
+        total_fb = gs.away_fly_balls + gs.home_fly_balls
+        total_gb = gs.away_ground_balls + gs.home_ground_balls
+        total_ld = gs.away_line_drives + gs.home_line_drives
+        total_so = gs.away_strikeouts + gs.home_strikeouts
+        total_bb = gs.away_walks + gs.home_walks
+        total_ab = gs.away_at_bats + gs.home_at_bats
+        total_h = gs.away_hits + gs.home_hits
+        total_pa = total_ab + total_bb
+
+        # Calculate HR/FB ratio
+        hr_per_fb = (total_hr / total_fb * 100) if total_fb > 0 else 0.0
+
+        # Calculate BABIP (already in sabermetric summary, recalc here)
+        babip_denom = total_ab - total_so - total_hr
+        babip = (total_h - total_hr) / babip_denom if babip_denom > 0 else 0.0
+
+        # Calculate K% and BB%
+        k_pct = (total_so / total_pa * 100) if total_pa > 0 else 0.0
+        bb_pct = (total_bb / total_pa * 100) if total_pa > 0 else 0.0
+
+        # Calculate average exit velocity
+        all_evs = gs.away_exit_velocities + gs.home_exit_velocities
+        avg_ev = sum(all_evs) / len(all_evs) if all_evs else 0.0
+
+        self.log(f"\nMODEL DRIFT INDICATORS:")
+
+        # HR/FB check (MLB typical: 12-14%)
+        hr_fb_flag = ""
+        if total_fb >= 5:  # Only check if enough data
+            if hr_per_fb < 8:
+                hr_fb_flag = " ⚠ too low; MLB ~12-14%"
+            elif hr_per_fb > 18:
+                hr_fb_flag = " ⚠ too high; MLB ~12-14%"
+            else:
+                hr_fb_flag = " ok"
+        self.log(f"  HR/FB: {hr_per_fb:.1f}%{hr_fb_flag}")
+
+        # BABIP check (MLB typical: .290-.310)
+        babip_flag = ""
+        if babip_denom >= 5:
+            if babip < 0.250:
+                babip_flag = " ⚠ too low; MLB ~.290-.310"
+            elif babip > 0.360:
+                babip_flag = " ⚠ too high; MLB ~.290-.310"
+            else:
+                babip_flag = " ok"
+        self.log(f"  BABIP: {babip:.3f}{babip_flag}")
+
+        # K% check (MLB typical: 22-24%)
+        k_flag = ""
+        if total_pa >= 10:
+            if k_pct < 15:
+                k_flag = " ⚠ too low; MLB ~22-24%"
+            elif k_pct > 30:
+                k_flag = " ⚠ too high; MLB ~22-24%"
+            else:
+                k_flag = " ok"
+        self.log(f"  K%: {k_pct:.1f}%{k_flag}")
+
+        # BB% check (MLB typical: 8-9%)
+        bb_flag = ""
+        if total_pa >= 10:
+            if bb_pct < 5:
+                bb_flag = " ⚠ too low; MLB ~8-9%"
+            elif bb_pct > 13:
+                bb_flag = " ⚠ too high; MLB ~8-9%"
+            else:
+                bb_flag = " ok"
+        self.log(f"  BB%: {bb_pct:.1f}%{bb_flag}")
+
+        # Avg EV check (MLB typical: 87-89 mph)
+        ev_flag = ""
+        if len(all_evs) >= 5:
+            if avg_ev < 82:
+                ev_flag = " ⚠ too low; MLB ~87-89 mph"
+            elif avg_ev > 94:
+                ev_flag = " ⚠ too high; MLB ~87-89 mph"
+            else:
+                ev_flag = " ok"
+        self.log(f"  AvgExitVelo: {avg_ev:.1f} mph{ev_flag}")
 
 
 def create_test_team(name: str, team_quality: str = "average") -> Team:
