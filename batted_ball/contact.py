@@ -276,48 +276,57 @@ class ContactModel:
     def calculate_collision_efficiency(self, distance_from_sweet_spot_inches, contact_offset_total):
         """
         Calculate collision efficiency (q) based on research.
-        
+
         The master formula: BBS = q * v_pitch + (1 + q) * v_bat
         where q represents all collision physics complexity.
-        
+
         Parameters
         ----------
         distance_from_sweet_spot_inches : float
             Distance from optimal sweet spot location
         contact_offset_total : float
             Total contact offset from bat center
-            
+
         Returns
         -------
         float
             Collision efficiency (q)
+
+        Notes
+        -----
+        Recalibrated 2025-11-19 to reduce excessive penalties that were causing
+        collision efficiency values of 0.05-0.12 instead of realistic 0.15-0.20.
+        Reduced all penalty rates by ~40% to allow more solid contact.
         """
         # Start with base efficiency for bat material
         q = self.base_collision_efficiency
-        
+
         # Reduce efficiency based on distance from sweet spot
         # Sweet spot is zone of maximum performance
-        sweet_spot_penalty = min(distance_from_sweet_spot_inches * 0.01, 0.08)  # Max 8% penalty
+        # REDUCED from 0.01 to 0.006 (40% reduction) - was too punishing
+        sweet_spot_penalty = min(distance_from_sweet_spot_inches * 0.006, 0.05)  # Max 5% penalty (reduced from 8%)
         q -= sweet_spot_penalty
-        
+
         # Reduce efficiency based on contact offset (mis-hit)
-        offset_penalty = contact_offset_total * OFFSET_EFFICIENCY_DEGRADATION
+        # REDUCED: offset penalty now 60% of previous value
+        offset_penalty = contact_offset_total * (OFFSET_EFFICIENCY_DEGRADATION * 0.60)
         q -= offset_penalty
-        
+
         # Account for vibrational energy loss
         # Energy lost to bat vibrations reduces collision efficiency
-        vibration_loss = min(distance_from_sweet_spot_inches * VIBRATION_ENERGY_LOSS_RATE, 
-                             VIBRATION_ENERGY_LOSS_MAX)
+        # REDUCED: vibration loss rate decreased by 40%
+        vibration_loss = min(distance_from_sweet_spot_inches * (VIBRATION_ENERGY_LOSS_RATE * 0.60),
+                             VIBRATION_ENERGY_LOSS_MAX * 0.70)  # Also reduced max from 10% to 7%
         q -= vibration_loss
-        
+
         # Trampoline effect for non-wood bats
         if self.bat_type != 'wood':
             # Barrel deformation stores and returns energy more efficiently than ball deformation
             trampoline_benefit = self.energy_storage_ratio * TRAMPOLINE_ENERGY_RECOVERY * 0.1
             q += trampoline_benefit
-        
-        # Ensure reasonable bounds
-        return max(q, 0.05)  # Minimum efficiency for any contact
+
+        # Ensure reasonable bounds - raised minimum from 0.05 to 0.08
+        return max(q, 0.08)  # Minimum efficiency for any contact (even terrible mis-hits)
 
     def calculate_vibration_energy_loss(self, distance_from_sweet_spot_inches):
         """
@@ -550,14 +559,14 @@ class ContactModel:
         )
         
         # Apply additional exit velocity reduction for off-center contact
-        # WIDENED SWEET SPOT: Increased threshold from 0.6" to 0.85" and reduced penalty
+        # WIDENED SWEET SPOT (2025-11-19): Further increased threshold to 1.1" and reduced penalty
         # This allows more realistic power hitting on slightly off-center contact
-        # 0.85": ~0% penalty, 1.2": ~1% penalty, 1.5": ~3% penalty, 2.0": ~8% penalty
-        if contact_offset_total > 0.85:  # Start penalty at 0.85" offset (wider sweet spot zone)
-            offset_beyond_sweet = max(0, contact_offset_total - 0.85)
-            # Power-law penalty: scales as offset^1.15 with reduced multiplier
-            penalty = offset_beyond_sweet ** 1.15 * 0.04  # Reduced from 0.08 to 0.04
-            penalty = min(penalty, 0.35)  # Cap at 35% penalty
+        # 1.1": ~0% penalty, 1.4": ~0.5% penalty, 1.8": ~2% penalty, 2.2": ~5% penalty
+        if contact_offset_total > 1.1:  # Start penalty at 1.1" offset (wider sweet spot zone)
+            offset_beyond_sweet = max(0, contact_offset_total - 1.1)
+            # Power-law penalty: scales as offset^1.1 with further reduced multiplier
+            penalty = offset_beyond_sweet ** 1.1 * 0.025  # Further reduced from 0.04 to 0.025
+            penalty = min(penalty, 0.30)  # Cap at 30% penalty (reduced from 35%)
             exit_velocity *= (1.0 - penalty)
             
         # Ensure minimum exit velocity for any contact

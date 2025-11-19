@@ -138,17 +138,21 @@ class HitterAttributes:
         """
         Convert BAT_SPEED rating to barrel speed (mph).
 
-        Anchors (calibrated to MLB Statcast 2024 data):
-        - 0: 52 mph (weak/youth)
-        - 50k: 70 mph (average MLB - matches Statcast avg)
-        - 85k: 80 mph (elite MLB - top 10%)
-        - 100k: 92 mph (superhuman)
+        Anchors (recalibrated 2025-11-19 to fix low exit velocities):
+        - 0: 60 mph (minimum MLB capability - raised from 52 mph)
+        - 50k: 75 mph (average MLB - raised from 70 mph for realistic exit velos)
+        - 85k: 85 mph (elite MLB - top 10%, raised from 80 mph)
+        - 100k: 95 mph (superhuman - raised from 92 mph)
+
+        Rationale: Previous mapping produced exit velocities of 60-85 mph with q=0.05-0.12,
+        far below MLB average of 88 mph. New mapping produces 85-95 mph exit velocities
+        with same collision efficiencies, enabling realistic power hitting and home runs.
         """
         return piecewise_logistic_map(
             self.BAT_SPEED,
-            human_min=52.0,
-            human_cap=80.0,
-            super_cap=92.0
+            human_min=60.0,  # Raised from 52.0
+            human_cap=85.0,  # Raised from 80.0
+            super_cap=95.0   # Raised from 92.0
         )
 
     def get_attack_angle_mean_deg(self) -> float:
@@ -193,16 +197,20 @@ class HitterAttributes:
 
         Lower = closer to sweet spot consistently
 
-        Anchors:
-        - 0: 40 mm error (poor)
-        - 50k: 13 mm error (average)
-        - 85k: 7 mm error (elite)
+        Anchors (recalibrated 2025-11-19 to increase solid contact rate):
+        - 0: 35 mm error (poor - reduced from 40mm)
+        - 50k: 10 mm error (average - reduced from 13mm for more barrels)
+        - 85k: 5 mm error (elite - reduced from 7mm)
         - 100k: 2 mm error (superhuman)
+
+        Rationale: Previous mapping produced only ~5% solid contact rate.
+        MLB "barrel" rate is ~8-10% of balls in play. Reducing error by ~20-30%
+        should increase solid contact to realistic ~10-12% rate.
         """
         return piecewise_logistic_map_inverse(
             self.BARREL_ACCURACY,
-            human_min=7.0,
-            human_cap=40.0,
+            human_min=5.0,   # Reduced from 7.0
+            human_cap=35.0,  # Reduced from 40.0
             super_cap=2.0
         )
 
@@ -617,12 +625,13 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
     bat_speed_min = max(88000, min_r + 33000)  # Minimum 88k for power
     bat_speed_max = min(98000, bat_speed_min + 10000)
 
-    # FIX: Reduced attack angle from 65k-80k to 32k-45k (was creating too many fly balls)
-    # 32k-45k → 5-9° mean, which with 15° variance creates realistic launch angle distribution
-    # This should produce ~43% GB, ~24% LD, ~33% FB (MLB realistic)
-    # Power comes from high bat speed (88k-98k), not extreme launch angles
-    attack_angle_min = max(32000, min_r - 13000)  # Start well below quality baseline
-    attack_angle_max = min(45000, attack_angle_min + 13000)  # Up to 45k
+    # RECALIBRATED (2025-11-19): Increased attack angle to enable more home runs
+    # 42k-58k → 8-14° mean, which with 15° variance creates realistic launch angle distribution
+    # With higher bat speeds (88k-98k) and better collision efficiency, this produces:
+    # ~38-42% GB, ~22-26% LD, ~32-40% FB (MLB realistic with power hitter bias)
+    # Home runs come from combination of high bat speed + elevated launch angles (20-35°)
+    attack_angle_min = max(42000, min_r - 3000)  # Raised from 32k
+    attack_angle_max = min(58000, attack_angle_min + 16000)  # Raised from 45k, up to 58k
     
     # Ensure valid ranges (min < max)
     if bat_speed_min >= bat_speed_max:
@@ -667,11 +676,12 @@ def create_balanced_hitter(quality: str = "average") -> HitterAttributes:
 
     min_r, max_r = quality_ranges.get(quality, (45000, 65000))
 
-    # Balanced: moderate bat speed + LOW-MODERATE attack angle
-    # FIX (2025-11-19): Attack angle: ~27k-39k → mean of ~2-7° (was 5-10°)
+    # Balanced: moderate bat speed + MODERATE attack angle
+    # RECALIBRATED (2025-11-19): Attack angle: ~38k-52k → mean of ~6-12°
     # Combined with 15° variance + pitch adjustments, produces realistic GB/LD/FB mix
-    attack_angle_min = max(27000, min_r - 18000)  # ~27k for average
-    attack_angle_max = min(39000, attack_angle_min + 12000)  # Up to ~39k
+    # With improved bat speeds and collision efficiency, enables occasional home runs
+    attack_angle_min = max(38000, min_r - 7000)  # Raised from 27k to 38k
+    attack_angle_max = min(52000, attack_angle_min + 14000)  # Raised from 39k to 52k
     
     # Ensure valid range
     if attack_angle_min >= attack_angle_max:
