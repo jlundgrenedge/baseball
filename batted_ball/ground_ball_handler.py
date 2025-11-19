@@ -427,6 +427,43 @@ class GroundBallHandler:
             return True
 
         # No force play - try to throw out batter at first (original logic)
+
+        # CHECK FOR FIELDING ERROR (bobble/misplay)
+        # Calculate fielding error probability based on difficulty
+        distance_traveled = fielder.current_position.distance_to(ball_position)
+        time_margin = catch_time - fielder_reach_time
+        fielding_error_prob = fielder.calculate_fielding_error_probability(
+            ball_position, time_margin, distance_traveled
+        )
+
+        # Roll for fielding error
+        if np.random.random() < fielding_error_prob:
+            # Fielding error! Bobbled the ball
+            result.outcome = PlayOutcome.ERROR
+            result.outs_made = 0
+            result.add_event(PlayEvent(
+                fielding_time, "fielding_error",
+                f"ERROR! {position_name} bobbles the ball (E{self._get_error_number(position_name)})"
+            ))
+
+            # Ball recovery time (fielder has to pick it up again)
+            recovery_time = 1.0 + np.random.uniform(0.0, 0.5)  # 1.0-1.5 seconds
+
+            # Let hit handler process baserunning with delayed ball control
+            if self.hit_handler:
+                self.hit_handler.handle_hit_baserunning(result, self.current_outs)
+            else:
+                # Fallback: batter reaches first safely
+                batter_runner = self.baserunning_simulator.get_runner_at_base("home")
+                if batter_runner:
+                    batter_runner.current_base = "first"
+                    self.baserunning_simulator.remove_runner("home")
+                    self.baserunning_simulator.add_runner("first", batter_runner)
+                    result.final_runner_positions["first"] = batter_runner
+
+            return True
+
+        # No fielding error - proceed with throw
         # Calculate throw time to first base using fielder's actual attributes
         first_base_pos = self.fielding_simulator.field_layout.get_base_position('first')
         throw_distance = ball_position.distance_to(first_base_pos)
@@ -438,6 +475,39 @@ class GroundBallHandler:
         flight_time = throw_distance / throw_velocity_fps
         throw_time = transfer_time + flight_time
 
+        # CHECK FOR THROWING ERROR (wild throw)
+        # Determine if throw is rushed (close play)
+        is_rushed = time_margin < 0.2  # Less than 0.2s margin = rushed
+        throwing_error_prob = fielder.calculate_throwing_error_probability(
+            throw_distance, is_rushed=is_rushed, is_off_balance=False
+        )
+
+        # Roll for throwing error
+        if np.random.random() < throwing_error_prob:
+            # Throwing error! Wild throw
+            result.outcome = PlayOutcome.ERROR
+            result.outs_made = 0
+            result.add_event(PlayEvent(
+                fielding_time + transfer_time, "throwing_error",
+                f"ERROR! Wild throw by {position_name} (E{self._get_error_number(position_name)})"
+            ))
+
+            # Ball goes wild - runners advance 1-2 bases
+            # Let hit handler process baserunning with error advantage
+            if self.hit_handler:
+                self.hit_handler.handle_hit_baserunning(result, self.current_outs)
+            else:
+                # Fallback: batter reaches first safely
+                batter_runner = self.baserunning_simulator.get_runner_at_base("home")
+                if batter_runner:
+                    batter_runner.current_base = "first"
+                    self.baserunning_simulator.remove_runner("home")
+                    self.baserunning_simulator.add_runner("first", batter_runner)
+                    result.final_runner_positions["first"] = batter_runner
+
+            return True
+
+        # No throwing error - normal throw
         # Total time for ball to reach first base
         ball_arrival_at_first = fielding_time + throw_time
 
@@ -592,3 +662,18 @@ class GroundBallHandler:
                 min_distance = min(min_distance, distance)
 
         return min_distance if min_distance != float('inf') else 100.0  # Default fallback
+
+    def _get_error_number(self, position: str) -> int:
+        """Get the error number (1-9) for a fielding position."""
+        error_numbers = {
+            'pitcher': 1,
+            'catcher': 2,
+            'first_base': 3,
+            'second_base': 4,
+            'third_base': 5,
+            'shortstop': 6,
+            'left_field': 7,
+            'center_field': 8,
+            'right_field': 9
+        }
+        return error_numbers.get(position, 0)
