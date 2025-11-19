@@ -550,12 +550,13 @@ class ContactModel:
         )
         
         # Apply additional exit velocity reduction for off-center contact
-        # TUNED: Gentle penalty to reduce extreme HR rate while preserving power hitting
-        # 0.7": ~0% penalty, 1.0": ~2% penalty, 1.5": ~8% penalty, 2.0": ~15% penalty
-        if contact_offset_total > 0.6:  # Start penalty at 0.6" offset (sweet spot zone)
-            offset_beyond_sweet = max(0, contact_offset_total - 0.6)
-            # Power-law penalty: scales as offset^1.15 for very gentle scaling
-            penalty = offset_beyond_sweet ** 1.15 * 0.08
+        # WIDENED SWEET SPOT: Increased threshold from 0.6" to 0.85" and reduced penalty
+        # This allows more realistic power hitting on slightly off-center contact
+        # 0.85": ~0% penalty, 1.2": ~1% penalty, 1.5": ~3% penalty, 2.0": ~8% penalty
+        if contact_offset_total > 0.85:  # Start penalty at 0.85" offset (wider sweet spot zone)
+            offset_beyond_sweet = max(0, contact_offset_total - 0.85)
+            # Power-law penalty: scales as offset^1.15 with reduced multiplier
+            penalty = offset_beyond_sweet ** 1.15 * 0.04  # Reduced from 0.08 to 0.04
             penalty = min(penalty, 0.35)  # Cap at 35% penalty
             exit_velocity *= (1.0 - penalty)
             

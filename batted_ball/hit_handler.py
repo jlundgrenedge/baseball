@@ -61,12 +61,15 @@ class HitHandler:
                 # Weak contact far away still just a single (bloop hit)
                 result.outcome = PlayOutcome.SINGLE
 
-        # Fair contact (80-95 mph EV) can produce singles and doubles, rare triples
-        # BUT NOT HOME RUNS - need solid contact for HRs (realistic baseball)
-        elif contact_quality == 'fair' or exit_velocity < 95:
-            # Fair contact maxes out at triples - no home runs without solid contact
-            if distance_ft > 300 and 10 < abs_angle < 50 and exit_velocity >= 88:
-                # Fair contact can produce triples with decent EV in gaps
+        # Fair contact (80-88 mph EV) can produce singles, doubles, and triples
+        # Home runs possible if ball travels far enough (distance-first approach)
+        elif contact_quality == 'fair' or exit_velocity < 88:
+            # DISTANCE-FIRST: If ball clears fence, it's a home run regardless of contact quality
+            if distance_ft >= fence_distance - 5:  # 5 ft cushion
+                result.outcome = PlayOutcome.HOME_RUN
+                result.runs_scored = 1
+            # Fair contact can produce triples with decent EV in gaps
+            elif distance_ft > 300 and 10 < abs_angle < 50 and exit_velocity >= 85:
                 result.outcome = PlayOutcome.TRIPLE
             elif distance_ft > 230:
                 result.outcome = PlayOutcome.DOUBLE
