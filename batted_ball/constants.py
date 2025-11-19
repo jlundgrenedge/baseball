@@ -685,6 +685,24 @@ CATCH_PROB_TIME_BONUS = 0.20        # Bonus per second of opportunity time
 CATCH_PROB_BACKWARD_PENALTY = 0.15  # Additional penalty for backward movement
 CATCH_PROB_MIN = 0.05               # Minimum catch probability
 
+# Fielding Error Probability Constants (MLB Stats-Based)
+# Source: MLB fielding percentage data shows ~1-2% error rate across positions
+# Infielders: ~.975 fielding pct (2.5% error rate)
+# Outfielders: ~.985 fielding pct (1.5% error rate)
+FIELDING_ERROR_BASE_RATE = 0.015              # 1.5% base error rate (routine plays)
+FIELDING_ERROR_DIFFICULT_MULTIPLIER = 3.0     # 3x error rate for difficult plays
+FIELDING_ERROR_RUSHED_MULTIPLIER = 2.0        # 2x error rate when rushed
+FIELDING_ERROR_DISTANCE_THRESHOLD = 80.0      # ft - distance beyond which plays are "difficult"
+FIELDING_ERROR_TIME_THRESHOLD = 0.1           # s - time margin below which plays are "rushed"
+
+# Throwing Error Probability Constants
+# Source: MLB throwing error rates (~0.5-1% of throws result in errors)
+THROWING_ERROR_BASE_RATE = 0.008              # 0.8% base throwing error rate
+THROWING_ERROR_LONG_THROW_MULTIPLIER = 2.5    # 2.5x error rate for long throws
+THROWING_ERROR_RUSHED_MULTIPLIER = 2.0        # 2x error rate when rushed/off-balance
+THROWING_ERROR_DISTANCE_THRESHOLD = 150.0     # ft - distance beyond which throws are "long"
+THROWING_ERROR_MIN_DISTANCE = 30.0            # ft - very short throws have reduced error chance
+
 # Optical Acceleration Cancellation Constants
 OAC_CONTROL_GAIN = 2.0              # Control gain for OAC algorithm
 OAC_ANGULAR_THRESHOLD = 0.001       # Threshold for optical acceleration (rad/s²)

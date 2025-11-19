@@ -797,6 +797,126 @@ class Fielder:
 
         return probability
 
+    def calculate_fielding_error_probability(self, ball_position: FieldPosition,
+                                            time_margin: float,
+                                            distance_traveled: float) -> float:
+        """
+        Calculate probability of committing a fielding error (bobble/misplay).
+
+        Even when a fielder reaches the ball, there's a chance of an error.
+        Based on MLB fielding percentage data (~1-2% error rate).
+
+        Parameters
+        ----------
+        ball_position : FieldPosition
+            Position where ball is being fielded
+        time_margin : float
+            Time margin (positive = early, negative = late)
+        distance_traveled : float
+            Distance fielder had to travel to reach ball
+
+        Returns
+        -------
+        float
+            Probability of fielding error (0.0 to 1.0)
+        """
+        from .constants import (
+            FIELDING_ERROR_BASE_RATE,
+            FIELDING_ERROR_DIFFICULT_MULTIPLIER,
+            FIELDING_ERROR_RUSHED_MULTIPLIER,
+            FIELDING_ERROR_DISTANCE_THRESHOLD,
+            FIELDING_ERROR_TIME_THRESHOLD
+        )
+
+        # Start with base error rate (1.5% for routine plays)
+        error_prob = FIELDING_ERROR_BASE_RATE
+
+        # Adjust based on fielder's hands rating (secure_prob)
+        # Better hands = lower error rate
+        secure_prob = self.attributes.get_fielding_secure_prob()
+        # Invert: if secure_prob is 0.92, error multiplier is 1.0/0.92 = 1.087
+        # If secure_prob is 0.95, error multiplier is 1.0/0.95 = 1.053
+        # If secure_prob is 0.88, error multiplier is 1.0/0.88 = 1.136
+        hands_multiplier = 1.0 / max(secure_prob, 0.01)  # Avoid division by zero
+
+        # Difficult play penalty (long distance)
+        if distance_traveled > FIELDING_ERROR_DISTANCE_THRESHOLD:
+            error_prob *= FIELDING_ERROR_DIFFICULT_MULTIPLIER
+
+        # Rushed play penalty (tight time margin)
+        if abs(time_margin) < FIELDING_ERROR_TIME_THRESHOLD:
+            error_prob *= FIELDING_ERROR_RUSHED_MULTIPLIER
+
+        # Apply hands multiplier
+        error_prob *= hands_multiplier
+
+        # Clamp to valid range [0.0, 0.25] - max 25% error rate for extreme plays
+        error_prob = max(0.0, min(0.25, error_prob))
+
+        return error_prob
+
+    def calculate_throwing_error_probability(self, throw_distance: float,
+                                            is_rushed: bool = False,
+                                            is_off_balance: bool = False) -> float:
+        """
+        Calculate probability of committing a throwing error (wild throw/errant throw).
+
+        Based on MLB throwing error rates (~0.5-1% of throws).
+
+        Parameters
+        ----------
+        throw_distance : float
+            Distance of throw in feet
+        is_rushed : bool
+            Whether fielder is rushed (tight timing)
+        is_off_balance : bool
+            Whether fielder is off-balance (difficult angle)
+
+        Returns
+        -------
+        float
+            Probability of throwing error (0.0 to 1.0)
+        """
+        from .constants import (
+            THROWING_ERROR_BASE_RATE,
+            THROWING_ERROR_LONG_THROW_MULTIPLIER,
+            THROWING_ERROR_RUSHED_MULTIPLIER,
+            THROWING_ERROR_DISTANCE_THRESHOLD,
+            THROWING_ERROR_MIN_DISTANCE
+        )
+
+        # Start with base error rate (0.8%)
+        error_prob = THROWING_ERROR_BASE_RATE
+
+        # Very short throws are easier (reduce error rate)
+        if throw_distance < THROWING_ERROR_MIN_DISTANCE:
+            error_prob *= 0.5
+
+        # Long throw penalty
+        if throw_distance > THROWING_ERROR_DISTANCE_THRESHOLD:
+            error_prob *= THROWING_ERROR_LONG_THROW_MULTIPLIER
+
+        # Rushed throw penalty
+        if is_rushed:
+            error_prob *= THROWING_ERROR_RUSHED_MULTIPLIER
+
+        # Off-balance penalty
+        if is_off_balance:
+            error_prob *= 1.5
+
+        # Adjust based on fielder's throwing accuracy
+        accuracy_sigma_ft = self.attributes.get_arm_accuracy_sigma_ft()
+        # Better accuracy = lower error rate
+        # avg_accuracy ~3.0 ft, elite ~1.5 ft, poor ~5.0 ft
+        # Normalize: accuracy_multiplier = accuracy / 3.0
+        accuracy_multiplier = max(accuracy_sigma_ft / 3.0, 0.5)  # Min 0.5x for elite
+        error_prob *= accuracy_multiplier
+
+        # Clamp to valid range [0.0, 0.15] - max 15% error rate for extreme situations
+        error_prob = max(0.0, min(0.15, error_prob))
+
+        return error_prob
+
     def attempt_fielding(self, ball_position: FieldPosition,
                         ball_arrival_time: float) -> FieldingResult:
         """
