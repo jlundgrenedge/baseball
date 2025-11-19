@@ -1784,7 +1784,8 @@ class SimMetricsCollector:
         ev_buckets = ["<70", "70-80", "80-90", "90+"]
         la_buckets = ["<10° (GB)", "10-25° (LD)", "25-35° (HR)", ">35° (Pop)"]
 
-        print(f"{'EV \\ LA':15s}", end="")
+        label = 'EV \\ LA'
+        print(f"{label:15s}", end="")
         for la in la_buckets:
             print(f" │ {la:18s}", end="")
         print()

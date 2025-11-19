@@ -566,7 +566,8 @@ class Hitter:
         count: Tuple[int, int],
         pitch_velocity: float = 90.0,
         pitch_type: str = 'fastball',
-    ) -> bool:
+        return_diagnostics: bool = False,
+    ):
         """
         Decide whether to swing at a pitch.
 
@@ -582,11 +583,14 @@ class Hitter:
             Pitch speed in mph (affects reaction time)
         pitch_type : str
             Type of pitch (affects chase rate)
+        return_diagnostics : bool
+            If True, return (decision, diagnostics_dict) tuple
 
         Returns
         -------
-        bool
-            True if swinging, False if taking
+        bool or tuple
+            If return_diagnostics=False: True if swinging, False if taking
+            If return_diagnostics=True: (decision, diagnostics) tuple
         """
         balls, strikes = count
 
@@ -597,7 +601,7 @@ class Hitter:
             h_distance_from_center = abs(pitch_location[0]) / 8.5  # Normalized
             v_distance_from_center = abs(pitch_location[1] - 30.0) / 12.0  # Normalized
             zone_difficulty = (h_distance_from_center + v_distance_from_center) / 2.0
-            
+
             # Swing rate varies from 85% (center) to 65% (edges)
             base_swing_prob = 0.85 - zone_difficulty * 0.20
         else:
@@ -664,7 +668,41 @@ class Hitter:
         swing_prob = np.clip(swing_prob, 0.0, 0.98)
 
         # Make decision
-        return np.random.random() < swing_prob
+        decision = np.random.random() < swing_prob
+
+        if return_diagnostics:
+            # Simplified run value estimates (approximations)
+            # EV if swing: contact_rate * avg_value_if_contact - (1-contact_rate) * strikeout_cost
+            # EV if take: strike_prob * called_strike_cost + (1-strike_prob) * ball_value
+
+            # Rough estimates based on count
+            estimated_strike_prob = swing_prob if is_strike else (1 - swing_prob)
+
+            # Simple run value model (approximation, not actual wOBA)
+            if decision:  # Swing
+                # Contact outcome value depends on many factors, use rough avg
+                ev_swing = 0.0  # Simplified - would need full contact simulation
+            else:  # Take
+                if is_strike:
+                    ev_take = -0.05  # Taking a strike hurts
+                else:
+                    ev_take = +0.04  # Taking a ball helps
+
+            # For logging purposes, use swing probability as proxy for expected value
+            ev_swing_proxy = (swing_prob - 0.5) * 0.1  # Normalized proxy
+            ev_take_proxy = ((1 - swing_prob) - 0.5) * 0.1
+
+            diagnostics = {
+                'estimated_strike_prob': estimated_strike_prob,
+                'ev_swing': ev_swing_proxy,
+                'ev_take': ev_take_proxy,
+                'aggression_modifier': aggression_factor - 0.5,  # Centered at 0
+                'swing_probability': swing_prob,
+                'decision': 'SWING' if decision else 'TAKE'
+            }
+            return decision, diagnostics
+
+        return decision
 
     def get_swing_timing_error_ms(self, pitch_velocity: float) -> float:
         """
