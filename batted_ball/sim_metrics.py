@@ -66,8 +66,16 @@ class PitchMetrics:
 
     # Command and accuracy
     target_location: Tuple[float, float]  # Intended location (inches)
-    command_error: Tuple[float, float]     # (h_error, v_error) in inches
-    command_error_magnitude: float         # Total error magnitude
+
+    # Player/team identification (with defaults)
+    pitcher_name: str = "Unknown"
+    pitcher_team: str = "Unknown"  # 'away' or 'home'
+    batter_name: str = "Unknown"
+    batter_team: str = "Unknown"  # 'away' or 'home'
+
+    # Calculated fields (with defaults)
+    command_error: Tuple[float, float] = (0.0, 0.0)     # (h_error, v_error) in inches
+    command_error_magnitude: float = 0.0         # Total error magnitude
 
     # Decision probabilities (BEFORE outcome)
     expected_whiff_prob: float = 0.0
@@ -216,28 +224,34 @@ class BattedBallMetrics:
 
     Provides transparency into aerodynamic calculations and flight physics.
     """
-    # Contact mechanics
-    bat_speed_mph: float
-    pitch_speed_mph: float
-    collision_efficiency_q: float  # The q parameter from collision physics
-
-    # Launch conditions
+    # Launch conditions (required)
     exit_velocity_mph: float
     launch_angle_deg: float
     spray_angle_deg: float  # -45 to +45, 0 = center field
 
-    # Spin characteristics
+    # Spin characteristics (required)
     backspin_rpm: float  # Positive = backspin
     sidespin_rpm: float  # Positive = toward pull side
 
-    # Trajectory results
+    # Trajectory results (required)
     distance_ft: float
     hang_time_sec: float
     apex_height_ft: float
 
-    # Landing coordinates (field coordinates, home = 0,0)
+    # Landing coordinates (required, field coordinates, home = 0,0)
     landing_x_ft: float  # Horizontal (positive = right field for RHH)
     landing_y_ft: float  # Depth (positive = toward outfield)
+
+    # Player/team identification (with defaults)
+    batter_name: str = "Unknown"
+    batter_team: str = "Unknown"  # 'away' or 'home'
+    pitcher_name: str = "Unknown"
+    pitcher_team: str = "Unknown"  # 'away' or 'home'
+
+    # Contact mechanics (with defaults)
+    bat_speed_mph: float = 0.0
+    pitch_speed_mph: float = 0.0
+    collision_efficiency_q: float = 0.0  # The q parameter from collision physics
 
     # Calculated fields (with defaults)
     total_spin_rpm: float = 0.0
@@ -1079,7 +1093,7 @@ class SimMetricsCollector:
         print(f"   Result: {m.outcome.upper()} {result_icon}")
 
     def print_summary(self):
-        """Print complete summary of collected metrics"""
+        """Print comprehensive summary with team splits and per-player breakdowns"""
         if not self.enabled:
             return
 
@@ -1087,68 +1101,162 @@ class SimMetricsCollector:
         print("SIMULATION METRICS SUMMARY")
         print("="*80)
 
-        # Pitch summary
-        if self.pitch_metrics:
-            print(f"\n📊 PITCHES: {len(self.pitch_metrics)} total")
-            strikes = sum(1 for p in self.pitch_metrics if p.is_strike)
-            swings = sum(1 for p in self.pitch_metrics if p.batter_swung)
-            print(f"   Strikes: {strikes}/{len(self.pitch_metrics)} ({100*strikes/len(self.pitch_metrics):.1f}%)")
-            print(f"   Swings: {swings}/{len(self.pitch_metrics)} ({100*swings/len(self.pitch_metrics):.1f}%)")
+        # Split metrics by team
+        self._print_team_summaries()
 
-            # Average command error
-            avg_error = np.mean([p.command_error_magnitude for p in self.pitch_metrics])
-            print(f"   Avg command error: {avg_error:.2f}\"")
+        # Per-pitcher breakdowns
+        self._print_pitcher_summaries()
 
-        # Batted ball summary
-        if self.batted_ball_metrics:
-            print(f"\n⚾ BATTED BALLS: {len(self.batted_ball_metrics)} total")
-
-            avg_ev = np.mean([b.exit_velocity_mph for b in self.batted_ball_metrics])
-            avg_la = np.mean([b.launch_angle_deg for b in self.batted_ball_metrics])
-            avg_dist = np.mean([b.distance_ft for b in self.batted_ball_metrics])
-
-            print(f"   Avg EV: {avg_ev:.1f} mph")
-            print(f"   Avg LA: {avg_la:.1f}°")
-            print(f"   Avg distance: {avg_dist:.1f} ft")
-
-            barrels = sum(1 for b in self.batted_ball_metrics if b.barrel)
-            hard_hit = sum(1 for b in self.batted_ball_metrics if b.hard_hit)
-
-            print(f"   Barrels: {barrels} ({100*barrels/len(self.batted_ball_metrics):.1f}%)")
-            print(f"   Hard hit: {hard_hit} ({100*hard_hit/len(self.batted_ball_metrics):.1f}%)")
-
-            # Hit type distribution
-            gbs = sum(1 for b in self.batted_ball_metrics if b.hit_type == 'ground_ball')
-            lds = sum(1 for b in self.batted_ball_metrics if b.hit_type == 'line_drive')
-            fbs = sum(1 for b in self.batted_ball_metrics if b.hit_type == 'fly_ball')
-
-            total = len(self.batted_ball_metrics)
-            print(f"   GB/LD/FB: {100*gbs/total:.0f}% / {100*lds/total:.0f}% / {100*fbs/total:.0f}%")
-
-            # Expected stats (quality of contact)
-            avg_xba = np.mean([b.expected_batting_avg for b in self.batted_ball_metrics])
-            avg_xslg = np.mean([b.expected_slg for b in self.batted_ball_metrics])
-            avg_xwoba = np.mean([b.expected_woba for b in self.batted_ball_metrics])
-
-            print(f"\n   📈 EXPECTED QUALITY:")
-            print(f"      xBA: {avg_xba:.3f}")
-            print(f"      xSLG: {avg_xslg:.3f}")
-            print(f"      xwOBA: {avg_xwoba:.3f}")
-
-        # Fielding summary
-        if self.fielding_metrics:
-            print(f"\n🧤 FIELDING PLAYS: {len(self.fielding_metrics)} total")
-            successes = sum(1 for f in self.fielding_metrics if f.catch_successful)
-            print(f"   Successful: {successes}/{len(self.fielding_metrics)} ({100*successes/len(self.fielding_metrics):.1f}%)")
-
-            avg_prob = np.mean([f.expected_catch_probability for f in self.fielding_metrics])
-            print(f"   Avg catch probability: {avg_prob:.1%}")
-
-            errors = sum(1 for f in self.fielding_metrics if f.is_error)
-            if errors > 0:
-                print(f"   Errors: {errors}")
+        # Per-batter breakdowns
+        self._print_batter_summaries()
 
         print("="*80 + "\n")
+
+    def _print_team_summaries(self):
+        """Print metrics split by team"""
+        if not self.pitch_metrics and not self.batted_ball_metrics:
+            return
+
+        for team in ['away', 'home']:
+            team_label = team.upper()
+
+            # Team pitching metrics
+            team_pitches = [p for p in self.pitch_metrics if p.pitcher_team == team]
+            if team_pitches:
+                print(f"\n📊 PITCHING ({team_label} team): {len(team_pitches)} pitches")
+                strikes = sum(1 for p in team_pitches if p.is_strike)
+                swings = sum(1 for p in team_pitches if p.batter_swung)
+                whiffs = sum(1 for p in team_pitches if p.batter_swung and p.pitch_outcome == 'swinging_strike')
+
+                print(f"   Strike%: {100*strikes/len(team_pitches):.1f}%")
+                print(f"   Swing%: {100*swings/len(team_pitches):.1f}%")
+                if swings > 0:
+                    print(f"   Whiff%: {100*whiffs/swings:.1f}%")
+
+                avg_error = np.mean([p.command_error_magnitude for p in team_pitches])
+                print(f"   Avg command error: {avg_error:.2f}\"")
+
+            # Team batting metrics
+            team_batted_balls = [b for b in self.batted_ball_metrics if b.batter_team == team]
+            if team_batted_balls:
+                print(f"\n⚾ BATTING ({team_label} team): {len(team_batted_balls)} balls in play")
+
+                avg_ev = np.mean([b.exit_velocity_mph for b in team_batted_balls])
+                avg_la = np.mean([b.launch_angle_deg for b in team_batted_balls])
+                avg_dist = np.mean([b.distance_ft for b in team_batted_balls])
+
+                print(f"   Avg EV: {avg_ev:.1f} mph | LA: {avg_la:.1f}° | Dist: {avg_dist:.1f} ft")
+
+                barrels = sum(1 for b in team_batted_balls if b.barrel)
+                hard_hit = sum(1 for b in team_batted_balls if b.hard_hit)
+
+                print(f"   Barrels: {barrels} ({100*barrels/len(team_batted_balls):.1f}%) | Hard hit: {hard_hit} ({100*hard_hit/len(team_batted_balls):.1f}%)")
+
+                # Hit type distribution
+                gbs = sum(1 for b in team_batted_balls if b.hit_type == 'ground_ball')
+                lds = sum(1 for b in team_batted_balls if b.hit_type == 'line_drive')
+                fbs = sum(1 for b in team_batted_balls if b.hit_type == 'fly_ball')
+
+                total = len(team_batted_balls)
+                print(f"   GB/LD/FB: {100*gbs/total:.0f}% / {100*lds/total:.0f}% / {100*fbs/total:.0f}%")
+
+                # Expected stats
+                avg_xba = np.mean([b.expected_batting_avg for b in team_batted_balls])
+                avg_xslg = np.mean([b.expected_slg for b in team_batted_balls])
+                avg_xwoba = np.mean([b.expected_woba for b in team_batted_balls])
+
+                print(f"   xBA: {avg_xba:.3f} | xSLG: {avg_xslg:.3f} | xwOBA: {avg_xwoba:.3f}")
+
+    def _print_pitcher_summaries(self):
+        """Print per-pitcher pitch-type breakdowns"""
+        if not self.pitch_metrics:
+            return
+
+        # Group pitches by pitcher
+        from collections import defaultdict
+        pitcher_pitches = defaultdict(list)
+        for p in self.pitch_metrics:
+            if p.pitcher_name != "Unknown":
+                pitcher_pitches[p.pitcher_name].append(p)
+
+        if not pitcher_pitches:
+            return
+
+        print(f"\n🎯 PER-PITCHER BREAKDOWNS:")
+        print("-" * 80)
+
+        for pitcher_name in sorted(pitcher_pitches.keys()):
+            pitches = pitcher_pitches[pitcher_name]
+            print(f"\n  {pitcher_name} ({pitches[0].pitcher_team.upper()}) - {len(pitches)} pitches")
+
+            # Group by pitch type
+            pitch_types = defaultdict(list)
+            for p in pitches:
+                pitch_types[p.pitch_type].append(p)
+
+            # Print summary for each pitch type
+            for pitch_type in sorted(pitch_types.keys()):
+                type_pitches = pitch_types[pitch_type]
+                usage = len(type_pitches)
+                usage_pct = 100 * usage / len(pitches)
+
+                strikes = sum(1 for p in type_pitches if p.is_strike)
+                strike_pct = 100 * strikes / usage if usage > 0 else 0
+
+                swings = sum(1 for p in type_pitches if p.batter_swung)
+                whiffs = sum(1 for p in type_pitches if p.batter_swung and p.pitch_outcome == 'swinging_strike')
+                whiff_pct = 100 * whiffs / swings if swings > 0 else 0
+
+                avg_velo = np.mean([p.plate_velocity_mph for p in type_pitches])
+                avg_error = np.mean([p.command_error_magnitude for p in type_pitches])
+
+                print(f"    {pitch_type:12s}: {usage:3d} ({usage_pct:4.1f}%) | Strike%: {strike_pct:4.1f} | Whiff%: {whiff_pct:4.1f} | Velo: {avg_velo:4.1f} mph | Cmd: {avg_error:4.1f}\"")
+
+    def _print_batter_summaries(self):
+        """Print per-batter contact quality summaries"""
+        if not self.batted_ball_metrics:
+            return
+
+        # Group batted balls by batter
+        from collections import defaultdict
+        batter_balls = defaultdict(list)
+        for b in self.batted_ball_metrics:
+            if b.batter_name != "Unknown":
+                batter_balls[b.batter_name].append(b)
+
+        if not batter_balls:
+            return
+
+        # Only show batters with 2+ balls in play
+        batters_with_enough_data = {name: balls for name, balls in batter_balls.items() if len(balls) >= 2}
+
+        if not batters_with_enough_data:
+            return
+
+        print(f"\n🏏 PER-BATTER CONTACT QUALITY:")
+        print("-" * 80)
+
+        for team in ['away', 'home']:
+            team_batters = {name: balls for name, balls in batters_with_enough_data.items()
+                           if balls[0].batter_team == team}
+
+            if not team_batters:
+                continue
+
+            print(f"\n  {team.upper()} TEAM:")
+
+            for batter_name in sorted(team_batters.keys()):
+                balls = team_batters[batter_name]
+
+                avg_ev = np.mean([b.exit_velocity_mph for b in balls])
+                avg_la = np.mean([b.launch_angle_deg for b in balls])
+                avg_xba = np.mean([b.expected_batting_avg for b in balls])
+                avg_xslg = np.mean([b.expected_slg for b in balls])
+
+                barrels = sum(1 for b in balls if b.barrel)
+                hard_hit = sum(1 for b in balls if b.hard_hit)
+
+                print(f"    {batter_name:20s}: {len(balls):2d} BIP | EV: {avg_ev:5.1f} mph | LA: {avg_la:5.1f}° | xBA: {avg_xba:.3f} | xSLG: {avg_xslg:.3f} | Barrels: {barrels} | Hard: {hard_hit}")
 
     def export_csv(self, filename: str):
         """Export all metrics to CSV file for external analysis"""
