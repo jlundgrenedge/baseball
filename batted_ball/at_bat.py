@@ -82,6 +82,7 @@ class AtBatSimulator:
         wind_speed: float = 0.0,
         wind_direction: float = 0.0,
         fast_mode: bool = False,
+        metrics_collector=None,
     ):
         """
         Initialize at-bat simulator.
@@ -107,6 +108,8 @@ class AtBatSimulator:
         fast_mode : bool
             If True, uses faster simulation with larger time steps (~2x speedup)
             Recommended for bulk simulations (1000+ at-bats)
+        metrics_collector : SimMetricsCollector, optional
+            Metrics collector for debug output (default: None = no metrics)
         """
         self.pitcher = pitcher
         self.hitter = hitter
@@ -116,11 +119,113 @@ class AtBatSimulator:
         self.wind_speed = wind_speed
         self.wind_direction = wind_direction
         self.fast_mode = fast_mode
+        self.metrics_collector = metrics_collector
 
         # Create physics simulators
         self.pitch_sim = PitchSimulator()
         self.contact_model = ContactModel()
         self.batted_ball_sim = BattedBallSimulator()
+
+    def _record_pitch_metrics(self, pitch_data: Dict, sequence_index: int):
+        """
+        Record pitch metrics to collector.
+
+        Parameters
+        ----------
+        pitch_data : dict
+            Pitch data dictionary
+        sequence_index : int
+            Pitch number in at-bat
+        """
+        try:
+            from .sim_metrics import PitchMetrics
+
+            # Get pitch result for additional data
+            pitch_result = pitch_data.get('result')
+
+            metrics = PitchMetrics(
+                sequence_index=sequence_index,
+                pitch_type=pitch_data.get('pitch_type', 'unknown'),
+                count_before=pitch_data.get('count_before', (0, 0)),
+                # Release info
+                release_point=(0.0, 0.0, 0.0),  # TODO: Extract from pitcher
+                release_velocity_mph=pitch_data.get('velocity_release', 0.0),
+                release_extension_ft=pitch_data.get('extension_ft', 0.0),
+                # Spin info
+                spin_rpm=pitch_data.get('spin_rpm', 0.0),
+                spin_axis_deg=(0.0, 0.0),  # TODO: Extract from pitch type
+                spin_efficiency=0.0,  # TODO: Extract from pitch type
+                # At plate
+                plate_velocity_mph=pitch_data.get('velocity_plate', 0.0),
+                plate_location=pitch_data.get('final_location', (0.0, 0.0)),
+                vertical_approach_angle_deg=pitch_result.plate_angle_vertical if pitch_result and hasattr(pitch_result, 'plate_angle_vertical') else 0.0,
+                # Break
+                vertical_break_inches=pitch_data.get('break', (0.0, 0.0))[0],
+                horizontal_break_inches=pitch_data.get('break', (0.0, 0.0))[1],
+                total_break_inches=0.0,  # Will be calculated in __post_init__
+                # Command
+                target_location=pitch_data.get('target_location', (0.0, 0.0)),
+                command_error=(0.0, 0.0),  # Will be calculated in __post_init__
+                command_error_magnitude=0.0,
+                # Probabilities - TODO: Calculate these before swing decision
+                expected_whiff_prob=0.0,
+                expected_chase_prob=0.0,
+                expected_swing_prob=0.0,
+                expected_contact_prob=0.0,
+                # Outcome
+                batter_swung=pitch_data.get('swing', False),
+                pitch_outcome=pitch_data.get('pitch_outcome', 'unknown'),
+                is_strike=pitch_data.get('is_strike', False),
+                # Flight time
+                flight_time_ms=pitch_result.flight_time * 1000 if pitch_result and hasattr(pitch_result, 'flight_time') else 0.0,
+            )
+
+            self.metrics_collector.record_pitch(metrics)
+        except Exception as e:
+            # Don't let metrics collection crash the simulation
+            pass
+
+    def _record_batted_ball_metrics(self, contact_result: Dict, pitch_data: Dict):
+        """
+        Record batted ball metrics to collector.
+
+        Parameters
+        ----------
+        contact_result : dict
+            Contact result dictionary
+        pitch_data : dict
+            Pitch data dictionary
+        """
+        try:
+            from .sim_metrics import BattedBallMetrics
+
+            trajectory = contact_result.get('trajectory')
+
+            metrics = BattedBallMetrics(
+                # Contact mechanics
+                bat_speed_mph=0.0,  # TODO: Add to contact result
+                pitch_speed_mph=pitch_data.get('velocity_plate', 0.0),
+                collision_efficiency_q=contact_result.get('collision_efficiency_q', 0.0),
+                # Launch conditions
+                exit_velocity_mph=contact_result.get('exit_velocity', 0.0),
+                launch_angle_deg=contact_result.get('launch_angle', 0.0),
+                spray_angle_deg=contact_result.get('spray_angle', 0.0),
+                # Spin
+                backspin_rpm=contact_result.get('backspin_rpm', 0.0),
+                sidespin_rpm=contact_result.get('sidespin_rpm', 0.0),
+                # Trajectory
+                distance_ft=contact_result.get('distance', 0.0),
+                hang_time_sec=contact_result.get('hang_time', 0.0),
+                apex_height_ft=contact_result.get('peak_height', 0.0),
+                # Landing
+                landing_x_ft=trajectory.landing_x if trajectory else 0.0,
+                landing_y_ft=trajectory.landing_y if trajectory else 0.0,
+            )
+
+            self.metrics_collector.record_batted_ball(metrics)
+        except Exception as e:
+            # Don't let metrics collection crash the simulation
+            pass
 
     def select_pitch_type(self, count: Tuple[int, int], recent_pitches: List[str] = None) -> str:
         """
@@ -428,7 +533,7 @@ class AtBatSimulator:
         # Update pitcher state
         self.pitcher.throw_pitch()
 
-        return {
+        pitch_data = {
             'pitch_type': pitch_type,
             'target_location': target_location,
             'actual_location': (actual_target_h, actual_target_v),
@@ -438,7 +543,11 @@ class AtBatSimulator:
             'is_strike': result.is_strike,
             'break': (result.vertical_break, result.horizontal_break),
             'result': result,
+            'spin_rpm': spin,
+            'extension_ft': extension,
         }
+
+        return pitch_data
 
     def simulate_contact(
         self,
@@ -769,6 +878,10 @@ class AtBatSimulator:
                     pitch_data['contact_summary'] = contact_summary
                     pitch_data['pitch_outcome'] = 'contact'
 
+                    # Record batted ball metrics if collector is enabled
+                    if self.metrics_collector and self.metrics_collector.enabled:
+                        self._record_batted_ball_metrics(contact_result, pitch_data)
+
                     if verbose:
                         print(f"  Contact! {contact_result['contact_quality']}")
                         print(f"    Exit velo: {contact_result['exit_velocity']:.1f} mph")
@@ -819,6 +932,11 @@ class AtBatSimulator:
                         )
 
             pitch_data['count_after'] = (balls, strikes)
+
+            # Record pitch metrics if collector is enabled
+            if self.metrics_collector and self.metrics_collector.enabled:
+                self._record_pitch_metrics(pitch_data, len(pitches) + 1)
+
             pitches.append(pitch_data)
 
         # At-bat concluded

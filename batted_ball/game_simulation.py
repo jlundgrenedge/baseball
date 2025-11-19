@@ -202,7 +202,25 @@ class PlayByPlayEvent:
 class GameSimulator:
     """Simulates a complete baseball game"""
 
-    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True, log_file: str = None, ballpark: str = 'generic'):
+    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True, log_file: str = None, ballpark: str = 'generic', debug_metrics: int = 0):
+        """
+        Initialize game simulator.
+
+        Parameters
+        ----------
+        away_team : Team
+            Away team
+        home_team : Team
+            Home team
+        verbose : bool
+            Print play-by-play to console
+        log_file : str, optional
+            File to write game log
+        ballpark : str
+            Ballpark name for environmental effects
+        debug_metrics : int
+            Metrics debug level: 0=OFF, 1=BASIC, 2=DETAILED, 3=EXHAUSTIVE
+        """
         self.away_team = away_team
         self.home_team = home_team
         self.verbose = verbose
@@ -210,6 +228,18 @@ class GameSimulator:
         self.ballpark = ballpark
         self.game_state = GameState()
         self.play_by_play: List[PlayByPlayEvent] = []
+
+        # Initialize metrics collector
+        from .sim_metrics import SimMetricsCollector, DebugLevel
+        debug_level_map = {
+            0: DebugLevel.OFF,
+            1: DebugLevel.BASIC,
+            2: DebugLevel.DETAILED,
+            3: DebugLevel.EXHAUSTIVE
+        }
+        self.metrics_collector = SimMetricsCollector(
+            debug_level=debug_level_map.get(debug_metrics, DebugLevel.OFF)
+        )
 
         # Open log file if specified
         self.log_handle = None
@@ -256,6 +286,10 @@ class GameSimulator:
         if self.verbose:
             self.print_final_summary()
 
+        # Print metrics summary if enabled
+        if self.metrics_collector.enabled:
+            self.metrics_collector.print_summary()
+
         return self.game_state
 
     def simulate_half_inning(self):
@@ -296,7 +330,7 @@ class GameSimulator:
             print(f"  Situation: {self.game_state.get_base_state().value}, {self.game_state.outs} out(s)")
 
         # Create at-bat simulator for this matchup
-        at_bat_sim = AtBatSimulator(pitcher, batter)
+        at_bat_sim = AtBatSimulator(pitcher, batter, metrics_collector=self.metrics_collector)
 
         # Simulate the at-bat to get batted ball
         at_bat_result = at_bat_sim.simulate_at_bat()
