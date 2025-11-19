@@ -420,23 +420,27 @@ class FielderAttributes:
 
     def get_top_sprint_speed_fps(self) -> float:
         """
-        Top sprint speed (ft/s).
+        Top sprint speed (ft/s) - calibrated to MLB Statcast data.
 
         Anchors:
-        - 0: 26 ft/s (slow ~18 mph)
-        - 50k: 33 ft/s (average ~22.5 mph)
-        - 85k: 37 ft/s (elite ~25 mph)
-        - 100k: 42 ft/s (superhuman ~29 mph)
+        - 0: 24 ft/s (slow ~16.4 mph)
+        - 50k: 27 ft/s (average ~18.4 mph) - matches MLB average
+        - 85k: 30 ft/s (elite ~20.5 mph) - elite outfielders
+        - 100k: 32 ft/s (fastest ~21.8 mph) - absolute MLB max
 
-        Note: Previous values (26.5 ft/s average) were causing fielders to arrive
-        2-4 seconds too late on routine fly balls, resulting in 50-70 hits per game.
-        These updated values match MLB fielding coverage expectations.
+        Note: Values calibrated to MLB Statcast sprint speed data.
+        - MLB average: ~27 ft/s
+        - Elite outfielder: ~30 ft/s
+        - Fastest: ~31 ft/s
+
+        Previous values (37.0 ft/s elite) were superhuman, causing 2-3s early margins.
+        Current values match realistic MLB fielding capabilities.
         """
         return piecewise_logistic_map(
             self.TOP_SPRINT_SPEED,
-            human_min=26.0,
-            human_cap=37.0,
-            super_cap=42.0
+            human_min=24.0,
+            human_cap=30.0,
+            super_cap=32.0
         )
 
     def get_route_efficiency_pct(self) -> float:
@@ -463,16 +467,19 @@ class FielderAttributes:
         Glove-to-throw latency (seconds).
 
         Anchors:
-        - 0: 0.85 s (slow)
-        - 50k: 0.45 s (average)
-        - 85k: 0.30 s (elite)
-        - 100k: 0.18 s (superhuman)
+        - 0: 1.20 s (slow)
+        - 50k: 0.75 s (average) - INCREASED from 0.45s to slow down unrealistic double plays
+        - 85k: 0.50 s (elite)
+        - 100k: 0.30 s (superhuman)
+
+        Real-world double play pivot and release takes significant time.
+        Previous values (0.45s average) resulted in 2+ second margins on force plays.
         """
         return piecewise_logistic_map_inverse(
             self.TRANSFER_TIME,
-            human_min=0.30,
-            human_cap=0.85,
-            super_cap=0.18
+            human_min=0.50,
+            human_cap=1.20,
+            super_cap=0.30
         )
 
     def get_arm_strength_mph(self) -> float:
@@ -481,15 +488,19 @@ class FielderAttributes:
 
         Anchors:
         - 0: 60 mph (weak)
-        - 50k: 82 mph (average)
-        - 85k: 92 mph (elite)
-        - 100k: 105 mph (superhuman)
+        - 50k: 75 mph (average) - DECREASED from 82 mph for realistic game-speed throws
+        - 85k: 88 mph (elite)
+        - 100k: 100 mph (superhuman)
+
+        Game-speed infield throws are rarely max effort. Most routine plays use 75-80 mph.
+        Elite defenders can hit 88-92 mph on crucial plays.
+        Previous 82 mph average resulted in unrealistically fast double play execution.
         """
         return piecewise_logistic_map(
             self.ARM_STRENGTH,
             human_min=60.0,
-            human_cap=92.0,
-            super_cap=105.0
+            human_cap=88.0,
+            super_cap=100.0
         )
 
     def get_agility_factor(self) -> float:

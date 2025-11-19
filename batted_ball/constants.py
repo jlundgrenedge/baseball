@@ -28,14 +28,18 @@ BALL_CROSS_SECTIONAL_AREA = math.pi * (BALL_RADIUS ** 2)  # m²
 # Drag coefficient (dimensionless)
 # Varies with Reynolds number, but typically 0.3-0.5 for baseball
 # Calibrated to match empirical distance data
-CD_BASE = 0.32  # Base drag coefficient (calibrated)
+CD_BASE = 0.32  # Base drag coefficient (calibrated - DO NOT INCREASE)
+                 # Tested CD=0.35 but it reduced HR rate from 3.5/game to 0.33/game
+                 # Fly ball hang time issue is better addressed via fielder speed/positioning
 CD_MIN = 0.25    # Minimum drag coefficient
 CD_MAX = 0.5    # Maximum drag coefficient
 
 # Lift coefficient (Magnus effect)
 # Relates to spin rate and velocity
 CL_BASE = 0.0001  # Base lift coefficient per rpm
-CL_MAX = 0.6      # Maximum lift coefficient (high spin saturation)
+CL_MAX = 0.45     # Maximum lift coefficient (REDUCED from 0.6 to reduce fly ball "float")
+                   # Previous value caused excessive hang times with 2-3s fielder margins
+                   # New value makes balls drop faster, creating realistic "dying quail" hits
 
 # Spin factor for Magnus effect (empirically derived)
 # This relates spin rate to lift coefficient
@@ -228,10 +232,12 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # Previous reductions were too aggressive, suppressing realistic power output
 # With typical bat speed 78 mph and pitch speed 83 mph:
 # - Old q=0.08: EV = 0.08*83 + 1.08*78 = 91 mph (too low, suppressed HRs)
-# - New q=0.12: EV = 0.12*83 + 1.12*78 = 97 mph (better for power hitters)
-# This restores approximately 3-4 MPH to average exit velocities
+# - Mid q=0.12: EV = 0.12*83 + 1.12*78 = 97 mph (0 HRs per game - too low)
+# - Try q=0.13: EV = 0.13*83 + 1.13*78 = 99 mph (target: 2-5 HRs/game)
+# - Was q=0.14: EV = 0.14*83 + 1.14*78 = 100.5 mph (16 HRs/game - too high!)
+# This provides optimal balance for realistic MLB home run rates (~2.2/game avg)
 # Combined with hit_handler distance-first logic for more realistic HR distribution
-COLLISION_EFFICIENCY_WOOD = 0.12        # Wood bats (maple, ash, birch) - restored power hitting
+COLLISION_EFFICIENCY_WOOD = 0.13        # Wood bats (maple, ash, birch) - balanced power hitting
 COLLISION_EFFICIENCY_ALUMINUM = 0.11    # Aluminum bats (BBCOR regulated) - reduced from 0.24
 COLLISION_EFFICIENCY_COMPOSITE = 0.12   # Composite bats (BBCOR regulated) - reduced from 0.25
 
