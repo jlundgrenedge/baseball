@@ -544,10 +544,11 @@ class Fielder:
         route_efficiency = self.attributes.get_route_efficiency_pct()
         # Convert route efficiency (0.85-0.98) to range multiplier (0.8-1.25)
         # Better routes = effectively faster
+        # NERFED 2025-11-19: Reduced multipliers to prevent vacuum-cleaner defense
         if route_efficiency >= 0.92:
-            return 1.15  # Elite range
+            return 1.08  # Elite range (was 1.15)
         elif route_efficiency >= 0.88:
-            return 1.05  # Above average
+            return 1.03  # Above average (was 1.05)
         else:
             return 0.95  # Below average
     
@@ -736,22 +737,24 @@ class Fielder:
         # Worst case: 0.92 * 0.85 * 0.93 = 0.727x multiplier
         # Best case (short distance, moving in): 0.92 = 0.92x multiplier
         # Target: ~9 runs/9 innings and ~15-18 hits/9 innings (not 57 hits!)
-        if time_margin >= 0.5:
-            # Fielder arrives well ahead (0.5+s early) - very routine play
-            # FIX FOR BUTTERFINGERS BUG: When fielder arrives 0.5s+ early, they're
+        # NERFED 2025-11-19: Adjusted time margins to reduce "vacuum cleaner" catches
+        if time_margin >= 1.0:
+            # Fielder arrives well ahead (1.0+s early) - very routine play
+            # FIX FOR BUTTERFINGERS BUG: When fielder arrives 1.0s+ early, they're
             # standing and waiting. This should be caught 98-99% of the time.
             # Only a rare error (1-2%) should cause a drop.
             # Return immediately to skip all penalties (distance, hands, etc.)
             # A fielder standing still waiting has no movement-based penalties.
-            return 0.99  # 99% success rate, 1% rare error
+            return 0.99  # 99% success rate, 1% rare error (was time_margin >= 0.5)
         elif time_margin >= 0.2:
-            # Fielder arrives comfortably (0.2-0.5s early) - routine play
+            # Fielder arrives comfortably (0.2-1.0s early) - routine play
             # Should be caught ~85-90% of the time after penalties
             probability = 0.98  # After worst penalties: 0.98 * 0.727 = 0.712 (71%)
         elif time_margin >= 0.0:
-            # Fielder arrives on time (0-0.2s early) - routine but requires hustle
-            # Should be caught ~75-85% of the time after penalties
-            probability = 0.95  # After worst penalties: 0.95 * 0.727 = 0.691 (69%)
+            # Fielder arrives on time (0-0.2s early) - difficult running catch
+            # In reality, arriving exactly on time is challenging, not routine
+            # Should be caught ~75-80% of the time after penalties
+            probability = 0.85  # After worst penalties: 0.85 * 0.727 = 0.618 (62%) - was 0.95
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)

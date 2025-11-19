@@ -224,14 +224,14 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 
 # Collision Efficiency (q) - Master formula parameter
 # BBS = q * v_pitch + (1 + q) * v_bat
-# REDUCED 2025-11-11: Previous value (0.16) produced too many 100+ mph exit velocities
-# REDUCED 2025-11-11 (second pass): 0.10 still produced 4.5x too many HRs
+# RESTORED 2025-11-19: Increased from 0.08 to 0.12 to restore power hitting
+# Previous reductions were too aggressive, suppressing realistic power output
 # With typical bat speed 78 mph and pitch speed 83 mph:
-# - Old q=0.16: EV = 0.16*83 + 1.16*78 = 104 mph (way too high!)
-# - Mid q=0.10: EV = 0.10*83 + 1.10*78 = 94 mph (still too high for HR rate)
-# - New q=0.08: EV = 0.08*83 + 1.08*78 = 91 mph (more realistic for HR ~2.2/9)
-# Target: Average MLB EV ~88-89 mph, power hitters 92-95 mph, max ~110 mph
-COLLISION_EFFICIENCY_WOOD = 0.08        # Wood bats (maple, ash, birch) - calibrated for ~2.2 HRs/9 innings
+# - Old q=0.08: EV = 0.08*83 + 1.08*78 = 91 mph (too low, suppressed HRs)
+# - New q=0.12: EV = 0.12*83 + 1.12*78 = 97 mph (better for power hitters)
+# This restores approximately 3-4 MPH to average exit velocities
+# Combined with hit_handler distance-first logic for more realistic HR distribution
+COLLISION_EFFICIENCY_WOOD = 0.12        # Wood bats (maple, ash, birch) - restored power hitting
 COLLISION_EFFICIENCY_ALUMINUM = 0.11    # Aluminum bats (BBCOR regulated) - reduced from 0.24
 COLLISION_EFFICIENCY_COMPOSITE = 0.12   # Composite bats (BBCOR regulated) - reduced from 0.25
 
@@ -630,8 +630,9 @@ FIELDER_SPRINT_SPEED_STATCAST_MAX = 31.0    # ft/s - Absolute fastest
 # Original Statcast times (3.5-4.5s) were for full sprint speed over 90+ feet
 # For fielding plays of 15-60ft, fielders reach near-max speed much faster
 # These times represent reaching 80% of max sprint speed
+# NERFED 2025-11-19: Increased to reduce superhuman fielding coverage
 FIELDER_ACCELERATION_TIME_ELITE = 1.0   # seconds - Elite burst (was 3.50)
-FIELDER_ACCELERATION_TIME_AVG = 1.3     # seconds - Average MLB (was 3.80)
+FIELDER_ACCELERATION_TIME_AVG = 1.6     # seconds - Average MLB (was 1.3, originally 3.80)
 FIELDER_ACCELERATION_TIME_POOR = 1.7    # seconds - Poor burst (was 4.20)
 FIELDER_ACCELERATION_TIME_MAX = 2.0     # seconds - Very poor (was 4.50)
 
@@ -639,10 +640,11 @@ FIELDER_ACCELERATION_TIME_MAX = 2.0     # seconds - Very poor (was 4.50)
 # These represent the delay between ball contact and first movement
 # Statcast values (0.30-0.55s) are for initial read + first step
 # For active fielding positions, reaction is faster
+# NERFED 2025-11-19: Increased to reduce superhuman reaction times
 FIELDER_FIRST_STEP_TIME_ELITE = 0.20   # s - Elite reaction (was 0.30)
-FIELDER_FIRST_STEP_TIME_AVG = 0.25     # s - Average MLB fielder (was 0.37)
-FIELDER_FIRST_STEP_TIME_POOR = 0.35    # s - Poor reaction (was 0.45)
-FIELDER_FIRST_STEP_TIME_MAX = 0.45     # s - Very poor reaction (was 0.55)
+FIELDER_FIRST_STEP_TIME_AVG = 0.35     # s - Average MLB fielder (was 0.25, originally 0.37)
+FIELDER_FIRST_STEP_TIME_POOR = 0.40    # s - Poor reaction (was 0.35, originally 0.45)
+FIELDER_FIRST_STEP_TIME_MAX = 0.50     # s - Very poor reaction (was 0.45, originally 0.55)
 
 # Route Efficiency (Statcast metric)
 ROUTE_EFFICIENCY_ELITE = 98.0     # % - Elite route running
