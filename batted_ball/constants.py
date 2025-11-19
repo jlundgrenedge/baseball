@@ -630,8 +630,9 @@ FIELDER_SPRINT_SPEED_STATCAST_MAX = 31.0    # ft/s - Absolute fastest
 # Original Statcast times (3.5-4.5s) were for full sprint speed over 90+ feet
 # For fielding plays of 15-60ft, fielders reach near-max speed much faster
 # These times represent reaching 80% of max sprint speed
+# NERFED 2025-11-19: Increased to reduce superhuman fielding coverage
 FIELDER_ACCELERATION_TIME_ELITE = 1.0   # seconds - Elite burst (was 3.50)
-FIELDER_ACCELERATION_TIME_AVG = 1.3     # seconds - Average MLB (was 3.80)
+FIELDER_ACCELERATION_TIME_AVG = 1.6     # seconds - Average MLB (was 1.3, originally 3.80)
 FIELDER_ACCELERATION_TIME_POOR = 1.7    # seconds - Poor burst (was 4.20)
 FIELDER_ACCELERATION_TIME_MAX = 2.0     # seconds - Very poor (was 4.50)
 
@@ -639,10 +640,11 @@ FIELDER_ACCELERATION_TIME_MAX = 2.0     # seconds - Very poor (was 4.50)
 # These represent the delay between ball contact and first movement
 # Statcast values (0.30-0.55s) are for initial read + first step
 # For active fielding positions, reaction is faster
+# NERFED 2025-11-19: Increased to reduce superhuman reaction times
 FIELDER_FIRST_STEP_TIME_ELITE = 0.20   # s - Elite reaction (was 0.30)
-FIELDER_FIRST_STEP_TIME_AVG = 0.25     # s - Average MLB fielder (was 0.37)
-FIELDER_FIRST_STEP_TIME_POOR = 0.35    # s - Poor reaction (was 0.45)
-FIELDER_FIRST_STEP_TIME_MAX = 0.45     # s - Very poor reaction (was 0.55)
+FIELDER_FIRST_STEP_TIME_AVG = 0.35     # s - Average MLB fielder (was 0.25, originally 0.37)
+FIELDER_FIRST_STEP_TIME_POOR = 0.40    # s - Poor reaction (was 0.35, originally 0.45)
+FIELDER_FIRST_STEP_TIME_MAX = 0.50     # s - Very poor reaction (was 0.45, originally 0.55)
 
 # Route Efficiency (Statcast metric)
 ROUTE_EFFICIENCY_ELITE = 98.0     # % - Elite route running
