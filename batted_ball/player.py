@@ -56,6 +56,7 @@ class Pitcher:
         attributes: PitcherAttributes,
         arm_slot: float = ARM_ANGLE_3_4,
         pitch_arsenal: Optional[Dict[str, Dict]] = None,
+        pitch_effectiveness: Optional[Dict[str, Dict[str, int]]] = None,
     ):
         """
         Initialize pitcher with physics-first attributes.
@@ -72,6 +73,10 @@ class Pitcher:
         pitch_arsenal : dict, optional
             Dict of pitch types (keys are pitch names like 'fastball', 'slider')
             Values can be empty dicts or contain modifiers
+        pitch_effectiveness : dict, optional
+            Dict mapping pitch type to Statcast-derived effectiveness metrics:
+            {'fastball': {'stuff': 75000, 'whiff_bonus': +5000, ...}, ...}
+            If None, uses baseline values for all pitches
         """
         self.name = name
         self.attributes = attributes
@@ -82,6 +87,10 @@ class Pitcher:
             # Default: 4-seam fastball
             pitch_arsenal = {'fastball': {}}
         self.pitch_arsenal = pitch_arsenal
+
+        # Pitch-specific effectiveness from Statcast metrics
+        # Maps pitch type to {'stuff': rating, 'velocity': mph, 'usage': %}
+        self.pitch_effectiveness = pitch_effectiveness or {}
 
         # State variables
         self.pitches_thrown = 0
@@ -196,6 +205,68 @@ class Pitcher:
         vertical_error = np.random.normal(0, max_error * fatigue_multiplier / 2.0)
 
         return horizontal_error, vertical_error
+
+    def get_pitch_whiff_multiplier(self, pitch_type: str = 'fastball') -> float:
+        """
+        Get pitch-type specific whiff rate multiplier based on Statcast metrics.
+
+        This multiplier adjusts the base whiff probability to reflect the pitcher's
+        actual effectiveness with each pitch type.
+
+        Parameters
+        ----------
+        pitch_type : str
+            Pitch type from arsenal
+
+        Returns
+        -------
+        float
+            Multiplier for whiff probability (1.0 = baseline, >1.0 = more whiffs)
+        """
+        # Check if we have Statcast-derived effectiveness for this pitch
+        if pitch_type in self.pitch_effectiveness:
+            stuff_rating = self.pitch_effectiveness[pitch_type].get('stuff', 50000)
+
+            # Convert stuff rating (0-100,000) to multiplier
+            # 100k = 1.5x (elite stuff - 50% more whiffs)
+            # 50k = 1.0x (average stuff - baseline)
+            # 0k = 0.5x (poor stuff - 50% fewer whiffs)
+            multiplier = 0.5 + (stuff_rating / 100000.0)
+
+            return multiplier
+        else:
+            # No specific data for this pitch - use baseline
+            return 1.0
+
+    def get_pitch_usage_rating(self, pitch_type: str = 'fastball') -> int:
+        """
+        Get pitch usage rating (0-100) indicating confidence/frequency.
+
+        Parameters
+        ----------
+        pitch_type : str
+            Pitch type from arsenal
+
+        Returns
+        -------
+        int
+            Usage rating (0-100, higher = more frequent)
+        """
+        if pitch_type in self.pitch_effectiveness:
+            return self.pitch_effectiveness[pitch_type].get('usage', 50)
+        else:
+            # Default usage based on pitch type
+            default_usage = {
+                'fastball': 60,
+                '4-seam': 60,
+                '2-seam': 50,
+                'cutter': 40,
+                'slider': 45,
+                'curveball': 35,
+                'changeup': 40,
+                'splitter': 30,
+            }
+            return default_usage.get(pitch_type, 50)
 
     def throw_pitch(self):
         """Update state after throwing a pitch."""
@@ -350,6 +421,7 @@ class Hitter:
         name: str,
         attributes: HitterAttributes,
         speed: int = 50000,
+        pitch_recognition: Optional[Dict[str, Dict[str, int]]] = None,
     ):
         """
         Initialize hitter with physics-first attributes.
@@ -365,10 +437,18 @@ class Hitter:
         speed : int, optional
             Running speed rating (0-100,000 scale, default: 50000 = average)
             Used for baserunning physics
+        pitch_recognition : dict, optional
+            Dict mapping pitch type to Statcast-derived recognition metrics:
+            {'slider': {'recognition': 65000, 'contact_ability': 70000, ...}, ...}
+            If None, uses baseline values for all pitches
         """
         self.name = name
         self.attributes = attributes
         self.speed = np.clip(speed, 0, 100000)
+
+        # Pitch-specific recognition from Statcast metrics
+        # Maps pitch type to {'recognition': rating, 'contact_ability': rating, 'whiff_resistance': rating}
+        self.pitch_recognition = pitch_recognition or {}
 
     def get_bat_speed_mph(self) -> float:
         """
@@ -610,6 +690,68 @@ class Hitter:
         # Sample from normal distribution
         return np.random.normal(0, adjusted_error)
 
+    def get_pitch_recognition_multiplier(self, pitch_type: str = 'fastball') -> float:
+        """
+        Get pitch-type specific recognition multiplier based on Statcast metrics.
+
+        This affects chase rate - better recognition = less chasing.
+
+        Parameters
+        ----------
+        pitch_type : str
+            Pitch type
+
+        Returns
+        -------
+        float
+            Multiplier for chase probability (1.0 = baseline, <1.0 = better recognition)
+        """
+        # Check if we have Statcast-derived recognition for this pitch
+        if pitch_type in self.pitch_recognition:
+            recognition_rating = self.pitch_recognition[pitch_type].get('recognition', 50000)
+
+            # Convert recognition rating (0-100,000) to chase multiplier
+            # 100k = 0.5x (elite recognition - 50% less chasing)
+            # 50k = 1.0x (average recognition - baseline)
+            # 0k = 1.5x (poor recognition - 50% more chasing)
+            multiplier = 1.5 - (recognition_rating / 100000.0)
+
+            return multiplier
+        else:
+            # No specific data for this pitch - use baseline
+            return 1.0
+
+    def get_pitch_contact_multiplier(self, pitch_type: str = 'fastball') -> float:
+        """
+        Get pitch-type specific contact multiplier based on Statcast metrics.
+
+        This affects contact ability when swinging.
+
+        Parameters
+        ----------
+        pitch_type : str
+            Pitch type
+
+        Returns
+        -------
+        float
+            Multiplier for whiff probability (1.0 = baseline, <1.0 = better contact)
+        """
+        # Check if we have Statcast-derived contact ability for this pitch
+        if pitch_type in self.pitch_recognition:
+            contact_rating = self.pitch_recognition[pitch_type].get('contact_ability', 50000)
+
+            # Convert contact ability rating (0-100,000) to whiff multiplier
+            # 100k = 0.6x (elite contact - 40% fewer whiffs)
+            # 50k = 1.0x (average contact - baseline)
+            # 0k = 1.4x (poor contact - 40% more whiffs)
+            multiplier = 1.4 - 0.8 * (contact_rating / 100000.0)
+
+            return multiplier
+        else:
+            # No specific data for this pitch - use baseline
+            return 1.0
+
     def calculate_whiff_probability(
         self,
         pitch_velocity: float,
@@ -674,8 +816,11 @@ class Hitter:
         # Map linearly: 5mm -> 0.6, 15mm -> 1.0, 30mm -> 1.8
         contact_factor = 0.6 + (barrel_error_mm - 5) * 0.048
 
+        # NEW: Apply pitch-specific contact multiplier from Statcast data
+        pitch_contact_mult = self.get_pitch_contact_multiplier(pitch_type)
+
         # Combine factors
-        whiff_prob = base_whiff_rate * velocity_factor * break_factor * contact_factor
+        whiff_prob = base_whiff_rate * velocity_factor * break_factor * contact_factor * pitch_contact_mult
 
         # Clip to reasonable bounds (5% minimum, 70% maximum)
         whiff_prob = np.clip(whiff_prob, 0.05, 0.70)

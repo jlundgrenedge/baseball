@@ -496,6 +496,219 @@ class StatsConverter:
 
         return attributes
 
+    @staticmethod
+    def pitch_effectiveness_to_attributes(
+        pitch_metrics: Dict[str, Dict[str, float]]
+    ) -> Dict[str, Dict[str, int]]:
+        """
+        Convert pitch-level Statcast metrics to pitch-specific attribute adjustments.
+
+        Parameters
+        ----------
+        pitch_metrics : dict
+            Dictionary mapping pitch type to metrics:
+            {'fastball': {'whiff_pct': 0.24, 'velocity': 96.5, ...}, ...}
+
+        Returns
+        -------
+        dict
+            Dictionary mapping pitch type to attribute adjustments:
+            {'fastball': {'stuff_bonus': +5000, 'deception': 60000, ...}, ...}
+        """
+        pitch_attributes = {}
+
+        for pitch_type, metrics in pitch_metrics.items():
+            attrs = {}
+
+            # STUFF/EFFECTIVENESS - Based on whiff rate
+            # Elite whiff rate (>30% for breaking balls, >20% for fastballs) = high stuff
+            # Average whiff rate (~20-25% breaking, ~10-15% fastball) = average stuff
+            # Poor whiff rate (<15% breaking, <8% fastball) = poor stuff
+            if 'whiff_pct' in metrics:
+                whiff = metrics['whiff_pct']
+
+                # Adjust thresholds based on pitch type
+                if pitch_type in ['slider', 'splitter']:
+                    # Breaking balls have higher baseline whiff rates
+                    elite_whiff = 0.35
+                    good_whiff = 0.28
+                    avg_whiff = 0.22
+                    poor_whiff = 0.16
+                elif pitch_type in ['curveball', 'changeup']:
+                    elite_whiff = 0.32
+                    good_whiff = 0.25
+                    avg_whiff = 0.20
+                    poor_whiff = 0.14
+                else:  # fastball, 2-seam, cutter
+                    elite_whiff = 0.22
+                    good_whiff = 0.16
+                    avg_whiff = 0.12
+                    poor_whiff = 0.08
+
+                # Convert to 0-100,000 scale (stuffeffectiveness rating)
+                stuff_rating = StatsConverter.percentile_to_rating(
+                    whiff,
+                    elite_whiff,
+                    good_whiff,
+                    avg_whiff,
+                    poor_whiff,
+                    inverse=False
+                )
+                attrs['stuff'] = stuff_rating
+
+            # VELOCITY - Direct mapping
+            if 'velocity' in metrics:
+                velo = metrics['velocity']
+                # Map velocity to adjustment (relative to pitcher's baseline)
+                # This will be used to adjust pitch-specific velocity
+                if pitch_type in ['fastball', '4-seam']:
+                    # Fastball is the reference velocity
+                    attrs['velocity'] = int(velo)
+                else:
+                    # Other pitches typically slower
+                    # Store absolute velocity, will be used in pitch creation
+                    attrs['velocity'] = int(velo)
+
+            # USAGE - How often they throw this pitch
+            if 'usage_pct' in metrics:
+                usage = metrics['usage_pct']
+                # Convert to 0-100 scale for usage rating
+                # Higher usage typically means more confidence in the pitch
+                attrs['usage'] = int(usage * 100)
+
+            if attrs:
+                pitch_attributes[pitch_type] = attrs
+
+        return pitch_attributes
+
+    @staticmethod
+    def batter_discipline_to_attributes(
+        pitch_metrics: Dict[str, Dict[str, float]]
+    ) -> Dict[str, Dict[str, int]]:
+        """
+        Convert batter pitch-level Statcast metrics to pitch-specific attributes.
+
+        Parameters
+        ----------
+        pitch_metrics : dict
+            Dictionary mapping pitch type to metrics:
+            {'fastball': {'chase_pct': 0.22, 'contact_pct': 0.78, ...}, ...}
+
+        Returns
+        -------
+        dict
+            Dictionary mapping pitch type to discipline attributes:
+            {'fastball': {'recognition': 75000, 'contact_ability': 80000, ...}, ...}
+        """
+        pitch_attributes = {}
+
+        for pitch_type, metrics in pitch_metrics.items():
+            attrs = {}
+
+            # RECOGNITION/DISCIPLINE - Based on chase rate
+            # Lower chase rate = better discipline/recognition
+            if 'chase_pct' in metrics:
+                chase = metrics['chase_pct']
+
+                # Adjust thresholds based on pitch type
+                if pitch_type in ['slider', 'splitter']:
+                    # Harder pitches to recognize - higher chase is more acceptable
+                    elite_chase = 0.25  # Elite hitters chase 25% on sliders
+                    good_chase = 0.32
+                    avg_chase = 0.40
+                    poor_chase = 0.50
+                elif pitch_type in ['curveball', 'changeup']:
+                    elite_chase = 0.22
+                    good_chase = 0.30
+                    avg_chase = 0.38
+                    poor_chase = 0.48
+                else:  # fastball, 2-seam, cutter
+                    elite_chase = 0.15  # Should rarely chase fastballs
+                    good_chase = 0.20
+                    avg_chase = 0.26
+                    poor_chase = 0.34
+
+                # Convert to 0-100,000 scale (recognition rating)
+                recognition_rating = StatsConverter.percentile_to_rating(
+                    chase,
+                    elite_chase,
+                    good_chase,
+                    avg_chase,
+                    poor_chase,
+                    inverse=True  # Lower chase is better
+                )
+                attrs['recognition'] = recognition_rating
+
+            # CONTACT ABILITY - Based on contact rate when swinging
+            if 'contact_pct' in metrics:
+                contact = metrics['contact_pct']
+
+                # Thresholds based on pitch type
+                if pitch_type in ['slider', 'splitter']:
+                    # Harder to make contact with
+                    elite_contact = 0.70
+                    good_contact = 0.63
+                    avg_contact = 0.56
+                    poor_contact = 0.48
+                elif pitch_type in ['curveball', 'changeup']:
+                    elite_contact = 0.75
+                    good_contact = 0.68
+                    avg_contact = 0.60
+                    poor_contact = 0.52
+                else:  # fastball, 2-seam, cutter
+                    elite_contact = 0.85
+                    good_contact = 0.79
+                    avg_contact = 0.72
+                    poor_contact = 0.64
+
+                # Convert to 0-100,000 scale (contact ability rating)
+                contact_rating = StatsConverter.percentile_to_rating(
+                    contact,
+                    elite_contact,
+                    good_contact,
+                    avg_contact,
+                    poor_contact,
+                    inverse=False
+                )
+                attrs['contact_ability'] = contact_rating
+
+            # WHIFF TENDENCY - Based on whiff rate
+            if 'whiff_pct' in metrics:
+                whiff = metrics['whiff_pct']
+
+                # Thresholds (lower is better for hitters)
+                if pitch_type in ['slider', 'splitter']:
+                    elite_whiff = 0.22
+                    good_whiff = 0.28
+                    avg_whiff = 0.35
+                    poor_whiff = 0.44
+                elif pitch_type in ['curveball', 'changeup']:
+                    elite_whiff = 0.18
+                    good_whiff = 0.25
+                    avg_whiff = 0.32
+                    poor_whiff = 0.40
+                else:  # fastball, 2-seam, cutter
+                    elite_whiff = 0.10
+                    good_whiff = 0.14
+                    avg_whiff = 0.19
+                    poor_whiff = 0.25
+
+                # Convert to 0-100,000 scale (anti-whiff rating)
+                anti_whiff_rating = StatsConverter.percentile_to_rating(
+                    whiff,
+                    elite_whiff,
+                    good_whiff,
+                    avg_whiff,
+                    poor_whiff,
+                    inverse=True  # Lower whiff is better
+                )
+                attrs['whiff_resistance'] = anti_whiff_rating
+
+            if attrs:
+                pitch_attributes[pitch_type] = attrs
+
+        return pitch_attributes
+
 
 if __name__ == "__main__":
     # Test the converter with sample stats
