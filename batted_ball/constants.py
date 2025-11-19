@@ -34,6 +34,20 @@ CD_BASE = 0.32  # Base drag coefficient (calibrated - DO NOT INCREASE)
 CD_MIN = 0.25    # Minimum drag coefficient
 CD_MAX = 0.5    # Maximum drag coefficient
 
+# Reynolds-number dependent drag modeling (NEW - Statcast calibration 2025-11-19)
+# Research shows drag coefficient varies with Reynolds number (Re = ρVD/μ)
+# Baseball experiences "drag crisis" in critical Re regime (200k-300k)
+# Source: Statcast calibration findings, Nov 2025
+# Calibrated to maintain all 7 validation benchmarks while improving Statcast accuracy
+REYNOLDS_DRAG_ENABLED = True  # Enable velocity-dependent drag coefficient
+RE_CRITICAL_LOW = 200000.0     # Lower bound of critical regime
+RE_CRITICAL_HIGH = 250000.0    # Upper bound of critical regime
+CD_SUBCRITICAL_INCREASE = 0.04  # Additional drag below critical Re (reduced from 0.05 for backspin balance)
+CD_SUPERCRITICAL_DECREASE = 0.025  # Reduced drag above critical Re (reduced from 0.03 for backspin balance)
+
+# Dynamic viscosity of air (Pa·s) at reference conditions
+AIR_DYNAMIC_VISCOSITY = 1.81e-5  # kg/(m·s) at 15°C, sea level
+
 # Lift coefficient (Magnus effect)
 # Relates to spin rate and velocity
 CL_BASE = 0.0001  # Base lift coefficient per rpm
