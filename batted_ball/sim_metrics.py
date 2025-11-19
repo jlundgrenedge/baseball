@@ -198,12 +198,19 @@ class BattedBallMetrics:
     # Expected vs actual
     expected_distance_ft: float = 0.0  # Statcast xDistance model
     expected_hr_probability: float = 0.0
+    expected_batting_avg: float = 0.0  # xBA based on EV/LA
+    expected_woba: float = 0.0          # xwOBA based on EV/LA
+    expected_slg: float = 0.0           # xSLG based on EV/LA
     is_home_run: bool = False
+    actual_outcome: str = "unknown"     # Actual game result
 
     # Hit classification
     hit_type: str = "unknown"  # 'ground_ball', 'line_drive', 'fly_ball', 'popup'
     hard_hit: bool = False  # EV >= 95 mph
     barrel: bool = False    # Optimal EV + LA combo
+
+    # Fielding context
+    catch_probability: float = 0.0  # Probability fielder makes the play
 
     def __post_init__(self):
         """Calculate derived metrics"""
@@ -228,6 +235,90 @@ class BattedBallMetrics:
             self.hit_type = "fly_ball"
         else:
             self.hit_type = "popup"
+
+        # Calculate expected stats (xBA, xwOBA, xSLG) from EV/LA
+        self._calculate_expected_stats()
+
+    def _calculate_expected_stats(self):
+        """
+        Calculate expected batting average and wOBA based on EV/LA.
+
+        Uses simplified Statcast model:
+        - xBA increases with EV and optimal LA (sweet spot ~15-25°)
+        - Ground balls (<10°): low xBA regardless of EV
+        - Line drives (10-25°): highest xBA
+        - Fly balls (25-50°): xBA depends heavily on EV
+        - Pop-ups (>50°): very low xBA
+        """
+        ev = self.exit_velocity_mph
+        la = self.launch_angle_deg
+
+        # xBA model (simplified Statcast regression)
+        if la < 10:  # Ground balls
+            # GB xBA depends mostly on EV (faster = harder to field)
+            if ev < 70:
+                self.expected_batting_avg = 0.100
+            elif ev < 90:
+                self.expected_batting_avg = 0.220 + (ev - 70) * 0.005
+            else:  # Hard GB
+                self.expected_batting_avg = min(0.320 + (ev - 90) * 0.003, 0.450)
+
+        elif la < 25:  # Line drives
+            # LD have highest xBA, very dependent on EV
+            if ev < 70:
+                self.expected_batting_avg = 0.450
+            elif ev < 95:
+                self.expected_batting_avg = 0.550 + (ev - 70) * 0.006
+            else:
+                self.expected_batting_avg = min(0.700 + (ev - 95) * 0.010, 0.950)
+
+        elif la < 50:  # Fly balls
+            # FB xBA heavily dependent on EV (need power to clear outfield)
+            if ev < 85:
+                self.expected_batting_avg = 0.150  # Lazy fly out
+            elif ev < 98:
+                self.expected_batting_avg = 0.200 + (ev - 85) * 0.015
+            elif ev < 105:
+                self.expected_batting_avg = 0.400 + (ev - 98) * 0.040  # Warning track power
+            else:
+                self.expected_batting_avg = min(0.680 + (ev - 105) * 0.030, 0.950)  # Wall scraper to no-doubter
+
+        else:  # Pop-ups (>50°)
+            self.expected_batting_avg = 0.020  # Almost always out
+
+        # xSLG model (expected slugging on contact)
+        # Multiply xBA by expected bases (1B/2B/3B/HR probabilities)
+        if la < 10:  # Ground balls
+            # Mostly singles, rare doubles
+            expected_bases = 1.05 if ev > 95 else 1.02
+        elif la < 25:  # Line drives
+            # Mix of singles, doubles, some HRs if hard hit
+            if ev < 95:
+                expected_bases = 1.40
+            elif ev < 105:
+                expected_bases = 1.80  # Gap shots, doubles
+            else:
+                expected_bases = 2.40  # Line drive HRs
+        elif la < 50:  # Fly balls
+            # Highest HR probability
+            if ev < 95:
+                expected_bases = 1.20
+            elif ev < 100:
+                expected_bases = 2.00  # Warning track doubles
+            elif ev < 105:
+                expected_bases = 3.20  # Mix of XBH and HR
+            else:
+                expected_bases = 3.80  # Almost all HRs
+        else:  # Pop-ups
+            expected_bases = 1.00  # Rare IF single
+
+        self.expected_slg = self.expected_batting_avg * expected_bases
+
+        # xwOBA model (weighted on-base average)
+        # wOBA weights: BB=0.69, 1B=0.88, 2B=1.24, 3B=1.56, HR=1.95
+        # For batted balls, assume mix based on EV/LA
+        # Simplified: xwOBA ≈ 0.8 + (xSLG - xBA) * 0.5
+        self.expected_woba = 0.80 * self.expected_batting_avg + 0.30 * self.expected_slg
 
 
 # ============================================================================
@@ -761,8 +852,16 @@ class SimMetricsCollector:
         print(f"   Release: {m.release_velocity_mph:.1f} mph, {m.spin_rpm:.0f} rpm")
         print(f"   Plate: {m.plate_velocity_mph:.1f} mph @ ({m.plate_location[0]:+.1f}\", {m.plate_location[1]:.1f}\")")
         print(f"   Break: V={m.vertical_break_inches:+.1f}\", H={m.horizontal_break_inches:+.1f}\"")
-        print(f"   Command error: {m.command_error_magnitude:.2f}\" (target: {m.target_location})")
-        print(f"   Expected: Swing={m.expected_swing_prob:.1%}, Whiff={m.expected_whiff_prob:.1%}")
+
+        # Format target location cleanly (avoid numpy type noise)
+        target_h = float(m.target_location[0]) if m.target_location else 0.0
+        target_v = float(m.target_location[1]) if m.target_location else 0.0
+        print(f"   Command error: {m.command_error_magnitude:.2f}\" (target: {target_h:+.1f}\", {target_v:.1f}\")")
+
+        # Only show expected probabilities if they're actually computed (non-zero)
+        if m.expected_swing_prob > 0.01 or m.expected_whiff_prob > 0.01:
+            print(f"   Expected: Swing={m.expected_swing_prob:.1%}, Whiff={m.expected_whiff_prob:.1%}")
+
         print(f"   Outcome: {m.pitch_outcome} {'(swung)' if m.batter_swung else '(taken)'}")
 
     def _print_swing_debug(self, m: SwingDecisionMetrics):
@@ -784,6 +883,18 @@ class SimMetricsCollector:
         print(f"   Distance: {m.distance_ft:.1f} ft (apex: {m.apex_height_ft:.1f} ft)")
         print(f"   Landing: ({m.landing_x_ft:.1f}, {m.landing_y_ft:.1f})")
         print(f"   Quality: {'BARREL' if m.barrel else 'HARD' if m.hard_hit else 'MEDIUM'}")
+
+        # Expected outcomes (xStats)
+        print(f"   Expected: xBA={m.expected_batting_avg:.3f}, xSLG={m.expected_slg:.3f}, xwOBA={m.expected_woba:.3f}")
+
+        # Show actual outcome if available
+        if m.actual_outcome != "unknown":
+            print(f"   Actual: {m.actual_outcome}")
+
+        # Show catch probability if available
+        if m.catch_probability > 0.0:
+            catch_rating = "routine" if m.catch_probability > 0.90 else "likely" if m.catch_probability > 0.70 else "50-50" if m.catch_probability > 0.40 else "tough" if m.catch_probability > 0.15 else "nearly impossible"
+            print(f"   Catch probability: {m.catch_probability:.1%} ({catch_rating})")
 
     def _print_fielding_debug(self, m: FieldingMetrics):
         """Print fielding debug output"""
@@ -842,6 +953,16 @@ class SimMetricsCollector:
 
             total = len(self.batted_ball_metrics)
             print(f"   GB/LD/FB: {100*gbs/total:.0f}% / {100*lds/total:.0f}% / {100*fbs/total:.0f}%")
+
+            # Expected stats (quality of contact)
+            avg_xba = np.mean([b.expected_batting_avg for b in self.batted_ball_metrics])
+            avg_xslg = np.mean([b.expected_slg for b in self.batted_ball_metrics])
+            avg_xwoba = np.mean([b.expected_woba for b in self.batted_ball_metrics])
+
+            print(f"\n   📈 EXPECTED QUALITY:")
+            print(f"      xBA: {avg_xba:.3f}")
+            print(f"      xSLG: {avg_xslg:.3f}")
+            print(f"      xwOBA: {avg_xwoba:.3f}")
 
         # Fielding summary
         if self.fielding_metrics:
