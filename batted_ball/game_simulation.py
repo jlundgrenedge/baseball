@@ -53,10 +53,42 @@ class GameState:
     runner_on_second: Optional[Hitter] = None
     runner_on_third: Optional[Hitter] = None
 
-    # Game statistics
+    # Game statistics - Total (both teams)
     total_pitches: int = 0
     total_hits: int = 0
     total_home_runs: int = 0
+
+    # Per-team statistics - Away team
+    away_hits: int = 0
+    away_singles: int = 0
+    away_doubles: int = 0
+    away_triples: int = 0
+    away_home_runs: int = 0
+    away_strikeouts: int = 0
+    away_walks: int = 0
+    away_errors: int = 0
+    away_at_bats: int = 0
+    away_ground_balls: int = 0  # Launch angle < 10 degrees
+    away_fly_balls: int = 0     # Launch angle >= 25 degrees
+    away_line_drives: int = 0   # Launch angle 10-25 degrees
+    away_exit_velocities: List[float] = field(default_factory=list)
+    away_launch_angles: List[float] = field(default_factory=list)
+
+    # Per-team statistics - Home team
+    home_hits: int = 0
+    home_singles: int = 0
+    home_doubles: int = 0
+    home_triples: int = 0
+    home_home_runs: int = 0
+    home_strikeouts: int = 0
+    home_walks: int = 0
+    home_errors: int = 0
+    home_at_bats: int = 0
+    home_ground_balls: int = 0
+    home_fly_balls: int = 0
+    home_line_drives: int = 0
+    home_exit_velocities: List[float] = field(default_factory=list)
+    home_launch_angles: List[float] = field(default_factory=list)
 
     def get_batting_team(self) -> str:
         """Returns which team is currently batting"""
@@ -333,12 +365,28 @@ class GameSimulator:
 
     def handle_strikeout_or_walk(self, outcome: str, batter: Hitter):
         """Handle a strikeout or walk"""
+        is_away_batting = self.game_state.is_top
+
         if outcome == "strikeout":
             self.game_state.add_out()
+            # Track strikeout statistics
+            if is_away_batting:
+                self.game_state.away_strikeouts += 1
+                self.game_state.away_at_bats += 1
+            else:
+                self.game_state.home_strikeouts += 1
+                self.game_state.home_at_bats += 1
+
             if self.verbose:
                 print(f"  ⚾ STRIKEOUT! {self.game_state.outs} out(s)")
 
         elif outcome == "walk":
+            # Track walk statistics
+            if is_away_batting:
+                self.game_state.away_walks += 1
+            else:
+                self.game_state.home_walks += 1
+
             # Batter walks to first, runners advance if forced
             if self.verbose:
                 print(f"  🚶 WALK!")
@@ -410,6 +458,13 @@ class GameSimulator:
                            at_bat_result=None):
         """Process the result of a play and update game state"""
         outcome = play_result.outcome
+        is_away_batting = self.game_state.is_top
+
+        # Track at-bats (all batted balls except sacrifice plays)
+        if is_away_batting:
+            self.game_state.away_at_bats += 1
+        else:
+            self.game_state.home_at_bats += 1
 
         # Count hits
         if outcome in [PlayOutcome.SINGLE, PlayOutcome.DOUBLE, PlayOutcome.TRIPLE, PlayOutcome.HOME_RUN]:
@@ -417,19 +472,75 @@ class GameSimulator:
             if outcome == PlayOutcome.HOME_RUN:
                 self.game_state.total_home_runs += 1
 
+            # Track per-team hit statistics
+            if is_away_batting:
+                self.game_state.away_hits += 1
+                if outcome == PlayOutcome.SINGLE:
+                    self.game_state.away_singles += 1
+                elif outcome == PlayOutcome.DOUBLE:
+                    self.game_state.away_doubles += 1
+                elif outcome == PlayOutcome.TRIPLE:
+                    self.game_state.away_triples += 1
+                elif outcome == PlayOutcome.HOME_RUN:
+                    self.game_state.away_home_runs += 1
+            else:
+                self.game_state.home_hits += 1
+                if outcome == PlayOutcome.SINGLE:
+                    self.game_state.home_singles += 1
+                elif outcome == PlayOutcome.DOUBLE:
+                    self.game_state.home_doubles += 1
+                elif outcome == PlayOutcome.TRIPLE:
+                    self.game_state.home_triples += 1
+                elif outcome == PlayOutcome.HOME_RUN:
+                    self.game_state.home_home_runs += 1
+
+        # Track errors
+        if outcome == PlayOutcome.ERROR:
+            if is_away_batting:
+                # Error charged to home team (defense)
+                self.game_state.home_errors += 1
+            else:
+                # Error charged to away team (defense)
+                self.game_state.away_errors += 1
+
         # Enhanced physics data collection from at_bat_result
         last_pitch = {}  # Initialize to avoid scope issues
-        
+
         if at_bat_result and at_bat_result.batted_ball_result:
             batted_ball_dict = at_bat_result.batted_ball_result
+            exit_velocity = round(batted_ball_dict['exit_velocity'], 1)
+            launch_angle = round(batted_ball_dict['launch_angle'], 1)
+
             physics_data = {
-                "exit_velocity_mph": round(batted_ball_dict['exit_velocity'], 1),
-                "launch_angle_deg": round(batted_ball_dict['launch_angle'], 1),
+                "exit_velocity_mph": exit_velocity,
+                "launch_angle_deg": launch_angle,
                 "distance_ft": round(batted_ball_dict['distance'], 1),
                 "hang_time_sec": round(batted_ball_dict['hang_time'], 2),
                 "contact_quality": batted_ball_dict.get('contact_quality', 'unknown'),
                 "peak_height_ft": round(batted_ball_dict['peak_height'], 1),
             }
+
+            # Track exit velocity and launch angle for averages
+            if is_away_batting:
+                self.game_state.away_exit_velocities.append(exit_velocity)
+                self.game_state.away_launch_angles.append(launch_angle)
+                # Categorize by launch angle
+                if launch_angle < 10:
+                    self.game_state.away_ground_balls += 1
+                elif launch_angle < 25:
+                    self.game_state.away_line_drives += 1
+                else:
+                    self.game_state.away_fly_balls += 1
+            else:
+                self.game_state.home_exit_velocities.append(exit_velocity)
+                self.game_state.home_launch_angles.append(launch_angle)
+                # Categorize by launch angle
+                if launch_angle < 10:
+                    self.game_state.home_ground_balls += 1
+                elif launch_angle < 25:
+                    self.game_state.home_line_drives += 1
+                else:
+                    self.game_state.home_fly_balls += 1
 
             # Get the last pitch (the one that was hit)
             last_pitch = at_bat_result.pitches[-1] if at_bat_result.pitches else {}
