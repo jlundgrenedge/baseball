@@ -387,13 +387,22 @@ class GameSimulator:
         return runners
 
     def create_runner_from_hitter(self, hitter: Hitter, starting_base: str) -> BaseRunner:
-        """Create a BaseRunner from a Hitter with some randomness"""
-        # Use hitter attributes to influence runner speed
-        # This is a simple mapping - you might want to add speed attributes to Hitter later
-        speed_types = [create_slow_runner, create_average_runner, create_speed_runner]
-        runner_factory = random.choice(speed_types)
+        """Create a BaseRunner from a Hitter using their speed attribute"""
+        # Use hitter's speed attribute (0-100,000 scale) for baserunning physics
+        # Default to average (50000) if hitter doesn't have speed attribute (backward compatibility)
+        speed_rating = getattr(hitter, 'speed', 50000)
 
-        runner = runner_factory(hitter.name)
+        # Create runner with hitter's actual speed rating
+        # Also use speed for acceleration (correlation between speed and burst)
+        # and baserunning IQ (faster players tend to have better baserunning instincts)
+        runner = BaseRunner(
+            name=hitter.name,
+            sprint_speed=speed_rating,
+            acceleration=speed_rating,  # Use same rating for acceleration
+            base_running_iq=min(speed_rating + 10000, 100000),  # Slight boost to IQ
+            sliding_ability=50000,  # Average sliding ability
+            turn_efficiency=speed_rating  # Faster runners maintain speed better in turns
+        )
         runner.current_base = starting_base
         return runner
 
