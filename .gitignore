@@ -56,3 +56,6 @@ QUICK_REFERENCE.md
 # Database files
 *.db
 *.db-journal
+
+# Game simulation logs
+game_logs/
