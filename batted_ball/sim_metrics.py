@@ -66,8 +66,16 @@ class PitchMetrics:
 
     # Command and accuracy
     target_location: Tuple[float, float]  # Intended location (inches)
-    command_error: Tuple[float, float]     # (h_error, v_error) in inches
-    command_error_magnitude: float         # Total error magnitude
+
+    # Player/team identification (with defaults)
+    pitcher_name: str = "Unknown"
+    pitcher_team: str = "Unknown"  # 'away' or 'home'
+    batter_name: str = "Unknown"
+    batter_team: str = "Unknown"  # 'away' or 'home'
+
+    # Calculated fields (with defaults)
+    command_error: Tuple[float, float] = (0.0, 0.0)     # (h_error, v_error) in inches
+    command_error_magnitude: float = 0.0         # Total error magnitude
 
     # Decision probabilities (BEFORE outcome)
     expected_whiff_prob: float = 0.0
@@ -79,6 +87,9 @@ class PitchMetrics:
     batter_swung: bool = False
     pitch_outcome: str = "unknown"  # 'ball', 'called_strike', 'swinging_strike', 'foul', 'contact'
     is_strike: bool = False
+
+    # Zone classification
+    zone_classification: str = "unknown"  # 'in_zone', 'edge', 'chase', 'waste'
 
     # Flight physics
     flight_time_ms: float = 0.0
@@ -97,6 +108,62 @@ class PitchMetrics:
         if self.release_extension_ft:
             extension_boost = self.release_extension_ft * 1.0
             self.perceived_velocity_mph = self.plate_velocity_mph + extension_boost
+
+        # Calculate zone classification
+        self.zone_classification = self._classify_zone()
+
+    def _classify_zone(self) -> str:
+        """
+        Classify pitch location into zone categories.
+
+        Strike zone (MLB规则):
+        - Horizontal: -8.5" to +8.5" (17" plate width)
+        - Vertical: ~18" to 42" (varies by batter height, using average)
+
+        Returns
+        -------
+        str
+            'in_zone', 'edge', 'chase', or 'waste'
+        """
+        h_loc = self.plate_location[0]
+        v_loc = self.plate_location[1]
+
+        # Strike zone boundaries
+        H_ZONE_MIN = -8.5
+        H_ZONE_MAX = 8.5
+        V_ZONE_MIN = 18.0
+        V_ZONE_MAX = 42.0
+
+        # Edge definition: within 2" of zone boundary
+        EDGE_MARGIN = 2.0
+        # Chase zone: 2-6" outside zone (pitches batters commonly chase)
+        CHASE_MIN = 2.0
+        CHASE_MAX = 6.0
+
+        # Calculate distances from zone
+        h_inside = max(0, H_ZONE_MIN - h_loc, h_loc - H_ZONE_MAX)
+        v_inside = max(0, V_ZONE_MIN - v_loc, v_loc - V_ZONE_MAX)
+
+        # Check if in strike zone
+        if H_ZONE_MIN <= h_loc <= H_ZONE_MAX and V_ZONE_MIN <= v_loc <= V_ZONE_MAX:
+            # Inside zone - check if on edge
+            h_dist_to_edge = min(abs(h_loc - H_ZONE_MIN), abs(h_loc - H_ZONE_MAX))
+            v_dist_to_edge = min(abs(v_loc - V_ZONE_MIN), abs(v_loc - V_ZONE_MAX))
+
+            if h_dist_to_edge < EDGE_MARGIN or v_dist_to_edge < EDGE_MARGIN:
+                return "edge"
+            else:
+                return "in_zone"
+
+        # Outside zone - determine how far
+        max_outside = max(h_inside, v_inside)
+
+        if max_outside < CHASE_MIN:
+            return "edge"  # Just outside, still borderline
+        elif max_outside < CHASE_MAX:
+            return "chase"  # Chase zone - commonly swung at
+        else:
+            return "waste"  # Too far outside, obvious ball
 
 
 @dataclass
@@ -157,28 +224,34 @@ class BattedBallMetrics:
 
     Provides transparency into aerodynamic calculations and flight physics.
     """
-    # Contact mechanics
-    bat_speed_mph: float
-    pitch_speed_mph: float
-    collision_efficiency_q: float  # The q parameter from collision physics
-
-    # Launch conditions
+    # Launch conditions (required)
     exit_velocity_mph: float
     launch_angle_deg: float
     spray_angle_deg: float  # -45 to +45, 0 = center field
 
-    # Spin characteristics
+    # Spin characteristics (required)
     backspin_rpm: float  # Positive = backspin
     sidespin_rpm: float  # Positive = toward pull side
 
-    # Trajectory results
+    # Trajectory results (required)
     distance_ft: float
     hang_time_sec: float
     apex_height_ft: float
 
-    # Landing coordinates (field coordinates, home = 0,0)
+    # Landing coordinates (required, field coordinates, home = 0,0)
     landing_x_ft: float  # Horizontal (positive = right field for RHH)
     landing_y_ft: float  # Depth (positive = toward outfield)
+
+    # Player/team identification (with defaults)
+    batter_name: str = "Unknown"
+    batter_team: str = "Unknown"  # 'away' or 'home'
+    pitcher_name: str = "Unknown"
+    pitcher_team: str = "Unknown"  # 'away' or 'home'
+
+    # Contact mechanics (with defaults)
+    bat_speed_mph: float = 0.0
+    pitch_speed_mph: float = 0.0
+    collision_efficiency_q: float = 0.0  # The q parameter from collision physics
 
     # Calculated fields (with defaults)
     total_spin_rpm: float = 0.0
@@ -198,12 +271,20 @@ class BattedBallMetrics:
     # Expected vs actual
     expected_distance_ft: float = 0.0  # Statcast xDistance model
     expected_hr_probability: float = 0.0
+    expected_batting_avg: float = 0.0  # xBA based on EV/LA
+    expected_woba: float = 0.0          # xwOBA based on EV/LA
+    expected_slg: float = 0.0           # xSLG based on EV/LA
     is_home_run: bool = False
+    actual_outcome: str = "unknown"     # Actual game result
 
     # Hit classification
     hit_type: str = "unknown"  # 'ground_ball', 'line_drive', 'fly_ball', 'popup'
     hard_hit: bool = False  # EV >= 95 mph
     barrel: bool = False    # Optimal EV + LA combo
+
+    # Fielding context
+    catch_probability: float = 0.0  # Probability fielder makes the play
+    gb_difficulty: str = "unknown"  # For ground balls: 'routine', 'average', 'tough', 'infield_hit'
 
     def __post_init__(self):
         """Calculate derived metrics"""
@@ -228,6 +309,166 @@ class BattedBallMetrics:
             self.hit_type = "fly_ball"
         else:
             self.hit_type = "popup"
+
+        # Calculate expected stats (xBA, xwOBA, xSLG) from EV/LA
+        self._calculate_expected_stats()
+
+        # Calculate ground ball difficulty if applicable
+        if self.hit_type == "ground_ball":
+            self.gb_difficulty = self._calculate_gb_difficulty()
+
+    def _calculate_expected_stats(self):
+        """
+        Calculate expected batting average and wOBA based on EV/LA.
+
+        Uses simplified Statcast model:
+        - xBA increases with EV and optimal LA (sweet spot ~15-25°)
+        - Ground balls (<10°): low xBA regardless of EV
+        - Line drives (10-25°): highest xBA
+        - Fly balls (25-50°): xBA depends heavily on EV
+        - Pop-ups (>50°): very low xBA
+        """
+        ev = self.exit_velocity_mph
+        la = self.launch_angle_deg
+
+        # xBA model (simplified Statcast regression)
+        if la < 10:  # Ground balls
+            # GB xBA depends mostly on EV (faster = harder to field)
+            if ev < 70:
+                self.expected_batting_avg = 0.100
+            elif ev < 90:
+                self.expected_batting_avg = 0.220 + (ev - 70) * 0.005
+            else:  # Hard GB
+                self.expected_batting_avg = min(0.320 + (ev - 90) * 0.003, 0.450)
+
+        elif la < 25:  # Line drives
+            # LD have highest xBA, very dependent on EV
+            if ev < 70:
+                self.expected_batting_avg = 0.450
+            elif ev < 95:
+                self.expected_batting_avg = 0.550 + (ev - 70) * 0.006
+            else:
+                self.expected_batting_avg = min(0.700 + (ev - 95) * 0.010, 0.950)
+
+        elif la < 50:  # Fly balls
+            # FB xBA heavily dependent on EV (need power to clear outfield)
+            if ev < 85:
+                self.expected_batting_avg = 0.150  # Lazy fly out
+            elif ev < 98:
+                self.expected_batting_avg = 0.200 + (ev - 85) * 0.015
+            elif ev < 105:
+                self.expected_batting_avg = 0.400 + (ev - 98) * 0.040  # Warning track power
+            else:
+                self.expected_batting_avg = min(0.680 + (ev - 105) * 0.030, 0.950)  # Wall scraper to no-doubter
+
+        else:  # Pop-ups (>50°)
+            self.expected_batting_avg = 0.020  # Almost always out
+
+        # xSLG model (expected slugging on contact)
+        # Multiply xBA by expected bases (1B/2B/3B/HR probabilities)
+        if la < 10:  # Ground balls
+            # Mostly singles, rare doubles
+            expected_bases = 1.05 if ev > 95 else 1.02
+        elif la < 25:  # Line drives
+            # Mix of singles, doubles, some HRs if hard hit
+            if ev < 95:
+                expected_bases = 1.40
+            elif ev < 105:
+                expected_bases = 1.80  # Gap shots, doubles
+            else:
+                expected_bases = 2.40  # Line drive HRs
+        elif la < 50:  # Fly balls
+            # Highest HR probability
+            if ev < 95:
+                expected_bases = 1.20
+            elif ev < 100:
+                expected_bases = 2.00  # Warning track doubles
+            elif ev < 105:
+                expected_bases = 3.20  # Mix of XBH and HR
+            else:
+                expected_bases = 3.80  # Almost all HRs
+        else:  # Pop-ups
+            expected_bases = 1.00  # Rare IF single
+
+        self.expected_slg = self.expected_batting_avg * expected_bases
+
+        # xwOBA model (weighted on-base average)
+        # wOBA weights: BB=0.69, 1B=0.88, 2B=1.24, 3B=1.56, HR=1.95
+        # For batted balls, assume mix based on EV/LA
+        # Simplified: xwOBA ≈ 0.8 + (xSLG - xBA) * 0.5
+        self.expected_woba = 0.80 * self.expected_batting_avg + 0.30 * self.expected_slg
+
+    def _calculate_gb_difficulty(self) -> str:
+        """
+        Calculate ground ball difficulty rating.
+
+        Based on:
+        - Exit velocity (faster = harder to field)
+        - Hang time (less time = harder)
+        - Launch angle (sharper = more hops, harder to field cleanly)
+
+        Returns
+        -------
+        str
+            'routine', 'average', 'tough', or 'infield_hit'
+        """
+        ev = self.exit_velocity_mph
+        hang_time = self.hang_time_sec
+        la = self.launch_angle_deg
+
+        # Difficulty factors
+        # EV: <80 = soft, 80-95 = medium, >95 = hard
+        # Hang time: >3.0s = slow roller, 2-3s = average, <2s = fast
+        # LA: 0-3° = sharp grounder (hard to field cleanly), 3-8° = normal GB
+
+        # Calculate difficulty score (0-100, higher = harder)
+        difficulty_score = 0
+
+        # Exit velocity contribution (0-40 points)
+        if ev < 70:
+            ev_points = 10  # Very soft
+        elif ev < 85:
+            ev_points = 20 + (ev - 70) * 0.67  # Soft to medium
+        elif ev < 95:
+            ev_points = 30 + (ev - 85) * 0.5  # Medium to hard
+        else:
+            ev_points = min(40, 35 + (ev - 95) * 1.0)  # Very hard
+
+        difficulty_score += ev_points
+
+        # Hang time contribution (0-30 points)
+        # Less time = harder to field
+        if hang_time > 3.0:
+            hang_points = 5  # Plenty of time (slow roller)
+        elif hang_time > 2.0:
+            hang_points = 15 + (3.0 - hang_time) * 10  # Average
+        else:
+            hang_points = min(30, 25 + (2.0 - hang_time) * 25)  # Fast
+
+        difficulty_score += hang_points
+
+        # Launch angle contribution (0-30 points)
+        # Sharp grounders (low LA) are harder to field cleanly
+        if la < 1.0:
+            la_points = 30  # Bullet, very sharp
+        elif la < 3.0:
+            la_points = 25 - (la - 1.0) * 2.5  # Sharp
+        elif la < 6.0:
+            la_points = 15 - (la - 3.0) * 2  # Normal
+        else:
+            la_points = max(5, 9 - (la - 6.0) * 1)  # High bounce
+
+        difficulty_score += la_points
+
+        # Classify based on total difficulty score
+        if difficulty_score < 35:
+            return "routine"      # Easy play, slow roller or soft contact
+        elif difficulty_score < 60:
+            return "average"      # Standard GB, should be fielded
+        elif difficulty_score < 80:
+            return "tough"        # Hard-hit or fast, challenging play
+        else:
+            return "infield_hit"  # Extremely difficult, likely a hit
 
 
 # ============================================================================
@@ -743,6 +984,8 @@ class SimMetricsCollector:
         """Record baserunning metrics"""
         if self.enabled:
             self.baserunning_metrics.append(metrics)
+            if self.debug_level.value >= DebugLevel.DETAILED.value:
+                self._print_baserunning_debug(metrics)
 
     def record_fatigue(self, metrics: PitcherFatigueMetrics):
         """Record pitcher fatigue metrics"""
@@ -761,8 +1004,21 @@ class SimMetricsCollector:
         print(f"   Release: {m.release_velocity_mph:.1f} mph, {m.spin_rpm:.0f} rpm")
         print(f"   Plate: {m.plate_velocity_mph:.1f} mph @ ({m.plate_location[0]:+.1f}\", {m.plate_location[1]:.1f}\")")
         print(f"   Break: V={m.vertical_break_inches:+.1f}\", H={m.horizontal_break_inches:+.1f}\"")
-        print(f"   Command error: {m.command_error_magnitude:.2f}\" (target: {m.target_location})")
-        print(f"   Expected: Swing={m.expected_swing_prob:.1%}, Whiff={m.expected_whiff_prob:.1%}")
+
+        # Zone classification
+        zone_icon = {"in_zone": "🎯", "edge": "⚡", "chase": "🎣", "waste": "🗑️"}
+        zone_display = zone_icon.get(m.zone_classification, "❓")
+        print(f"   Zone: {m.zone_classification.upper()} {zone_display}")
+
+        # Format target location cleanly (avoid numpy type noise)
+        target_h = float(m.target_location[0]) if m.target_location else 0.0
+        target_v = float(m.target_location[1]) if m.target_location else 0.0
+        print(f"   Command error: {m.command_error_magnitude:.2f}\" (target: {target_h:+.1f}\", {target_v:.1f}\")")
+
+        # Only show expected probabilities if they're actually computed (non-zero)
+        if m.expected_swing_prob > 0.01 or m.expected_whiff_prob > 0.01:
+            print(f"   Expected: Swing={m.expected_swing_prob:.1%}, Whiff={m.expected_whiff_prob:.1%}")
+
         print(f"   Outcome: {m.pitch_outcome} {'(swung)' if m.batter_swung else '(taken)'}")
 
     def _print_swing_debug(self, m: SwingDecisionMetrics):
@@ -785,6 +1041,24 @@ class SimMetricsCollector:
         print(f"   Landing: ({m.landing_x_ft:.1f}, {m.landing_y_ft:.1f})")
         print(f"   Quality: {'BARREL' if m.barrel else 'HARD' if m.hard_hit else 'MEDIUM'}")
 
+        # Ground ball difficulty rating
+        if m.hit_type == "ground_ball" and m.gb_difficulty != "unknown":
+            gb_icons = {"routine": "✓", "average": "↔", "tough": "⚠", "infield_hit": "🔥"}
+            gb_icon = gb_icons.get(m.gb_difficulty, "?")
+            print(f"   GB Difficulty: {m.gb_difficulty.upper()} {gb_icon}")
+
+        # Expected outcomes (xStats)
+        print(f"   Expected: xBA={m.expected_batting_avg:.3f}, xSLG={m.expected_slg:.3f}, xwOBA={m.expected_woba:.3f}")
+
+        # Show actual outcome if available
+        if m.actual_outcome != "unknown":
+            print(f"   Actual: {m.actual_outcome}")
+
+        # Show catch probability if available
+        if m.catch_probability > 0.0:
+            catch_rating = "routine" if m.catch_probability > 0.90 else "likely" if m.catch_probability > 0.70 else "50-50" if m.catch_probability > 0.40 else "tough" if m.catch_probability > 0.15 else "nearly impossible"
+            print(f"   Catch probability: {m.catch_probability:.1%} ({catch_rating})")
+
     def _print_fielding_debug(self, m: FieldingMetrics):
         """Print fielding debug output"""
         print(f"\n🧤 FIELDING: {m.fielder_name} ({m.fielder_position})")
@@ -796,8 +1070,30 @@ class SimMetricsCollector:
         print(f"   Catch prob: {m.expected_catch_probability:.1%}")
         print(f"   Result: {'SUCCESS' if m.catch_successful else f'FAIL ({m.failure_reason})'}")
 
+    def _print_baserunning_debug(self, m: BaserunningMetrics):
+        """Print baserunning debug output"""
+        print(f"\n🏃 BASERUNNING: {m.runner_name} ({m.starting_base} → {m.target_base})")
+
+        # Decision context
+        decision_icon = {"aggressive": "⚡", "conservative": "🛡️", "auto": "🤖", "coach_send": "👋", "coach_hold": "🛑"}
+        decision_display = decision_icon.get(m.send_decision, "")
+        print(f"   Decision: {m.send_decision.upper()} {decision_display} (risk: {m.risk_score:.2f})")
+        print(f"   Expected success: {m.expected_success_probability:.1%}")
+
+        # Speed and timing
+        print(f"   Sprint speed: {m.top_sprint_speed_fps:.1f} fps")
+        print(f"   Run time: {m.actual_run_time_sec:.2f}s (distance: {m.distance_to_run_ft:.0f} ft)")
+        print(f"   Jump: {m.jump_quality} ({m.jump_time_sec:.2f}s reaction)")
+
+        # Outcome timing
+        print(f"   Arrival margin: {m.time_margin_sec:+.2f}s ({m.runner_arrival_time_sec:.2f}s vs {m.ball_arrival_time_sec:.2f}s)")
+
+        # Result
+        result_icon = "✓" if m.advance_successful else "✗"
+        print(f"   Result: {m.outcome.upper()} {result_icon}")
+
     def print_summary(self):
-        """Print complete summary of collected metrics"""
+        """Print comprehensive summary with team splits and per-player breakdowns"""
         if not self.enabled:
             return
 
@@ -805,58 +1101,162 @@ class SimMetricsCollector:
         print("SIMULATION METRICS SUMMARY")
         print("="*80)
 
-        # Pitch summary
-        if self.pitch_metrics:
-            print(f"\n📊 PITCHES: {len(self.pitch_metrics)} total")
-            strikes = sum(1 for p in self.pitch_metrics if p.is_strike)
-            swings = sum(1 for p in self.pitch_metrics if p.batter_swung)
-            print(f"   Strikes: {strikes}/{len(self.pitch_metrics)} ({100*strikes/len(self.pitch_metrics):.1f}%)")
-            print(f"   Swings: {swings}/{len(self.pitch_metrics)} ({100*swings/len(self.pitch_metrics):.1f}%)")
+        # Split metrics by team
+        self._print_team_summaries()
 
-            # Average command error
-            avg_error = np.mean([p.command_error_magnitude for p in self.pitch_metrics])
-            print(f"   Avg command error: {avg_error:.2f}\"")
+        # Per-pitcher breakdowns
+        self._print_pitcher_summaries()
 
-        # Batted ball summary
-        if self.batted_ball_metrics:
-            print(f"\n⚾ BATTED BALLS: {len(self.batted_ball_metrics)} total")
-
-            avg_ev = np.mean([b.exit_velocity_mph for b in self.batted_ball_metrics])
-            avg_la = np.mean([b.launch_angle_deg for b in self.batted_ball_metrics])
-            avg_dist = np.mean([b.distance_ft for b in self.batted_ball_metrics])
-
-            print(f"   Avg EV: {avg_ev:.1f} mph")
-            print(f"   Avg LA: {avg_la:.1f}°")
-            print(f"   Avg distance: {avg_dist:.1f} ft")
-
-            barrels = sum(1 for b in self.batted_ball_metrics if b.barrel)
-            hard_hit = sum(1 for b in self.batted_ball_metrics if b.hard_hit)
-
-            print(f"   Barrels: {barrels} ({100*barrels/len(self.batted_ball_metrics):.1f}%)")
-            print(f"   Hard hit: {hard_hit} ({100*hard_hit/len(self.batted_ball_metrics):.1f}%)")
-
-            # Hit type distribution
-            gbs = sum(1 for b in self.batted_ball_metrics if b.hit_type == 'ground_ball')
-            lds = sum(1 for b in self.batted_ball_metrics if b.hit_type == 'line_drive')
-            fbs = sum(1 for b in self.batted_ball_metrics if b.hit_type == 'fly_ball')
-
-            total = len(self.batted_ball_metrics)
-            print(f"   GB/LD/FB: {100*gbs/total:.0f}% / {100*lds/total:.0f}% / {100*fbs/total:.0f}%")
-
-        # Fielding summary
-        if self.fielding_metrics:
-            print(f"\n🧤 FIELDING PLAYS: {len(self.fielding_metrics)} total")
-            successes = sum(1 for f in self.fielding_metrics if f.catch_successful)
-            print(f"   Successful: {successes}/{len(self.fielding_metrics)} ({100*successes/len(self.fielding_metrics):.1f}%)")
-
-            avg_prob = np.mean([f.expected_catch_probability for f in self.fielding_metrics])
-            print(f"   Avg catch probability: {avg_prob:.1%}")
-
-            errors = sum(1 for f in self.fielding_metrics if f.is_error)
-            if errors > 0:
-                print(f"   Errors: {errors}")
+        # Per-batter breakdowns
+        self._print_batter_summaries()
 
         print("="*80 + "\n")
+
+    def _print_team_summaries(self):
+        """Print metrics split by team"""
+        if not self.pitch_metrics and not self.batted_ball_metrics:
+            return
+
+        for team in ['away', 'home']:
+            team_label = team.upper()
+
+            # Team pitching metrics
+            team_pitches = [p for p in self.pitch_metrics if p.pitcher_team == team]
+            if team_pitches:
+                print(f"\n📊 PITCHING ({team_label} team): {len(team_pitches)} pitches")
+                strikes = sum(1 for p in team_pitches if p.is_strike)
+                swings = sum(1 for p in team_pitches if p.batter_swung)
+                whiffs = sum(1 for p in team_pitches if p.batter_swung and p.pitch_outcome == 'swinging_strike')
+
+                print(f"   Strike%: {100*strikes/len(team_pitches):.1f}%")
+                print(f"   Swing%: {100*swings/len(team_pitches):.1f}%")
+                if swings > 0:
+                    print(f"   Whiff%: {100*whiffs/swings:.1f}%")
+
+                avg_error = np.mean([p.command_error_magnitude for p in team_pitches])
+                print(f"   Avg command error: {avg_error:.2f}\"")
+
+            # Team batting metrics
+            team_batted_balls = [b for b in self.batted_ball_metrics if b.batter_team == team]
+            if team_batted_balls:
+                print(f"\n⚾ BATTING ({team_label} team): {len(team_batted_balls)} balls in play")
+
+                avg_ev = np.mean([b.exit_velocity_mph for b in team_batted_balls])
+                avg_la = np.mean([b.launch_angle_deg for b in team_batted_balls])
+                avg_dist = np.mean([b.distance_ft for b in team_batted_balls])
+
+                print(f"   Avg EV: {avg_ev:.1f} mph | LA: {avg_la:.1f}° | Dist: {avg_dist:.1f} ft")
+
+                barrels = sum(1 for b in team_batted_balls if b.barrel)
+                hard_hit = sum(1 for b in team_batted_balls if b.hard_hit)
+
+                print(f"   Barrels: {barrels} ({100*barrels/len(team_batted_balls):.1f}%) | Hard hit: {hard_hit} ({100*hard_hit/len(team_batted_balls):.1f}%)")
+
+                # Hit type distribution
+                gbs = sum(1 for b in team_batted_balls if b.hit_type == 'ground_ball')
+                lds = sum(1 for b in team_batted_balls if b.hit_type == 'line_drive')
+                fbs = sum(1 for b in team_batted_balls if b.hit_type == 'fly_ball')
+
+                total = len(team_batted_balls)
+                print(f"   GB/LD/FB: {100*gbs/total:.0f}% / {100*lds/total:.0f}% / {100*fbs/total:.0f}%")
+
+                # Expected stats
+                avg_xba = np.mean([b.expected_batting_avg for b in team_batted_balls])
+                avg_xslg = np.mean([b.expected_slg for b in team_batted_balls])
+                avg_xwoba = np.mean([b.expected_woba for b in team_batted_balls])
+
+                print(f"   xBA: {avg_xba:.3f} | xSLG: {avg_xslg:.3f} | xwOBA: {avg_xwoba:.3f}")
+
+    def _print_pitcher_summaries(self):
+        """Print per-pitcher pitch-type breakdowns"""
+        if not self.pitch_metrics:
+            return
+
+        # Group pitches by pitcher
+        from collections import defaultdict
+        pitcher_pitches = defaultdict(list)
+        for p in self.pitch_metrics:
+            if p.pitcher_name != "Unknown":
+                pitcher_pitches[p.pitcher_name].append(p)
+
+        if not pitcher_pitches:
+            return
+
+        print(f"\n🎯 PER-PITCHER BREAKDOWNS:")
+        print("-" * 80)
+
+        for pitcher_name in sorted(pitcher_pitches.keys()):
+            pitches = pitcher_pitches[pitcher_name]
+            print(f"\n  {pitcher_name} ({pitches[0].pitcher_team.upper()}) - {len(pitches)} pitches")
+
+            # Group by pitch type
+            pitch_types = defaultdict(list)
+            for p in pitches:
+                pitch_types[p.pitch_type].append(p)
+
+            # Print summary for each pitch type
+            for pitch_type in sorted(pitch_types.keys()):
+                type_pitches = pitch_types[pitch_type]
+                usage = len(type_pitches)
+                usage_pct = 100 * usage / len(pitches)
+
+                strikes = sum(1 for p in type_pitches if p.is_strike)
+                strike_pct = 100 * strikes / usage if usage > 0 else 0
+
+                swings = sum(1 for p in type_pitches if p.batter_swung)
+                whiffs = sum(1 for p in type_pitches if p.batter_swung and p.pitch_outcome == 'swinging_strike')
+                whiff_pct = 100 * whiffs / swings if swings > 0 else 0
+
+                avg_velo = np.mean([p.plate_velocity_mph for p in type_pitches])
+                avg_error = np.mean([p.command_error_magnitude for p in type_pitches])
+
+                print(f"    {pitch_type:12s}: {usage:3d} ({usage_pct:4.1f}%) | Strike%: {strike_pct:4.1f} | Whiff%: {whiff_pct:4.1f} | Velo: {avg_velo:4.1f} mph | Cmd: {avg_error:4.1f}\"")
+
+    def _print_batter_summaries(self):
+        """Print per-batter contact quality summaries"""
+        if not self.batted_ball_metrics:
+            return
+
+        # Group batted balls by batter
+        from collections import defaultdict
+        batter_balls = defaultdict(list)
+        for b in self.batted_ball_metrics:
+            if b.batter_name != "Unknown":
+                batter_balls[b.batter_name].append(b)
+
+        if not batter_balls:
+            return
+
+        # Only show batters with 2+ balls in play
+        batters_with_enough_data = {name: balls for name, balls in batter_balls.items() if len(balls) >= 2}
+
+        if not batters_with_enough_data:
+            return
+
+        print(f"\n🏏 PER-BATTER CONTACT QUALITY:")
+        print("-" * 80)
+
+        for team in ['away', 'home']:
+            team_batters = {name: balls for name, balls in batters_with_enough_data.items()
+                           if balls[0].batter_team == team}
+
+            if not team_batters:
+                continue
+
+            print(f"\n  {team.upper()} TEAM:")
+
+            for batter_name in sorted(team_batters.keys()):
+                balls = team_batters[batter_name]
+
+                avg_ev = np.mean([b.exit_velocity_mph for b in balls])
+                avg_la = np.mean([b.launch_angle_deg for b in balls])
+                avg_xba = np.mean([b.expected_batting_avg for b in balls])
+                avg_xslg = np.mean([b.expected_slg for b in balls])
+
+                barrels = sum(1 for b in balls if b.barrel)
+                hard_hit = sum(1 for b in balls if b.hard_hit)
+
+                print(f"    {batter_name:20s}: {len(balls):2d} BIP | EV: {avg_ev:5.1f} mph | LA: {avg_la:5.1f}° | xBA: {avg_xba:.3f} | xSLG: {avg_xslg:.3f} | Barrels: {barrels} | Hard: {hard_hit}")
 
     def export_csv(self, filename: str):
         """Export all metrics to CSV file for external analysis"""
