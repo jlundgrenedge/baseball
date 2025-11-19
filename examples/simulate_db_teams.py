@@ -10,6 +10,7 @@ Allows users to:
 import sys
 from pathlib import Path
 from typing import Optional
+from datetime import datetime
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -178,8 +179,19 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
         print("\n❌ Simulation cancelled.")
         return
 
+    # Create log file for game output
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_away = away_name.replace(" ", "_")
+    safe_home = home_name.replace(" ", "_")
+    log_filename = f"game_log_{safe_away}_vs_{safe_home}_{timestamp}.txt"
+    log_path = Path("game_logs") / log_filename
+
+    # Create game_logs directory if it doesn't exist
+    log_path.parent.mkdir(exist_ok=True)
+
     # Run simulations
     display_header(f"Simulating {num_games} Game{'s' if num_games > 1 else ''}")
+    print(f"\n📝 Game log will be saved to: {log_path}")
     print()
 
     away_wins = 0
@@ -188,35 +200,93 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
     total_home_runs = 0
 
     # Determine verbosity based on number of games
-    verbose = num_games <= 3
+    # For 1-3 games: show in console
+    # For 4+ games: only save to log file
+    show_in_console = num_games <= 3
 
-    for i in range(num_games):
-        if num_games > 1:
-            print(f"\nGame {i+1}/{num_games}:")
-            print("-" * 50)
+    # Open the log file for the entire series
+    with open(log_path, 'w', encoding='utf-8') as log_file:
+        # Write header to log file
+        log_file.write(f"{'='*80}\n")
+        log_file.write(f"GAME SERIES LOG\n")
+        log_file.write(f"{'='*80}\n")
+        log_file.write(f"Away Team: {away_team.name} ({away_season})\n")
+        log_file.write(f"Home Team: {home_team.name} ({home_season})\n")
+        log_file.write(f"Number of Games: {num_games}\n")
+        log_file.write(f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        log_file.write(f"{'='*80}\n\n")
+        log_file.flush()
 
-        # Create simulator
-        sim = GameSimulator(away_team, home_team, verbose=verbose)
+        for i in range(num_games):
+            if num_games > 1:
+                print(f"\nGame {i+1}/{num_games}:")
+                print("-" * 50)
 
-        # Simulate game
-        final_state = sim.simulate_game(num_innings=9)
+            # Write game separator to log file
+            log_file.write(f"\n\n{'#'*80}\n")
+            log_file.write(f"# GAME {i+1} of {num_games}\n")
+            log_file.write(f"{'#'*80}\n\n")
+            log_file.flush()
 
-        # Track results
-        total_away_runs += final_state.away_score
-        total_home_runs += final_state.home_score
+            # Create simulator with verbose=True and log_file
+            # Note: We always set verbose=True to generate logs, even if not showing in console
+            sim = GameSimulator(away_team, home_team, verbose=True, log_file=str(log_path))
 
-        if final_state.away_score > final_state.home_score:
-            away_wins += 1
-            winner = away_team.name
+            # If we don't want console output, suppress stdout temporarily
+            if not show_in_console:
+                import io
+                import sys
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+
+            try:
+                # Simulate game
+                final_state = sim.simulate_game(num_innings=9)
+            finally:
+                # Restore stdout if we suppressed it
+                if not show_in_console:
+                    sys.stdout = old_stdout
+
+                # Always close the simulator's log handle to avoid conflicts
+                sim.close_log()
+
+            # Track results
+            total_away_runs += final_state.away_score
+            total_home_runs += final_state.home_score
+
+            if final_state.away_score > final_state.home_score:
+                away_wins += 1
+                winner = away_team.name
+            else:
+                home_wins += 1
+                winner = home_team.name
+
+            # Display score summary (always shown)
+            print(f"\nFinal Score:")
+            print(f"  {away_team.name}: {final_state.away_score}")
+            print(f"  {home_team.name}: {final_state.home_score}")
+            print(f"  Winner: {winner}")
+
+        # Write series summary to log file
+        log_file.write(f"\n\n{'='*80}\n")
+        log_file.write(f"SERIES SUMMARY\n")
+        log_file.write(f"{'='*80}\n\n")
+        log_file.write(f"{away_team.name} ({away_season}):\n")
+        log_file.write(f"  Wins: {away_wins}\n")
+        log_file.write(f"  Total Runs: {total_away_runs}\n")
+        log_file.write(f"  Avg Runs/Game: {total_away_runs/num_games:.2f}\n\n")
+        log_file.write(f"{home_team.name} ({home_season}):\n")
+        log_file.write(f"  Wins: {home_wins}\n")
+        log_file.write(f"  Total Runs: {total_home_runs}\n")
+        log_file.write(f"  Avg Runs/Game: {total_home_runs/num_games:.2f}\n\n")
+        log_file.write(f"Series Winner: ")
+        if away_wins > home_wins:
+            log_file.write(f"{away_team.name} ({away_wins}-{home_wins})\n")
+        elif home_wins > away_wins:
+            log_file.write(f"{home_team.name} ({home_wins}-{away_wins})\n")
         else:
-            home_wins += 1
-            winner = home_team.name
-
-        # Display score
-        print(f"\nFinal Score:")
-        print(f"  {away_team.name}: {final_state.away_score}")
-        print(f"  {home_team.name}: {final_state.home_score}")
-        print(f"  Winner: {winner}")
+            log_file.write(f"TIED ({away_wins}-{home_wins})\n")
+        log_file.write(f"{'='*80}\n")
 
     # Display summary
     display_header("Series Results")
@@ -239,6 +309,8 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
         print(f"TIED ({away_wins}-{home_wins})")
 
     print("\n" + "=" * 70)
+    print(f"\n✅ Complete game log saved to: {log_path}")
+    print(f"   File size: {log_path.stat().st_size / 1024:.1f} KB")
 
 
 def main():
