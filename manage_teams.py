@@ -3,11 +3,15 @@
 Team Database Manager - CLI tool for managing MLB team database.
 
 Usage:
-    python manage_teams.py add NYY 2024                # Add Yankees 2024
+    python manage_teams.py add NYY 2024                # Add Yankees 2024 (auto-exports CSV)
+    python manage_teams.py add NYY 2024 --no-csv       # Add without CSV export
     python manage_teams.py list                        # List all teams
     python manage_teams.py list --season 2024          # List teams for 2024
     python manage_teams.py delete "New York Yankees" 2024  # Delete a team
     python manage_teams.py add-multiple 2024 NYY LAD BOS  # Add multiple teams
+
+Note: By default, CSV files are automatically exported to csv_exports/ when adding teams.
+      Use --no-csv to disable automatic export, or --csv-dir to change output location.
 """
 
 import argparse
@@ -20,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from batted_ball.database import TeamDatabase, PybaseballFetcher
 
 
-def add_team(db: TeamDatabase, team_abbr: str, season: int, min_innings: float, min_at_bats: int, overwrite: bool):
+def add_team(db: TeamDatabase, team_abbr: str, season: int, min_innings: float, min_at_bats: int, overwrite: bool, export_csv: bool = True, csv_dir: str = "csv_exports"):
     """Add a team to the database."""
     try:
         num_p, num_h = db.fetch_and_store_team(
@@ -28,7 +32,9 @@ def add_team(db: TeamDatabase, team_abbr: str, season: int, min_innings: float, 
             season=season,
             min_pitcher_innings=min_innings,
             min_hitter_at_bats=min_at_bats,
-            overwrite=overwrite
+            overwrite=overwrite,
+            export_csv=export_csv,
+            csv_output_dir=csv_dir
         )
 
         if num_p > 0 or num_h > 0:
@@ -166,6 +172,18 @@ Examples:
         help='Overwrite existing team data'
     )
 
+    parser.add_argument(
+        '--no-csv',
+        action='store_true',
+        help='Skip automatic CSV export after adding teams'
+    )
+
+    parser.add_argument(
+        '--csv-dir',
+        default='csv_exports',
+        help='Directory for CSV exports (default: csv_exports)'
+    )
+
     args = parser.parse_args()
 
     # Handle show-teams command (doesn't need database)
@@ -186,7 +204,7 @@ Examples:
             team_abbr = args.args[0].upper()
             season = int(args.args[1])
 
-            add_team(db, team_abbr, season, args.min_innings, args.min_at_bats, args.overwrite)
+            add_team(db, team_abbr, season, args.min_innings, args.min_at_bats, args.overwrite, export_csv=not args.no_csv, csv_dir=args.csv_dir)
 
         elif args.command == 'add-multiple':
             if len(args.args) < 2:
@@ -202,7 +220,7 @@ Examples:
 
             success_count = 0
             for team_abbr in team_abbrs:
-                if add_team(db, team_abbr, season, args.min_innings, args.min_at_bats, args.overwrite):
+                if add_team(db, team_abbr, season, args.min_innings, args.min_at_bats, args.overwrite, export_csv=not args.no_csv, csv_dir=args.csv_dir):
                     success_count += 1
                 print()  # Blank line between teams
 
