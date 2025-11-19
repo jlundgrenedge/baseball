@@ -588,6 +588,254 @@ class FielderAttributes:
         a = self.get_acceleration_fps2()
         return v_max / a  # t = v/a for constant acceleration
 
+    # =========================================================================
+    # VARIANCE METHODS (2025-11-19) - Realistic Play-to-Play Variation
+    # =========================================================================
+    # These methods add stochastic variance to fielding performance to simulate
+    # realistic human imperfection. Each call produces different results even
+    # for the same fielder, representing good reads vs. poor reads, perfect
+    # routes vs. hesitation, concentration vs. lapses, etc.
+    #
+    # Philosophy: MLB averages include bad plays. A .980 fielder makes errors
+    # on 2% of plays. These methods simulate that variance.
+
+    def get_reaction_time_with_variance(self) -> float:
+        """
+        Get reaction time with play-by-play variance.
+
+        Adds Gaussian noise to base reaction time to simulate variation in
+        read quality, jump timing, and anticipation. Elite fielders have
+        tighter variance (more consistent), poor fielders have wider variance.
+
+        Returns
+        -------
+        float
+            Reaction time in seconds with variance applied [0.0, 0.5s]
+
+        Examples
+        --------
+        50k-rated fielder (base = 0.10s):
+        - Sometimes: 0.05s (great jump)
+        - Usually: ~0.10s (typical)
+        - Sometimes: 0.15s (late read)
+        """
+        from .constants import (
+            ENABLE_FIELDING_VARIANCE,
+            REACTION_TIME_VARIANCE_ELITE,
+            REACTION_TIME_VARIANCE_AVG,
+            REACTION_TIME_VARIANCE_POOR
+        )
+
+        base_reaction = self.get_reaction_time_s()
+
+        # If variance disabled, return exact value (for testing/debugging)
+        if not ENABLE_FIELDING_VARIANCE:
+            return base_reaction
+
+        # Determine variance based on rating
+        if self.REACTION_TIME >= 85000:
+            variance = REACTION_TIME_VARIANCE_ELITE  # ±0.02s
+        elif self.REACTION_TIME >= 50000:
+            variance = REACTION_TIME_VARIANCE_AVG    # ±0.05s
+        else:
+            variance = REACTION_TIME_VARIANCE_POOR   # ±0.08s
+
+        # Apply Gaussian noise
+        actual_reaction = np.random.normal(base_reaction, variance)
+
+        # Clamp to reasonable range [0.0, 0.5s]
+        return np.clip(actual_reaction, 0.0, 0.5)
+
+    def apply_misread_penalty(self, base_reaction_time: float) -> float:
+        """
+        Apply penalty for wrong initial step or trajectory misread.
+
+        Randomly applies 0.2-0.4s penalty based on fielder's reaction rating.
+        Elite fielders rarely misread (2%), average fielders occasionally (6%),
+        poor fielders frequently (13%).
+
+        Parameters
+        ----------
+        base_reaction_time : float
+            Base reaction time before penalty
+
+        Returns
+        -------
+        float
+            Reaction time with misread penalty applied (if triggered)
+
+        Examples
+        --------
+        Average fielder (50k rating):
+        - 94% of plays: No penalty (normal reaction)
+        - 6% of plays: +0.2-0.4s penalty (wrong first step)
+        """
+        from .constants import (
+            ENABLE_FIELDING_VARIANCE,
+            MISREAD_CHANCE_ELITE,
+            MISREAD_CHANCE_AVG,
+            MISREAD_CHANCE_POOR,
+            MISREAD_TIME_PENALTY_MIN,
+            MISREAD_TIME_PENALTY_MAX
+        )
+
+        # If variance disabled, return unchanged
+        if not ENABLE_FIELDING_VARIANCE:
+            return base_reaction_time
+
+        # Determine misread probability based on rating
+        if self.REACTION_TIME >= 85000:
+            misread_prob = MISREAD_CHANCE_ELITE  # 2%
+        elif self.REACTION_TIME >= 50000:
+            misread_prob = MISREAD_CHANCE_AVG    # 6%
+        else:
+            misread_prob = MISREAD_CHANCE_POOR   # 13%
+
+        # Roll for misread
+        if np.random.random() < misread_prob:
+            # Add time penalty for wrong first step
+            penalty = np.random.uniform(
+                MISREAD_TIME_PENALTY_MIN,
+                MISREAD_TIME_PENALTY_MAX
+            )
+            return base_reaction_time + penalty
+
+        return base_reaction_time
+
+    def get_route_efficiency_with_variance(
+        self,
+        trajectory_complexity: float = 0.5
+    ) -> float:
+        """
+        Get route efficiency with play-by-play variance.
+
+        Varies route quality based on fielder skill and ball trajectory
+        complexity. Uses beta distribution for realistic left-skew
+        (more imperfect routes than perfect routes).
+
+        Parameters
+        ----------
+        trajectory_complexity : float
+            Trajectory difficulty factor (0.0 = easy, 1.0 = very complex)
+            Line drives: ~0.8 (hard to read)
+            Fly balls: ~0.5 (medium difficulty)
+            Pop-ups: ~0.3 (easy to track)
+            Ground balls: ~0.4 (low-medium)
+
+        Returns
+        -------
+        float
+            Route efficiency [0.5, 1.0] with variance
+
+        Examples
+        --------
+        88% base efficiency, medium complexity (0.5):
+        - Elite fielder: 85-91% typical range (±3% × 1.5 complexity)
+        - Average fielder: 82-94% typical range (±6% × 1.5 complexity)
+        - Sometimes worse: 75-80% (poor read)
+        - Rarely perfect: 95-98% (great read)
+        """
+        from .constants import (
+            ENABLE_FIELDING_VARIANCE,
+            ROUTE_EFFICIENCY_VARIANCE_ELITE,
+            ROUTE_EFFICIENCY_VARIANCE_AVG,
+            ROUTE_EFFICIENCY_VARIANCE_POOR,
+            ROUTE_EFFICIENCY_BETA_ALPHA,
+            ROUTE_EFFICIENCY_BETA_BETA,
+            ROUTE_EFFICIENCY_MIN_CLAMP,
+            ROUTE_EFFICIENCY_MAX_CLAMP
+        )
+
+        base_efficiency = self.get_route_efficiency_pct()
+
+        # If variance disabled, return exact value
+        if not ENABLE_FIELDING_VARIANCE:
+            return base_efficiency
+
+        # Determine base variance based on skill
+        if self.ROUTE_EFFICIENCY >= 85000:
+            base_variance = ROUTE_EFFICIENCY_VARIANCE_ELITE  # ±3%
+        elif self.ROUTE_EFFICIENCY >= 50000:
+            base_variance = ROUTE_EFFICIENCY_VARIANCE_AVG    # ±6%
+        else:
+            base_variance = ROUTE_EFFICIENCY_VARIANCE_POOR   # ±10%
+
+        # Scale variance by trajectory complexity
+        # Complex trajectories (line drives) increase variance
+        actual_variance = base_variance * (1.0 + trajectory_complexity)
+
+        # Use beta distribution for realistic skew
+        # Beta(α=5, β=3) centered ~0.625, creating left skew
+        # More imperfect routes than perfect routes (realistic)
+        random_factor = np.random.beta(
+            ROUTE_EFFICIENCY_BETA_ALPHA,
+            ROUTE_EFFICIENCY_BETA_BETA
+        )
+
+        # Map beta sample [0, 1] to variance range centered at base
+        # Center beta distribution output (~0.625) at base efficiency
+        efficiency_variation = (random_factor - 0.625) * actual_variance * 2.0
+        actual_efficiency = base_efficiency + efficiency_variation
+
+        # Clamp to valid range
+        return np.clip(
+            actual_efficiency,
+            ROUTE_EFFICIENCY_MIN_CLAMP,
+            ROUTE_EFFICIENCY_MAX_CLAMP
+        )
+
+    def get_execution_error_rate(self, time_margin: float) -> float:
+        """
+        Get execution error rate for catch attempts.
+
+        Returns probability of execution failure (bobble, drop, misjudgment)
+        even when fielder is in position on time. Only applied to routine
+        plays where fielder arrives with comfortable margin.
+
+        Parameters
+        ----------
+        time_margin : float
+            Time margin fielder has (positive = early, negative = late)
+
+        Returns
+        -------
+        float
+            Execution error probability [0.0, 1.0]
+
+        Examples
+        --------
+        Routine play (time_margin = 0.5s early):
+        - Elite fielder: 2% chance to drop
+        - Average fielder: 5% chance to drop
+        - Poor fielder: 10% chance to drop
+
+        Difficult play (time_margin = 0.0s):
+        - No additional error penalty (already handled by catch probability)
+        """
+        from .constants import (
+            ENABLE_FIELDING_VARIANCE,
+            EXECUTION_ERROR_RATE_ELITE,
+            EXECUTION_ERROR_RATE_AVG,
+            EXECUTION_ERROR_RATE_POOR,
+            EXECUTION_ERROR_ROUTINE_THRESHOLD
+        )
+
+        # If variance disabled, return 0 (no execution errors)
+        if not ENABLE_FIELDING_VARIANCE:
+            return 0.0
+
+        # Only apply to routine plays (comfortable time margin)
+        if time_margin < EXECUTION_ERROR_ROUTINE_THRESHOLD:
+            return 0.0
+
+        # Determine error rate based on fielding secure rating
+        if self.FIELDING_SECURE >= 85000:
+            return EXECUTION_ERROR_RATE_ELITE  # 2%
+        elif self.FIELDING_SECURE >= 50000:
+            return EXECUTION_ERROR_RATE_AVG    # 5%
+        else:
+            return EXECUTION_ERROR_RATE_POOR   # 10%
+
 
 # =============================================================================
 # HELPER FUNCTIONS FOR LEGACY COMPATIBILITY

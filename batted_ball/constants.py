@@ -591,6 +591,72 @@ FIELDER_REACTION_TIME_AVG = 0.10   # s - typical MLB fielder
 FIELDER_REACTION_TIME_POOR = 0.20  # s - poor jump/late read
 FIELDER_REACTION_TIME_MAX = 0.30   # s - very poor reaction
 
+# =============================================================================
+# FIELDING VARIANCE CONTROLS (2025-11-19)
+# =============================================================================
+# These constants control play-by-play variance in fielding performance
+# to simulate realistic human imperfection and prevent "vacuum cleaner" defense
+#
+# Philosophy: "Average" rating (50,000) should mean:
+# - Sometimes perform like 40k (below average play)
+# - Usually perform like 50k (typical play)
+# - Sometimes perform like 60k (above average play)
+# - Never perform perfectly on every single play
+#
+# All variance scales with skill - elite fielders remain more consistent
+
+# Master feature flag - set to False to disable all variance (testing/debugging)
+ENABLE_FIELDING_VARIANCE = True
+
+# Reaction Time Variance (seconds)
+# Represents variation in read quality, jump timing, anticipation
+# Applied as Gaussian noise centered at base reaction time
+REACTION_TIME_VARIANCE_ELITE = 0.02   # ±0.02s for elite fielders (very consistent)
+REACTION_TIME_VARIANCE_AVG = 0.05     # ±0.05s for average fielders (typical MLB)
+REACTION_TIME_VARIANCE_POOR = 0.08    # ±0.08s for poor fielders (inconsistent)
+
+# Misread / Wrong First Step Chance
+# Probability of taking wrong initial step or misreading trajectory
+# Adds 0.2-0.4s penalty when triggered
+MISREAD_CHANCE_ELITE = 0.02   # 2% chance for elite fielders
+MISREAD_CHANCE_AVG = 0.06     # 6% chance for average fielders
+MISREAD_CHANCE_POOR = 0.13    # 13% chance for poor fielders
+MISREAD_TIME_PENALTY_MIN = 0.2  # Minimum time penalty for misread (seconds)
+MISREAD_TIME_PENALTY_MAX = 0.4  # Maximum time penalty for misread (seconds)
+
+# Route Efficiency Variance
+# Base variance in route quality (multiplied by trajectory complexity)
+# Elite fielders: ±3% on easy plays, ±6% on complex plays
+# Average fielders: ±6% on easy plays, ±12% on complex plays
+# Poor fielders: ±10% on easy plays, ±20% on complex plays
+ROUTE_EFFICIENCY_VARIANCE_ELITE = 0.03  # Base variance for elite
+ROUTE_EFFICIENCY_VARIANCE_AVG = 0.06    # Base variance for average
+ROUTE_EFFICIENCY_VARIANCE_POOR = 0.10   # Base variance for poor
+ROUTE_EFFICIENCY_MIN_CLAMP = 0.50       # Minimum route efficiency (even on worst plays)
+ROUTE_EFFICIENCY_MAX_CLAMP = 1.00       # Maximum route efficiency (perfect)
+
+# Route Efficiency Beta Distribution Parameters
+# Beta(α=5, β=3) creates slight left skew (more bad routes than perfect routes)
+# This is realistic - fielders make more mistakes than perfect plays
+ROUTE_EFFICIENCY_BETA_ALPHA = 5.0
+ROUTE_EFFICIENCY_BETA_BETA = 3.0
+
+# Catch Execution Error Rates
+# Even when fielder is in position on time, chance of execution failure
+# Represents: bobbles, drops, last-second misjudgments, sun/glare effects
+# Only applied to routine plays (time_margin >= 0.2s)
+EXECUTION_ERROR_RATE_ELITE = 0.02   # 2% error rate for gold glovers
+EXECUTION_ERROR_RATE_AVG = 0.05     # 5% error rate for average fielders
+EXECUTION_ERROR_RATE_POOR = 0.10    # 10% error rate for poor hands
+EXECUTION_ERROR_ROUTINE_THRESHOLD = 0.2  # Only apply to plays with margin >= this
+
+# Trajectory Complexity Factors
+# Used to scale route efficiency variance based on ball difficulty
+TRAJECTORY_COMPLEXITY_LINE_DRIVE = 0.8   # Line drives harder to read (high complexity)
+TRAJECTORY_COMPLEXITY_FLY_BALL = 0.5     # Normal fly balls (medium complexity)
+TRAJECTORY_COMPLEXITY_POP_UP = 0.3       # Pop-ups easier to track (low complexity)
+TRAJECTORY_COMPLEXITY_GROUND_BALL = 0.4  # Ground balls (low-medium complexity)
+
 # Throwing velocity constants (mph)
 # Position-specific throwing speeds
 INFIELDER_THROW_VELOCITY_MIN = 70.0   # mph

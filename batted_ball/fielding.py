@@ -199,7 +199,68 @@ class Fielder:
     def get_route_efficiency(self) -> float:
         """Get route efficiency percentage (0.0-1.0)."""
         return self.attributes.get_route_efficiency_pct()
-    
+
+    # =========================================================================
+    # VARIANCE-ENABLED METHODS (2025-11-19)
+    # =========================================================================
+    # These methods incorporate play-by-play variance for realistic imperfection
+    # Controlled by ENABLE_FIELDING_VARIANCE flag in constants.py
+
+    def get_first_step_time_with_variance(
+        self,
+        trajectory_complexity: float = 0.5
+    ) -> float:
+        """
+        Get first step/reaction time with play-by-play variance.
+
+        Combines:
+        1. Gaussian variance in base reaction time (±0.02-0.08s based on skill)
+        2. Chance of misread/wrong first step (+0.2-0.4s penalty, 2-13% chance)
+
+        Parameters
+        ----------
+        trajectory_complexity : float
+            Currently unused, reserved for future enhancement
+            Could scale misread chance by ball difficulty
+
+        Returns
+        -------
+        float
+            Reaction time in seconds with variance [0.0, 0.5s]
+        """
+        # Get reaction time with Gaussian variance
+        reaction_with_variance = self.attributes.get_reaction_time_with_variance()
+
+        # Apply possible misread penalty
+        final_reaction = self.attributes.apply_misread_penalty(reaction_with_variance)
+
+        return final_reaction
+
+    def get_route_efficiency_with_variance(
+        self,
+        trajectory_complexity: float = 0.5
+    ) -> float:
+        """
+        Get route efficiency with play-by-play variance.
+
+        Parameters
+        ----------
+        trajectory_complexity : float
+            Trajectory difficulty (0.0-1.0)
+            - Line drives: ~0.8 (hard to read)
+            - Fly balls: ~0.5 (medium)
+            - Pop-ups: ~0.3 (easy)
+            - Ground balls: ~0.4 (low-medium)
+
+        Returns
+        -------
+        float
+            Route efficiency [0.5, 1.0] with variance
+        """
+        return self.attributes.get_route_efficiency_with_variance(
+            trajectory_complexity
+        )
+
     def calculate_directional_speed_penalty(self, movement_direction: np.ndarray) -> float:
         """Calculate speed penalty based on movement direction."""
         from .constants import (
@@ -552,7 +613,12 @@ class Fielder:
         else:
             return 0.95  # Below average
     
-    def calculate_time_to_position(self, target: FieldPosition) -> float:
+    def calculate_time_to_position(
+        self,
+        target: FieldPosition,
+        use_variance: bool = None,
+        trajectory_complexity: float = 0.5
+    ) -> float:
         """
         Calculate time required to reach a target position using simplified empirical model.
 
@@ -561,18 +627,41 @@ class Fielder:
         - Medium distances (30-60ft): Acceleration phase (~80-90% of max)
         - Long distances (> 60ft): Near full sprint with route efficiency
 
+        **2025-11-19 Enhancement:** Now supports play-by-play variance when
+        ENABLE_FIELDING_VARIANCE is True in constants.py. This adds realistic
+        imperfection to fielder performance (reaction time variance, misreads,
+        route inefficiency variation).
+
         Parameters
         ----------
         target : FieldPosition
             Target position to reach
+        use_variance : bool, optional
+            Whether to use variance-enabled calculations
+            If None (default), checks ENABLE_FIELDING_VARIANCE from constants
+            If True, uses variance (random reaction times, route efficiency)
+            If False, uses deterministic base values
+        trajectory_complexity : float, optional
+            Trajectory difficulty for variance scaling (0.0-1.0)
+            Only used if use_variance=True
+            - Line drives: ~0.8 (hard to read)
+            - Fly balls: ~0.5 (medium)
+            - Pop-ups: ~0.3 (easy)
+            - Ground balls: ~0.4 (low-medium)
 
         Returns
         -------
         float
             Time in seconds to reach position (includes reaction/first-step time)
         """
+        from .constants import ENABLE_FIELDING_VARIANCE
+
         if self.current_position is None:
             raise ValueError("Current position not set")
+
+        # Determine whether to use variance
+        if use_variance is None:
+            use_variance = ENABLE_FIELDING_VARIANCE
 
         # Calculate distance and direction to target
         distance = self.current_position.distance_to(target)
@@ -584,7 +673,12 @@ class Fielder:
 
         # Get base physical attributes
         max_speed = self.get_sprint_speed_fps_statcast()
-        first_step_time = self.get_first_step_time()
+
+        # Get reaction time (with or without variance)
+        if use_variance:
+            first_step_time = self.get_first_step_time_with_variance(trajectory_complexity)
+        else:
+            first_step_time = self.get_first_step_time()
 
         # Apply directional speed penalty
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
@@ -602,8 +696,11 @@ class Fielder:
             normalized_dist = (distance - 30.0) / 30.0  # 0 to 1
             speed_percentage = 0.94 + normalized_dist * 0.04  # 94% to 98%
             effective_speed = directional_max_speed * speed_percentage
-            # Minor route inefficiency
-            route_efficiency_raw = self.get_route_efficiency()
+            # Minor route inefficiency (with or without variance)
+            if use_variance:
+                route_efficiency_raw = self.get_route_efficiency_with_variance(trajectory_complexity)
+            else:
+                route_efficiency_raw = self.get_route_efficiency()
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
             route_penalty = 1.0 + (1.0 - route_efficiency) * 0.3  # Reduced penalty
         else:
@@ -611,8 +708,11 @@ class Fielder:
             normalized_dist = min((distance - 60.0) / 60.0, 1.0)  # 0 to 1, capped
             speed_percentage = 0.98 + normalized_dist * 0.02  # 98% to 100%
             effective_speed = directional_max_speed * speed_percentage
-            # Reduced route efficiency penalty
-            route_efficiency_raw = self.get_route_efficiency()
+            # Reduced route efficiency penalty (with or without variance)
+            if use_variance:
+                route_efficiency_raw = self.get_route_efficiency_with_variance(trajectory_complexity)
+            else:
+                route_efficiency_raw = self.get_route_efficiency()
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
             route_penalty = 1.0 + (1.0 - route_efficiency) * 0.15  # Much reduced penalty
 
@@ -791,6 +891,19 @@ class Fielder:
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
         if direction_penalty == BACKWARD_MOVEMENT_PENALTY:
             probability *= 0.93  # 7% penalty
+
+        # =====================================================================
+        # EXECUTION ERROR VARIANCE (2025-11-19)
+        # =====================================================================
+        # Apply execution error reduction for routine plays
+        # Represents: bobbles, drops, last-second misjudgments, concentration lapses
+        # Only applied when fielder arrives with comfortable margin (routine plays)
+        # This prevents 98-99% catch rates on easy plays and adds realism
+        execution_error_rate = self.attributes.get_execution_error_rate(time_margin)
+        if execution_error_rate > 0.0:
+            # Reduce probability by execution error rate
+            # Example: 5% error rate → probability *= 0.95
+            probability *= (1.0 - execution_error_rate)
 
         # Clamp to valid range [0.0, 1.0]
         probability = max(0.0, min(1.0, probability))
