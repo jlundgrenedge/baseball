@@ -463,11 +463,20 @@ class AtBatSimulator:
         pitch_break = pitch_data['break']
 
         # Calculate whiff probability using MLB Statcast data
+        # This includes hitter's pitch-specific contact ability
         whiff_prob = self.hitter.calculate_whiff_probability(
             pitch_velocity=pitch_velocity,
             pitch_type=pitch_type,
             pitch_break=pitch_break,
         )
+
+        # NEW: Apply pitcher's pitch-specific effectiveness (stuff rating)
+        # Elite pitchers with great stuff on a specific pitch get more whiffs
+        pitcher_whiff_mult = self.pitcher.get_pitch_whiff_multiplier(pitch_type)
+        whiff_prob *= pitcher_whiff_mult
+
+        # Clip to reasonable bounds after applying multipliers
+        whiff_prob = np.clip(whiff_prob, 0.05, 0.75)
 
         # Check if whiff occurs
         if np.random.random() < whiff_prob:

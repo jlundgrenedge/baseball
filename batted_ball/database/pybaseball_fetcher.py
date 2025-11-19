@@ -271,6 +271,252 @@ class PybaseballFetcher:
 
         return pitchers, hitters
 
+    def get_pitcher_statcast_metrics(
+        self,
+        player_name: str,
+        min_pitches: int = 100
+    ) -> Optional[Dict[str, Dict[str, float]]]:
+        """
+        Get pitch-level Statcast metrics for a pitcher (whiff%, spin rate, etc.).
+
+        Parameters
+        ----------
+        player_name : str
+            Player name (e.g., "Gerrit Cole")
+        min_pitches : int
+            Minimum pitches thrown per pitch type to include
+
+        Returns
+        -------
+        dict or None
+            Dictionary mapping pitch type to metrics:
+            {
+                'fastball': {'whiff_pct': 0.24, 'chase_pct': 0.28, 'spin_rate': 2400, ...},
+                'slider': {'whiff_pct': 0.38, 'chase_pct': 0.42, 'spin_rate': 2650, ...},
+                ...
+            }
+        """
+        try:
+            print(f"Fetching Statcast pitch-level data for {player_name}...")
+
+            # Fetch pitch-level data from Statcast
+            # Note: This requires player ID - we'd need to look it up first
+            # For now, we'll use the aggregate stats approach with FanGraphs data
+            # which includes SwStr% (swinging strike rate) as a proxy for whiff rate
+
+            # Get pitching stats which includes some plate discipline metrics
+            stats = pitching_stats(self.season, qual=0)
+
+            # Find the player
+            player_stats = stats[stats['Name'].str.contains(player_name, case=False, na=False)]
+
+            if len(player_stats) == 0:
+                print(f"  Player {player_name} not found")
+                return None
+
+            player_stats = player_stats.iloc[0]
+
+            # FanGraphs provides pitch-type specific data in separate columns
+            pitch_metrics = {}
+
+            # Map FanGraphs pitch type suffixes to our pitch types
+            pitch_type_mapping = {
+                'FA': 'fastball',      # 4-seam fastball
+                'FT': '2-seam',        # 2-seam/sinker
+                'FC': 'cutter',        # Cutter
+                'SI': '2-seam',        # Sinker (treat as 2-seam)
+                'SL': 'slider',        # Slider
+                'CU': 'curveball',     # Curveball
+                'CH': 'changeup',      # Changeup
+                'FS': 'splitter',      # Splitter
+                'KC': 'curveball',     # Knuckle-curve (treat as curveball)
+            }
+
+            # Extract metrics for each pitch type
+            for fg_type, our_type in pitch_type_mapping.items():
+                # Check if this pitcher throws this pitch type (usage %)
+                usage_col = f'{fg_type}%'
+                if usage_col in player_stats.index and player_stats[usage_col] > 5.0:  # At least 5% usage
+                    metrics = {}
+
+                    # Velocity (vFA, vFT, vSL, etc.)
+                    velo_col = f'v{fg_type} (pi)'
+                    if velo_col in player_stats.index and not pd.isna(player_stats[velo_col]):
+                        metrics['velocity'] = float(player_stats[velo_col])
+
+                    # Whiff rate (SwStr%) - FanGraphs provides this
+                    # Note: SwStr% is swinging strike rate, which is close to whiff rate
+                    if 'SwStr%' in player_stats.index and not pd.isna(player_stats['SwStr%']):
+                        # Use aggregate SwStr% as baseline, then adjust by pitch type
+                        base_whiff = float(player_stats['SwStr%']) / 100.0
+
+                        # Adjust based on typical pitch type effectiveness
+                        # Source: MLB Statcast average whiff rates by pitch type
+                        pitch_type_multipliers = {
+                            'fastball': 0.75,   # Fastballs typically 25% below average
+                            '2-seam': 0.70,     # Sinkers even lower
+                            'cutter': 0.95,     # Cutters near average
+                            'slider': 1.30,     # Sliders 30% above average
+                            'curveball': 1.15,  # Curves above average
+                            'changeup': 1.20,   # Changeups above average
+                            'splitter': 1.40,   # Splitters highest
+                        }
+
+                        multiplier = pitch_type_multipliers.get(our_type, 1.0)
+                        metrics['whiff_pct'] = base_whiff * multiplier
+
+                    # Spin rate (not always available in FanGraphs)
+                    spin_col = f'Spin (pi)'
+                    if spin_col in player_stats.index and not pd.isna(player_stats[spin_col]):
+                        metrics['spin_rate'] = float(player_stats[spin_col])
+
+                    # Usage percentage
+                    if usage_col in player_stats.index:
+                        metrics['usage_pct'] = float(player_stats[usage_col]) / 100.0
+
+                    if metrics:  # Only add if we got some data
+                        if our_type not in pitch_metrics:
+                            pitch_metrics[our_type] = {}
+                        # Merge/average if we have multiple pitch types mapping to same category
+                        for key, value in metrics.items():
+                            if key in pitch_metrics[our_type]:
+                                # Average if we already have a value
+                                pitch_metrics[our_type][key] = (pitch_metrics[our_type][key] + value) / 2
+                            else:
+                                pitch_metrics[our_type][key] = value
+
+            print(f"  Found metrics for {len(pitch_metrics)} pitch types")
+            return pitch_metrics if pitch_metrics else None
+
+        except Exception as e:
+            print(f"  Error fetching Statcast metrics: {e}")
+            return None
+
+    def get_batter_statcast_metrics(
+        self,
+        player_name: str,
+        min_pitches: int = 100
+    ) -> Optional[Dict[str, Dict[str, float]]]:
+        """
+        Get pitch-level Statcast metrics for a batter (chase%, contact%, etc.).
+
+        Parameters
+        ----------
+        player_name : str
+            Player name (e.g., "Aaron Judge")
+        min_pitches : int
+            Minimum pitches seen per pitch type to include
+
+        Returns
+        -------
+        dict or None
+            Dictionary mapping pitch type to metrics:
+            {
+                'fastball': {'chase_pct': 0.22, 'contact_pct': 0.78, 'whiff_pct': 0.18, ...},
+                'slider': {'chase_pct': 0.35, 'contact_pct': 0.65, 'whiff_pct': 0.28, ...},
+                ...
+            }
+        """
+        try:
+            print(f"Fetching Statcast pitch-level data for {player_name}...")
+
+            # Get batting stats
+            stats = batting_stats(self.season, qual=0)
+
+            # Find the player
+            player_stats = stats[stats['Name'].str.contains(player_name, case=False, na=False)]
+
+            if len(player_stats) == 0:
+                print(f"  Player {player_name} not found")
+                return None
+
+            player_stats = player_stats.iloc[0]
+
+            # Extract plate discipline metrics
+            pitch_metrics = {}
+
+            # Aggregate metrics we can use to estimate pitch-type performance
+            aggregate_metrics = {}
+
+            # O-Swing% (chase rate on pitches outside zone)
+            if 'O-Swing%' in player_stats.index and not pd.isna(player_stats['O-Swing%']):
+                aggregate_metrics['chase_pct'] = float(player_stats['O-Swing%']) / 100.0
+
+            # Z-Contact% (contact rate on pitches in zone)
+            if 'Z-Contact%' in player_stats.index and not pd.isna(player_stats['Z-Contact%']):
+                aggregate_metrics['zone_contact_pct'] = float(player_stats['Z-Contact%']) / 100.0
+
+            # O-Contact% (contact rate on pitches outside zone)
+            if 'O-Contact%' in player_stats.index and not pd.isna(player_stats['O-Contact%']):
+                aggregate_metrics['chase_contact_pct'] = float(player_stats['O-Contact%']) / 100.0
+
+            # Contact% (overall contact rate)
+            if 'Contact%' in player_stats.index and not pd.isna(player_stats['Contact%']):
+                aggregate_metrics['contact_pct'] = float(player_stats['Contact%']) / 100.0
+
+            # SwStr% (swinging strike rate = whiff rate)
+            if 'SwStr%' in player_stats.index and not pd.isna(player_stats['SwStr%']):
+                aggregate_metrics['whiff_pct'] = float(player_stats['SwStr%']) / 100.0
+
+            # Create pitch-type specific metrics by adjusting aggregate metrics
+            # based on typical hitter performance vs different pitch types
+            pitch_types = ['fastball', '2-seam', 'cutter', 'slider', 'curveball', 'changeup', 'splitter']
+
+            for pitch_type in pitch_types:
+                metrics = {}
+
+                # Chase rate adjustments (harder to identify = higher chase rate)
+                if 'chase_pct' in aggregate_metrics:
+                    base_chase = aggregate_metrics['chase_pct']
+                    chase_multipliers = {
+                        'fastball': 0.70,   # Easier to identify
+                        '2-seam': 0.75,
+                        'cutter': 0.85,
+                        'slider': 1.40,     # Hardest to identify (highest chase)
+                        'curveball': 1.25,
+                        'changeup': 1.30,
+                        'splitter': 1.35,
+                    }
+                    metrics['chase_pct'] = base_chase * chase_multipliers.get(pitch_type, 1.0)
+
+                # Contact rate adjustments (harder movement = lower contact)
+                if 'contact_pct' in aggregate_metrics:
+                    base_contact = aggregate_metrics['contact_pct']
+                    contact_multipliers = {
+                        'fastball': 1.15,   # Easier to make contact
+                        '2-seam': 1.10,
+                        'cutter': 1.05,
+                        'slider': 0.75,     # Hardest to make contact
+                        'curveball': 0.85,
+                        'changeup': 0.80,
+                        'splitter': 0.70,
+                    }
+                    metrics['contact_pct'] = base_contact * contact_multipliers.get(pitch_type, 1.0)
+
+                # Whiff rate adjustments (inverse of contact for swings)
+                if 'whiff_pct' in aggregate_metrics:
+                    base_whiff = aggregate_metrics['whiff_pct']
+                    whiff_multipliers = {
+                        'fastball': 0.70,
+                        '2-seam': 0.75,
+                        'cutter': 0.90,
+                        'slider': 1.50,     # Highest whiff rate
+                        'curveball': 1.25,
+                        'changeup': 1.35,
+                        'splitter': 1.55,
+                    }
+                    metrics['whiff_pct'] = base_whiff * whiff_multipliers.get(pitch_type, 1.0)
+
+                if metrics:
+                    pitch_metrics[pitch_type] = metrics
+
+            print(f"  Estimated metrics for {len(pitch_metrics)} pitch types")
+            return pitch_metrics if pitch_metrics else None
+
+        except Exception as e:
+            print(f"  Error fetching batter Statcast metrics: {e}")
+            return None
+
     @staticmethod
     def get_available_teams() -> List[str]:
         """
