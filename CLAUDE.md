@@ -1,8 +1,9 @@
 # CLAUDE.md - AI Assistant Guide for Baseball Physics Simulation Engine
 
-**Last Updated**: 2025-11-18
+**Last Updated**: 2025-11-19
 **Repository**: Baseball Physics Simulation Engine
 **Purpose**: Guide AI assistants in understanding and working with this codebase
+**Version**: 1.1.0
 
 ---
 
@@ -23,13 +24,14 @@
 ## Repository Overview
 
 ### What This Is
-A **physics-based baseball simulation engine** (~17,800 lines of Python) that models complete games from pitch to play outcome. This is NOT an arcade game or pure statistical simulation - every outcome emerges from rigorous physics calculations calibrated against MLB Statcast data.
+A **physics-based baseball simulation engine** (~18,500 lines of Python) that models complete games from pitch to play outcome. This is NOT an arcade game or pure statistical simulation - every outcome emerges from rigorous physics calculations calibrated against MLB Statcast data.
 
 ### Project Maturity
 - **Status**: Production-ready, all 5 development phases complete
 - **Validation**: 7/7 MLB benchmark tests passing
 - **Performance**: Optimized with Numba JIT, parallel processing, optional GPU acceleration
 - **Documentation**: 35+ detailed guides, 8 research papers
+- **Version**: 1.1.0 - Now includes MLB database integration
 
 ### Core Capabilities
 - Full 9-inning game simulation with realistic play-by-play
@@ -39,6 +41,8 @@ A **physics-based baseball simulation engine** (~17,800 lines of Python) that mo
 - Player attribute system (0-100,000 ratings) mapped to physical parameters
 - Environmental effects (altitude, temperature, wind)
 - Force plays, double plays, and complex baserunning scenarios
+- **NEW**: MLB database system for storing/loading real player data via pybaseball
+- **NEW**: Automatic conversion of MLB statistics to game attributes
 
 ---
 
@@ -201,6 +205,28 @@ fast_trajectory.py                    - Optimized trajectory calculations
 validation.py                         - 7-benchmark test suite
 ```
 
+#### **Layer 6: MLB Database Integration** (NEW in v1.1.0)
+```
+database/
+├── db_schema.py                  - SQLite database schema
+├── pybaseball_fetcher.py         - Fetch MLB data via pybaseball
+├── stats_converter.py            - MLB stats → game attributes
+├── team_database.py              - Database CRUD operations
+├── team_loader.py                - Load teams for simulation
+└── __init__.py
+
+pybaseball_integration.py         - Create players from MLB stats
+hit_handler.py                    - Hit outcome processing
+manage_teams.py (root)            - CLI tool for database management
+```
+
+**Database System**:
+- Fetch real MLB player statistics using pybaseball API
+- Convert stats to physics-based game attributes (0-100,000 scale)
+- Store teams in SQLite for fast, offline access
+- Load teams by name/year without re-scraping
+- Support for pitchers, hitters, and fielders
+
 ### Dependency Graph
 
 ```
@@ -216,16 +242,21 @@ player.py ← attributes.py ← at_bat.py
 FIELD LAYER
 field_layout.py → fielding.py ↔ baserunning.py
                 ↓
-         play_simulation.py
+         play_simulation.py → hit_handler.py
 
 GAME LAYER
 game_simulation.py ← play_simulation.py
+
+DATABASE LAYER (Optional, v1.1.0+)
+pybaseball_fetcher → stats_converter → team_database → team_loader
+                                            ↓
+                                        player.py
 
 PERFORMANCE OVERLAY (Optional)
 performance.py, bulk_simulation.py, parallel_game_simulation.py
 ```
 
-**Import Pattern**: Lower layers never import from higher layers. Changes to `constants.py` affect everything; changes to `game_simulation.py` affect nothing else.
+**Import Pattern**: Lower layers never import from higher layers. Changes to `constants.py` affect everything; changes to `game_simulation.py` affect nothing else. Database layer is optional and sits alongside the player layer.
 
 ---
 
@@ -375,6 +406,147 @@ if at_bat_result.outcome == "strikeout":
 # In final summary
 print(f"Strikeouts: Away {state.strikeouts_away}, Home {state.strikeouts_home}")
 ```
+
+### Workflow 6: Working with MLB Database System (NEW in v1.1.0)
+
+**Purpose**: Create teams from real MLB player statistics
+
+**Quick Start**:
+```bash
+# Install pybaseball (if not already installed)
+pip install pybaseball
+
+# Add a team to database
+python manage_teams.py add NYY 2024
+
+# List all teams in database
+python manage_teams.py list
+
+# Simulate a matchup
+python examples/simulate_mlb_matchup.py "New York Yankees" "Los Angeles Dodgers" 2024
+```
+
+**Key Components**:
+
+1. **Fetching MLB Data** (`database/pybaseball_fetcher.py`):
+   - Uses pybaseball library to get player stats
+   - Fetches batting stats, pitching stats, sprint speeds
+   - Handles missing data gracefully
+
+2. **Converting Stats** (`database/stats_converter.py`):
+   - Maps MLB statistics → 0-100,000 game attributes
+   - Converts: BA, OBP, SLG → contact/power/discipline
+   - Converts: ERA, WHIP, K/9 → velocity/command/stamina
+   - Includes fielding metrics for defensive ratings
+
+3. **Database Operations** (`database/team_database.py`):
+   - SQLite database for persistence
+   - CRUD operations for teams, pitchers, hitters, fielders
+   - Automatic schema creation
+   - Team versioning by year
+
+4. **Loading Teams** (`database/team_loader.py`):
+   - Load teams from database for simulations
+   - Creates Pitcher, Hitter, Fielder objects
+   - Handles batting order and pitching rotation
+
+**Example - Adding Multiple Teams**:
+```python
+from batted_ball.database import TeamDatabase, PybaseballFetcher, StatsConverter
+
+db = TeamDatabase()
+fetcher = PybaseballFetcher()
+converter = StatsConverter()
+
+# Add Yankees 2024
+team_abbr = "NYY"
+season = 2024
+
+# Fetch and store
+pitchers_df = fetcher.fetch_team_pitching(team_abbr, season)
+hitters_df = fetcher.fetch_team_batting(team_abbr, season)
+
+# Convert to attributes
+pitchers = converter.convert_pitchers(pitchers_df)
+hitters = converter.convert_hitters(hitters_df)
+
+# Store in database
+db.add_team("New York Yankees", season, pitchers, hitters)
+```
+
+**Example - Using Database Teams in Games**:
+```python
+from batted_ball.database import TeamLoader
+from batted_ball import GameSimulator
+
+loader = TeamLoader()
+
+# Load teams from database
+yankees = loader.load_team("New York Yankees", 2024)
+dodgers = loader.load_team("Los Angeles Dodgers", 2024)
+
+# Simulate game
+sim = GameSimulator(yankees, dodgers, verbose=True)
+result = sim.simulate_game(num_innings=9)
+
+print(f"Final: {yankees.name} {result.away_score} - {result.home_score} {dodgers.name}")
+```
+
+**Managing Database** (CLI tool):
+```bash
+# Add single team
+python manage_teams.py add NYY 2024
+
+# Add with custom filters
+python manage_teams.py add LAD 2024 --min-innings 20 --min-at-bats 50
+
+# Add multiple teams at once
+python manage_teams.py add-multiple 2024 NYY BOS TB TOR BAL
+
+# List teams
+python manage_teams.py list              # All teams
+python manage_teams.py list --season 2024  # Specific season
+
+# Delete team
+python manage_teams.py delete "New York Yankees" 2024
+
+# View team details
+python manage_teams.py info "Los Angeles Dodgers" 2024
+```
+
+**Stat Conversion Mappings**:
+
+The `stats_converter.py` module maps MLB statistics to game attributes:
+
+**Hitters**:
+- Contact: f(BA, K%, Contact%) - Batting average, strikeout rate
+- Power: f(SLG, ISO, HR) - Slugging, isolated power, home runs
+- Discipline: f(BB%, OBP) - Walk rate, on-base percentage
+- Speed: f(Sprint_Speed, SB) - Statcast sprint speed or stolen bases
+
+**Pitchers**:
+- Velocity: f(AVG_Velo, FB_Velo) - Average/fastball velocity
+- Command: f(BB/9, WHIP) - Walk rate, baserunners allowed
+- Stamina: f(IP/GS) - Innings per game started
+- Repertoire: Based on pitch mix distribution
+
+**Fielders**:
+- Reaction: f(Outs_Above_Avg, Range_Runs) - Defensive metrics
+- Speed: f(Sprint_Speed) - Statcast sprint speed
+- Arm: f(Assists, Position) - Throwing ability by position
+- Hands: f(Fielding_Pct, Errors) - Catching reliability
+
+**Database Schema**:
+- `teams`: Team metadata (name, season, created_at)
+- `pitchers`: Pitcher attributes linked to team
+- `hitters`: Hitter attributes linked to team
+- `fielders`: Fielder defensive attributes
+
+**Important Notes**:
+- First pybaseball fetch may take 30-60 seconds (caching enabled)
+- Some players may have incomplete stats (system uses reasonable defaults)
+- Database stored at `batted_ball/database/teams.db` by default
+- See `DATABASE_README.md` for complete documentation
 
 ---
 
@@ -592,14 +764,17 @@ print(f"Average score: {results.avg_home_score:.1f} - {results.avg_away_score:.1
 ### Root Directory Structure
 ```
 /home/user/baseball/
-├── batted_ball/              # Main package (33 Python modules, ~17,800 lines)
+├── batted_ball/              # Main package (39 Python modules, ~18,500 lines)
+│   └── database/             # MLB database system (6 modules, NEW in v1.1.0)
 ├── tests/                    # Test suite (22 files)
-├── examples/                 # Usage demonstrations (17 files)
+├── examples/                 # Usage demonstrations (21 files)
 ├── docs/                     # Documentation (35+ MD files)
 ├── research/                 # Physics research papers (8 files)
-├── requirements.txt          # Dependencies (numpy, scipy, matplotlib, numba)
+├── requirements.txt          # Dependencies (numpy, scipy, matplotlib, numba, pybaseball)
 ├── README.md                 # User-facing documentation
 ├── CLAUDE.md                 # This file (AI assistant guide)
+├── DATABASE_README.md        # MLB database system guide (NEW)
+├── manage_teams.py           # CLI tool for team database (NEW)
 ├── game_simulation.bat       # Windows runner (interactive menu)
 ├── performance_test_suite.py # Performance testing script
 └── .gitignore                # Standard Python ignores
@@ -611,6 +786,7 @@ print(f"Average score: {results.avg_home_score:.1f} - {results.avg_away_score:.1
 1. `README.md` - User-facing overview
 2. `batted_ball/__init__.py` - Package exports and public API
 3. `batted_ball/constants.py` - All physics constants (start here for tuning)
+4. `DATABASE_README.md` - MLB database system guide (NEW in v1.1.0)
 
 **Core physics implementation**:
 4. `batted_ball/aerodynamics.py` - Drag + Magnus force
@@ -626,11 +802,18 @@ print(f"Average score: {results.avg_home_score:.1f} - {results.avg_away_score:.1
 10. `batted_ball/fielding.py` - Largest module (1,479 lines)
 11. `batted_ball/baserunning.py` - Runner mechanics (982 lines)
 12. `batted_ball/field_layout.py` - Coordinate system reference
+13. `batted_ball/hit_handler.py` - Hit outcome processing
 
 **Validation & performance**:
-13. `batted_ball/validation.py` - 7-benchmark test suite
-14. `batted_ball/performance.py` - Optimization modes
-15. `tests/test_league_simulation.py` - Comprehensive game testing
+14. `batted_ball/validation.py` - 7-benchmark test suite
+15. `batted_ball/performance.py` - Optimization modes
+16. `tests/test_league_simulation.py` - Comprehensive game testing
+
+**MLB Database System** (NEW in v1.1.0):
+17. `batted_ball/database/team_database.py` - SQLite CRUD operations
+18. `batted_ball/database/stats_converter.py` - MLB stats → attributes
+19. `batted_ball/database/pybaseball_fetcher.py` - Fetch real player data
+20. `manage_teams.py` - CLI for database management
 
 ### Documentation Hierarchy
 
@@ -939,6 +1122,8 @@ git push -u origin <branch-name>
 **Game flow** → `batted_ball/game_simulation.py`
 **Validation** → `batted_ball/validation.py`
 **Performance** → `batted_ball/performance.py`
+**MLB data integration** → `batted_ball/database/` (NEW)
+**Team management** → `manage_teams.py` (NEW)
 
 ### When You Need To...
 
@@ -946,6 +1131,7 @@ git push -u origin <branch-name>
 **Debug coordinates** → `docs/COORDINATE_SYSTEM_GUIDE.md`
 **Learn physics** → `research/Modeling Baseball Batted Ball Trajectories.md`
 **Tune scoring** → `docs/SCORING_CALIBRATION_2024.md`
+**Use MLB database** → `DATABASE_README.md` (NEW)
 **See examples** → `examples/` directory
 **Run tests** → `tests/` directory
 
@@ -1038,7 +1224,43 @@ rover = Fielder(name="Rover", position="Rover", ...)
 
 ---
 
-**Last Updated**: 2025-11-18
+**Last Updated**: 2025-11-19
+**Version**: 1.1.0
 **Maintainer**: Baseball Physics Simulation Engine Project
-**Status**: Production-ready, all 5 phases complete
+**Status**: Production-ready, all 5 phases complete + MLB database integration
 **Validation**: 7/7 MLB benchmarks passing ✓
+
+---
+
+## Recent Changes (v1.1.0 - 2025-11-19)
+
+### Major Additions
+1. **MLB Database System** - Complete integration with pybaseball for real player data
+   - SQLite database for storing teams
+   - Automatic stat conversion from MLB to game attributes
+   - CLI tool (`manage_teams.py`) for database management
+   - New `batted_ball/database/` package with 6 modules
+
+2. **New Modules**:
+   - `batted_ball/database/db_schema.py` - Database schema
+   - `batted_ball/database/pybaseball_fetcher.py` - Fetch MLB data
+   - `batted_ball/database/stats_converter.py` - Convert stats to attributes
+   - `batted_ball/database/team_database.py` - CRUD operations
+   - `batted_ball/database/team_loader.py` - Load teams for simulation
+   - `batted_ball/hit_handler.py` - Hit outcome processing
+   - `batted_ball/pybaseball_integration.py` - Public API for MLB integration
+
+3. **New Documentation**:
+   - `DATABASE_README.md` - Complete guide to database system
+   - Updated examples for MLB team simulations
+
+4. **Bug Fixes**:
+   - Fixed runner speed calculation to use player's actual speed attribute
+   - Fixed game log truncation in multi-game simulations
+   - Improved fielding catch logic and timing
+
+### Migration Notes
+- Existing code remains fully backward compatible
+- Database features are optional - `import batted_ball` still works without pybaseball
+- To use MLB features: `pip install pybaseball`
+- See `DATABASE_README.md` for migration guide
