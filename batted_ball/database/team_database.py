@@ -72,7 +72,9 @@ class TeamDatabase:
         season: int = 2024,
         min_pitcher_innings: float = 20.0,
         min_hitter_at_bats: int = 50,
-        overwrite: bool = False
+        overwrite: bool = False,
+        export_csv: bool = True,
+        csv_output_dir: str = "csv_exports"
     ) -> Tuple[int, int]:
         """
         Fetch team data from pybaseball and store in database.
@@ -89,6 +91,10 @@ class TeamDatabase:
             Minimum at-bats for hitters
         overwrite : bool
             If True, delete existing team data for this team/season
+        export_csv : bool
+            If True, automatically export database to CSV after storing (default: True)
+        csv_output_dir : str
+            Directory for CSV exports (default: 'csv_exports')
 
         Returns
         -------
@@ -170,6 +176,15 @@ class TeamDatabase:
 
         print(f"\n  ✓ Stored {num_pitchers} pitchers and {num_hitters} hitters")
         print(f"{'='*60}\n")
+
+        # Auto-export to CSV if requested
+        if export_csv and (num_pitchers > 0 or num_hitters > 0):
+            try:
+                from .csv_exporter import CSVExporter
+                exporter = CSVExporter(str(self.db_path))
+                exporter.export_all(csv_output_dir, verbose=True)
+            except Exception as e:
+                print(f"  Warning: CSV export failed: {e}")
 
         return num_pitchers, num_hitters
 
