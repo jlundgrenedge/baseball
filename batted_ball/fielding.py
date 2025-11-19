@@ -92,7 +92,7 @@ class FieldingResult:
         self.fielder_position = fielder_position
         self.failure_reason = failure_reason
         self.is_error = is_error
-        self.margin = fielder_arrival_time - ball_arrival_time  # Negative = made it
+        self.margin = ball_arrival_time - fielder_arrival_time  # Positive = made it
 
 
 class ThrowResult:
