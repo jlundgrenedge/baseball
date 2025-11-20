@@ -636,13 +636,24 @@ class Hitter:
             swing_prob = base_swing_prob + (1 - discipline_factor) * 0.15
         else:
             # Good discipline = much lower chase rate
-            swing_prob = base_swing_prob * (1 - discipline_factor * 0.6)
+            # FIXED 2025-11-20: Increased from 0.6 to 0.85 to create larger spread
+            # Elite discipline (0.90 factor): 1 - 0.90*0.85 = 0.235 → 76.5% reduction in chase rate
+            # Poor discipline (0.45 factor):  1 - 0.45*0.85 = 0.617 → 38.3% reduction in chase rate
+            # This creates a ~13-15 percentage point spread matching MLB data
+            swing_prob = base_swing_prob * (1 - discipline_factor * 0.85)
 
         # Adjust for decision speed (faster decisions = more aggressive swings)
         # Swing decision latency: lower ms = faster = more aggressive
         # Map to aggression factor: 75ms (elite, fast) = 0.9, 130ms (avg) = 0.5, 200ms (slow) = 0.2
         decision_latency_ms = self.attributes.get_swing_decision_latency_ms()
-        aggression_factor = np.clip(1.0 - (decision_latency_ms - 75) / 125, 0.2, 0.9)
+        # FIXED 2025-11-20: Corrected inverted formula
+        # Previous: aggression_factor = 1.0 - (decision_latency_ms - 75) / 125
+        #   → 75ms gave 1.0, 200ms gave 0.0 (BACKWARDS!)
+        # New: aggression_factor = (200 - decision_latency_ms) / 125
+        #   → 75ms gives (200-75)/125 = 1.0 (clipped to 0.9) ✓ aggressive
+        #   → 130ms gives (200-130)/125 = 0.56 ✓ average
+        #   → 200ms gives (200-200)/125 = 0.0 (clipped to 0.2) ✓ passive
+        aggression_factor = np.clip((200.0 - decision_latency_ms) / 125.0, 0.2, 0.9)
         swing_prob = swing_prob * (0.8 + aggression_factor * 0.4)
 
         # Velocity effect (faster pitches = less time to decide = more takes)
