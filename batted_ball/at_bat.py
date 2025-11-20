@@ -1120,24 +1120,26 @@ class AtBatSimulator:
                         is_foul = True
 
                     # Weak contact more likely to foul
-                    # PHASE 2A TUNING (2025-11-20): Increased from 0.22 to 0.35
-                    # Diagnostic showed 10.6% foul rate (MLB target: 20-25%)
-                    # Previous 0.22 value was too conservative and caused short at-bats (3.12 pitches/PA)
-                    if contact_quality == 'weak' and np.random.random() < 0.35:
+                    # PHASE 2A TUNING v2 (2025-11-20): Increased from 0.35 to 0.40
+                    # First tuning: 0.22 → 0.35 increased foul rate from 10.6% → 17.0%
+                    # Still below target (20-25%), so increasing further
+                    # Goal: Reach 20-22% foul rate for MLB-realistic at-bat lengths
+                    if contact_quality == 'weak' and np.random.random() < 0.40:
                         is_foul = True
 
                     # 2-strike protection fouls - NEW MECHANIC (Phase 2A)
                     # Batters with 2 strikes take defensive swings to "protect the plate"
                     # These often result in fouls even on decent contact
                     # This is the PRIMARY source of prolonged at-bats in MLB
+                    # v2 tuning: Increased probabilities from initial values
                     if strikes >= 2 and not is_foul:
                         # Protection foul probability scales with contact quality
                         if contact_quality == 'solid':
-                            protection_foul_prob = 0.10  # 10% chance even on solid contact
+                            protection_foul_prob = 0.13  # Increased from 0.10
                         elif contact_quality == 'fair':
-                            protection_foul_prob = 0.15  # 15% chance on fair contact
+                            protection_foul_prob = 0.19  # Increased from 0.15
                         else:  # weak (already has high foul chance above)
-                            protection_foul_prob = 0.05  # Small additional boost
+                            protection_foul_prob = 0.07  # Increased from 0.05
 
                         if np.random.random() < protection_foul_prob:
                             is_foul = True
