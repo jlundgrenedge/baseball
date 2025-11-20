@@ -921,3 +921,56 @@ SAFE_RUNNER_BIAS = 0.05            # s - slight bias toward runner (increased fr
 # Tag play timing
 TAG_APPLICATION_TIME = 0.10        # s - time to apply tag after catch
 TAG_AVOIDANCE_SUCCESS_RATE = 0.15  # 15% chance to avoid tag if close
+
+# ============================================================================
+# V2.0 MLB REALISM CONTROLS - PHASE 2B: BB% (WALK RATE) DECOUPLING
+# ============================================================================
+# Source: v2_Implementation_Plan.md - Phase 2B
+# Goal: Achieve 8-9% BB rate independent of K% via pitcher control and umpire model
+
+# --- Pitcher Control Module: Zone Targeting ---
+# Controls how often pitchers target the strike zone based on count/situation
+# Replaces hardcoded "intentional ball" probabilities with dynamic control model
+
+BB_ZONE_TARGET_NEUTRAL = 0.62  # Target zone % in neutral counts (0-0, 1-1, 2-2)
+                               # Tune range: 0.58-0.68 to achieve MLB zone rate ~62-65%
+
+BB_ZONE_TARGET_AHEAD = 0.70    # Target zone % when ahead in count (0-2, 1-2)
+                               # Tune range: 0.65-0.75; pitchers attack more when ahead
+
+BB_ZONE_TARGET_BEHIND = 0.55   # Target zone % when behind in count (2-0, 3-0, 3-1)
+                               # Tune range: 0.50-0.60; pitchers nibble more when behind
+
+BB_ZONE_TARGET_THREE_BALL = 0.90  # Target zone % on 3-ball counts (must throw strike)
+                                  # Very high to avoid walk
+
+# --- Umpire Model: Borderline Call Variability ---
+# Probabilistic strike/ball calls on pitches near zone edge
+# Simulates umpire inconsistency and catcher framing impact
+
+BB_UMPIRE_BORDERLINE_BIAS = 0.50      # Base strike probability on borderline pitches
+                                       # Tune range: 0.45-0.55; 0.50 = neutral
+                                       # Higher = more generous strike zone
+
+BB_BORDERLINE_DISTANCE_INCHES = 2.0   # Distance from zone edge for probabilistic calls
+                                       # Pitches within ±2" of edge are "borderline"
+                                       # Pitches >2" outside = always ball
+                                       # Pitches >2" inside = always strike
+
+BB_FRAMING_BONUS_MAX = 0.05           # Max catcher framing bonus to strike probability
+                                       # Elite catcher adds up to +5% strike probability
+                                       # Tune range: 0.00-0.08
+                                       # Set to 0.00 to disable framing
+
+# --- Nibbling Tendency (Pitcher Personality) ---
+# How often pitcher pitches carefully vs aggressively
+# Affects zone target probability by situation
+
+BB_NIBBLING_BASE = 0.50               # Base nibbling tendency (0-1 scale)
+                                      # 0.0 = always aggressive (attack zone)
+                                      # 1.0 = always careful (nibble edges)
+                                      # 0.5 = balanced approach
+
+# --- V2 Feature Flags ---
+V2_PITCHER_CONTROL_MODULE_ENABLED = True  # Enable dynamic zone targeting
+V2_UMPIRE_MODEL_ENABLED = True            # Enable probabilistic borderline calls

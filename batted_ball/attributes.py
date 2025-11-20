@@ -415,7 +415,8 @@ class FielderAttributes:
         FIELDING_SECURE: float = 50000,
         TRANSFER_TIME: float = 50000,
         ARM_STRENGTH: float = 50000,
-        ARM_ACCURACY: float = 50000
+        ARM_ACCURACY: float = 50000,
+        FRAMING: float = 50000
     ):
         """Initialize fielder attributes (default: league average = 50,000)"""
         self.REACTION_TIME = np.clip(REACTION_TIME, 0, 100000)
@@ -427,6 +428,7 @@ class FielderAttributes:
         self.TRANSFER_TIME = np.clip(TRANSFER_TIME, 0, 100000)
         self.ARM_STRENGTH = np.clip(ARM_STRENGTH, 0, 100000)
         self.ARM_ACCURACY = np.clip(ARM_ACCURACY, 0, 100000)
+        self.FRAMING = np.clip(FRAMING, 0, 100000)
 
     def get_reaction_time_s(self) -> float:
         """
@@ -631,6 +633,40 @@ class FielderAttributes:
         a = self.get_acceleration_fps2()
         return v_max / a  # t = v/a for constant acceleration
 
+    def get_framing_rating(self) -> float:
+        """
+        Convert FRAMING to catcher framing ability (0-100,000 scale).
+
+        NEW 2025-11-20 Phase 2B: Catcher pitch framing for V2 engine.
+
+        FRAMING represents catcher's ability to "steal" strikes on borderline
+        pitches through receiving technique. Used by UmpireModel to add bonus
+        to strike probability on pitches near zone edge.
+
+        Elite framers can gain ~3-5 extra strikes per 100 borderline pitches,
+        which translates to ~0.3-0.5 runs prevented per game.
+
+        This rating directly maps to the framing bonus in the UmpireModel.
+        The UmpireModel.get_framing_bonus() method converts this 0-100k rating
+        to a probability bonus (0.0 to BB_FRAMING_BONUS_MAX).
+
+        Anchors:
+        - 0: 0 (no framing skill, poor receiver)
+        - 50k: 50,000 (average MLB catcher)
+        - 85k: 85,000 (elite framer, top 10%)
+        - 100k: 100,000 (best in MLB)
+
+        Returns
+        -------
+        float
+            Framing ability (0-100,000)
+            Directly used by UmpireModel
+
+        Sources: V2 Implementation Plan Phase 2B, MLB Statcast framing data
+        Notes: Only applies to catchers; ignored for other fielding positions
+        """
+        return float(self.FRAMING)
+
 
 # =============================================================================
 # HELPER FUNCTIONS FOR LEGACY COMPATIBILITY
@@ -819,7 +855,8 @@ class PitcherAttributes:
         TUNNELING: float = 50000,
         DECEPTION: float = 50000,
         STAMINA: float = 50000,
-        FATIGUE_RESISTANCE: float = 50000
+        FATIGUE_RESISTANCE: float = 50000,
+        NIBBLING_TENDENCY: float = 50000
     ):
         """Initialize pitcher attributes (default: league average = 50,000)"""
         self.RAW_VELOCITY_CAP = np.clip(RAW_VELOCITY_CAP, 0, 100000)
@@ -835,6 +872,7 @@ class PitcherAttributes:
         self.DECEPTION = np.clip(DECEPTION, 0, 100000)
         self.STAMINA = np.clip(STAMINA, 0, 100000)
         self.FATIGUE_RESISTANCE = np.clip(FATIGUE_RESISTANCE, 0, 100000)
+        self.NIBBLING_TENDENCY = np.clip(NIBBLING_TENDENCY, 0, 100000)
 
     def get_raw_velocity_mph(self) -> float:
         """
@@ -978,6 +1016,46 @@ class PitcherAttributes:
             human_min=0.50,
             human_cap=0.75,
             super_cap=0.85
+        )
+
+    def get_nibbling_tendency(self) -> float:
+        """
+        Convert NIBBLING_TENDENCY to pitcher personality scale (0-1).
+
+        NEW 2025-11-20 Phase 2B: Pitcher personality trait for V2 engine.
+
+        NIBBLING_TENDENCY represents how often a pitcher pitches carefully
+        vs aggressively, independent of CONTROL (ability) or COMMAND (precision).
+
+        This is a pitcher personality trait that affects pitch selection:
+        - High nibbling: Prefers working edges, careful approach (finesse pitcher)
+        - Low nibbling: Attacks the zone aggressively (power pitcher)
+
+        Affects zone targeting probability in PitcherControlModule:
+        - High nibbling: Reduces zone targeting when not forced (more waste pitches)
+        - Low nibbling: More aggressive zone targeting even when ahead
+
+        Anchors:
+        - 0: 0.20 (very aggressive, attacks zone relentlessly)
+        - 50k: 0.50 (balanced approach, adjusts by situation)
+        - 85k: 0.75 (careful, nibbles edges frequently)
+        - 100k: 0.90 (extremely careful, rarely gives in)
+
+        Returns
+        -------
+        float
+            Nibbling tendency (0.2-0.9)
+            0.2 = aggressive attacker
+            0.5 = balanced
+            0.9 = extreme nibbler
+
+        Sources: V2 Implementation Plan Phase 2B, MLB pitcher profiles
+        """
+        return piecewise_logistic_map(
+            self.NIBBLING_TENDENCY,
+            human_min=0.20,
+            human_cap=0.75,
+            super_cap=0.90
         )
 
     def get_stuff_rating(self) -> float:
