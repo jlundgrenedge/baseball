@@ -1,9 +1,9 @@
 # CLAUDE.md - AI Assistant Guide for Baseball Physics Simulation Engine
 
-**Last Updated**: 2025-11-19
+**Last Updated**: 2025-11-20
 **Repository**: Baseball Physics Simulation Engine
 **Purpose**: Guide AI assistants in understanding and working with this codebase
-**Version**: 1.1.2 (Angle-Dependent Spin Calibration)
+**Version**: 1.2.0 (Series Statistics & Fielding Realism)
 
 ---
 
@@ -24,14 +24,14 @@
 ## Repository Overview
 
 ### What This Is
-A **physics-based baseball simulation engine** (~18,500 lines of Python) that models complete games from pitch to play outcome. This is NOT an arcade game or pure statistical simulation - every outcome emerges from rigorous physics calculations calibrated against MLB Statcast data.
+A **physics-based baseball simulation engine** (~25,600 lines of Python) that models complete games from pitch to play outcome. This is NOT an arcade game or pure statistical simulation - every outcome emerges from rigorous physics calculations calibrated against MLB Statcast data.
 
 ### Project Maturity
 - **Status**: Production-ready, all 5 development phases complete
 - **Validation**: 7/7 MLB benchmark tests passing
 - **Performance**: Optimized with Numba JIT, parallel processing, optional GPU acceleration
-- **Documentation**: 35+ detailed guides, 8 research papers
-- **Version**: 1.1.0 - Now includes MLB database integration
+- **Documentation**: 42 detailed guides, 8 research papers
+- **Version**: 1.2.0 - Series statistics, fielding realism, ballpark system
 
 ### Core Capabilities
 - Full 9-inning game simulation with realistic play-by-play
@@ -41,8 +41,11 @@ A **physics-based baseball simulation engine** (~18,500 lines of Python) that mo
 - Player attribute system (0-100,000 ratings) mapped to physical parameters
 - Environmental effects (altitude, temperature, wind)
 - Force plays, double plays, and complex baserunning scenarios
-- **NEW**: MLB database system for storing/loading real player data via pybaseball
-- **NEW**: Automatic conversion of MLB statistics to game attributes
+- **MLB Integration**: Database system for storing/loading real player data via pybaseball
+- **Series Statistics**: Comprehensive multi-game metrics with MLB realism benchmarks
+- **Simulation Metrics**: OOTP-style transparency with pitch-level tracking
+- **Ballpark System**: MLB stadium dimensions with fence distances and heights
+- **Fielding Realism**: Stochastic variance including route efficiency, reaction time, positioning
 
 ---
 
@@ -203,6 +206,8 @@ bulk_simulation.py (426 lines)        - Efficient large-scale at-bat processing
 gpu_acceleration.py (460 lines)       - Optional CUDA acceleration
 fast_trajectory.py                    - Optimized trajectory calculations
 validation.py                         - 7-benchmark test suite
+statcast_calibration.py               - Fetch and compare real MLB Statcast data
+statcast_calibration_demo.py          - Demo calibration with synthetic data
 ```
 
 #### **Layer 6: MLB Database Integration** (NEW in v1.1.0)
@@ -226,6 +231,46 @@ manage_teams.py (root)            - CLI tool for database management
 - Store teams in SQLite for fast, offline access
 - Load teams by name/year without re-scraping
 - Support for pitchers, hitters, and fielders
+
+#### **Layer 7: Series Statistics & Metrics** (NEW in v1.2.0)
+```
+series_metrics.py (708 lines)         - Multi-game statistics aggregation
+sim_metrics.py (2,460 lines) ★HUGE   - OOTP-style simulation transparency
+route_efficiency.py (380 lines)       - Fielding route quality analysis
+ballpark.py (330 lines)               - MLB stadium dimensions & effects
+```
+
+**Series Statistics System** (`series_metrics.py`):
+- Comprehensive multi-game aggregation (batting, pitching, fielding)
+- Advanced sabermetrics: wOBA, ISO, BABIP, HR/FB rate, OPS
+- Contact quality metrics: exit velocity, launch angle, barrel %, hard hit %
+- MLB realism benchmarks: 10 metrics with pass/fail indicators (✓, ⚠️, 🚨)
+- Pitching metrics: ERA, WHIP, K/9, BB/9, HR/9, K/BB ratio
+- Run production analysis: totals, averages, ranges, standard deviation
+- Larger sample sizes enable robust validation against MLB norms
+
+**Simulation Metrics System** (`sim_metrics.py`):
+- OOTP-style transparency for debugging and model tuning
+- Pitch-level tracking: release mechanics, trajectory physics, command accuracy
+- Contact-level metrics: impact location, exit velocity, launch angle, spin
+- Play-level outcomes: fielding assignments, timing, catch probability
+- Debug verbosity levels: OFF, BASIC, DETAILED, EXHAUSTIVE
+- Physics debugging capabilities for model calibration
+
+**Route Efficiency Analysis** (`route_efficiency.py`):
+- Fielder route quality metrics for airborne batted balls
+- Optimal vs actual distance traveled calculations
+- Route efficiency percentage (quality of path taken)
+- Required vs available speed analysis
+- Catch probability based on timing margins
+- Outcome validation and diagnostic logging
+
+**Ballpark System** (`ballpark.py`):
+- MLB stadium-specific dimensions
+- Fence distances and heights at various spray angles
+- Interpolation for smooth fence profile
+- Park factors affecting batted ball outcomes
+- Support for unique ballpark features (Green Monster, short porches, etc.)
 
 ### Dependency Graph
 
@@ -252,8 +297,14 @@ pybaseball_fetcher → stats_converter → team_database → team_loader
                                             ↓
                                         player.py
 
+STATISTICS & METRICS LAYER (Optional, v1.2.0+)
+game_simulation.py → series_metrics.py → MLB realism benchmarks
+                  ↘ sim_metrics.py → pitch/contact/play tracking
+fielding.py → route_efficiency.py → route quality analysis
+ballpark.py → batted ball outcomes (fence interactions)
+
 PERFORMANCE OVERLAY (Optional)
-performance.py, bulk_simulation.py, parallel_game_simulation.py
+performance.py, bulk_simulation.py, parallel_game_simulation.py, statcast_calibration.py
 ```
 
 **Import Pattern**: Lower layers never import from higher layers. Changes to `constants.py` affect everything; changes to `game_simulation.py` affect nothing else. Database layer is optional and sits alongside the player layer.
@@ -757,6 +808,74 @@ print(f"Away wins: {results.away_wins}")
 print(f"Average score: {results.avg_home_score:.1f} - {results.avg_away_score:.1f}")
 ```
 
+### Task 7: Series Statistics with MLB Benchmarks (NEW in v1.2.0)
+
+```python
+from batted_ball import GameSimulator, SeriesMetrics
+
+# Create series metrics aggregator
+series = SeriesMetrics()
+
+# Simulate multiple games
+for game_num in range(10):
+    sim = GameSimulator(away_team, home_team, verbose=False)
+    result = sim.simulate_game(num_innings=9)
+
+    # Add game to series aggregation
+    series.add_game(result)
+
+# Print comprehensive statistics
+print(series.get_summary_report())
+
+# Check MLB realism benchmarks
+benchmarks = series.get_mlb_realism_benchmarks()
+print("\nMLB Realism Check:")
+for metric_name, (value, status, expected) in benchmarks.items():
+    print(f"{status} {metric_name}: {value:.3f} (expected: {expected})")
+
+# Access specific stats
+print(f"\nTeam wOBA: {series.batting_metrics.get_woba():.3f}")
+print(f"Team ISO: {series.batting_metrics.get_iso():.3f}")
+print(f"Team ERA: {series.pitching_metrics.get_era():.2f}")
+print(f"Team WHIP: {series.pitching_metrics.get_whip():.2f}")
+```
+
+### Task 8: Using Simulation Metrics for Debugging (NEW in v1.2.0)
+
+```python
+from batted_ball import AtBatSimulator
+from batted_ball.sim_metrics import DebugLevel, SimulationMetricsCollector
+
+# Create metrics collector with desired verbosity
+metrics = SimulationMetricsCollector(debug_level=DebugLevel.DETAILED)
+
+# Simulate at-bat with metrics tracking
+sim = AtBatSimulator(pitcher, hitter, metrics_collector=metrics)
+result = sim.simulate_at_bat()
+
+# Access pitch-level data
+for pitch_metric in metrics.pitch_metrics:
+    print(f"Pitch {pitch_metric.sequence_index}: {pitch_metric.pitch_type}")
+    print(f"  Velocity: {pitch_metric.release_velocity_mph:.1f} mph")
+    print(f"  Location: ({pitch_metric.plate_x_inches:.1f}, {pitch_metric.plate_z_inches:.1f})")
+    print(f"  Outcome: {pitch_metric.pitch_outcome}")
+
+# Access contact-level data (if contact was made)
+if metrics.contact_metrics:
+    contact = metrics.contact_metrics[-1]
+    print(f"\nContact Quality:")
+    print(f"  Exit velocity: {contact.exit_velocity_mph:.1f} mph")
+    print(f"  Launch angle: {contact.launch_angle_deg:.1f}°")
+    print(f"  Impact location: {contact.impact_location_mm:.1f} mm from sweet spot")
+
+# Access play-level outcomes
+if metrics.play_metrics:
+    play = metrics.play_metrics[-1]
+    print(f"\nPlay Outcome:")
+    print(f"  Assigned fielder: {play.assigned_fielder}")
+    print(f"  Catch probability: {play.catch_probability:.2%}")
+```
+
 ---
 
 ## File Organization Reference
@@ -764,17 +883,17 @@ print(f"Average score: {results.avg_home_score:.1f} - {results.avg_away_score:.1
 ### Root Directory Structure
 ```
 /home/user/baseball/
-├── batted_ball/              # Main package (39 Python modules, ~18,500 lines)
-│   └── database/             # MLB database system (6 modules, NEW in v1.1.0)
-├── tests/                    # Test suite (22 files)
-├── examples/                 # Usage demonstrations (21 files)
-├── docs/                     # Documentation (35+ MD files)
+├── batted_ball/              # Main package (45+ Python modules, ~25,600 lines)
+│   └── database/             # MLB database system (6 modules, v1.1.0)
+├── tests/                    # Test suite (22+ files)
+├── examples/                 # Usage demonstrations (21+ files)
+├── docs/                     # Documentation (42 MD files)
 ├── research/                 # Physics research papers (8 files)
 ├── requirements.txt          # Dependencies (numpy, scipy, matplotlib, numba, pybaseball)
 ├── README.md                 # User-facing documentation
 ├── CLAUDE.md                 # This file (AI assistant guide)
-├── DATABASE_README.md        # MLB database system guide (NEW)
-├── manage_teams.py           # CLI tool for team database (NEW)
+├── DATABASE_README.md        # MLB database system guide (v1.1.0)
+├── manage_teams.py           # CLI tool for team database (v1.1.0)
 ├── game_simulation.bat       # Windows runner (interactive menu)
 ├── performance_test_suite.py # Performance testing script
 └── .gitignore                # Standard Python ignores
@@ -786,34 +905,42 @@ print(f"Average score: {results.avg_home_score:.1f} - {results.avg_away_score:.1
 1. `README.md` - User-facing overview
 2. `batted_ball/__init__.py` - Package exports and public API
 3. `batted_ball/constants.py` - All physics constants (start here for tuning)
-4. `DATABASE_README.md` - MLB database system guide (NEW in v1.1.0)
+4. `DATABASE_README.md` - MLB database system guide (v1.1.0)
+5. `CLAUDE.md` - This file (AI assistant guide)
 
 **Core physics implementation**:
-4. `batted_ball/aerodynamics.py` - Drag + Magnus force
-5. `batted_ball/trajectory.py` - BattedBallSimulator class
-6. `batted_ball/contact.py` - Sweet spot physics
+6. `batted_ball/aerodynamics.py` - Drag + Magnus force
+7. `batted_ball/trajectory.py` - BattedBallSimulator class
+8. `batted_ball/contact.py` - Sweet spot physics
 
 **Player & gameplay**:
-7. `batted_ball/attributes.py` - Attribute → physics mappings
-8. `batted_ball/at_bat.py` - Plate appearance logic
-9. `batted_ball/game_simulation.py` - 9-inning orchestration
+9. `batted_ball/attributes.py` - Attribute → physics mappings
+10. `batted_ball/at_bat.py` - Plate appearance logic
+11. `batted_ball/game_simulation.py` - 9-inning orchestration
 
 **Fielding & baserunning** (most complex):
-10. `batted_ball/fielding.py` - Largest module (1,479 lines)
-11. `batted_ball/baserunning.py` - Runner mechanics (982 lines)
-12. `batted_ball/field_layout.py` - Coordinate system reference
-13. `batted_ball/hit_handler.py` - Hit outcome processing
+12. `batted_ball/fielding.py` - Fielder movement, catching, throwing (1,800+ lines)
+13. `batted_ball/baserunning.py` - Runner mechanics (982 lines)
+14. `batted_ball/field_layout.py` - Coordinate system reference
+15. `batted_ball/hit_handler.py` - Hit outcome processing
+16. `batted_ball/route_efficiency.py` - Route quality analysis (NEW v1.2.0)
 
 **Validation & performance**:
-14. `batted_ball/validation.py` - 7-benchmark test suite
-15. `batted_ball/performance.py` - Optimization modes
-16. `tests/test_league_simulation.py` - Comprehensive game testing
+17. `batted_ball/validation.py` - 7-benchmark test suite
+18. `batted_ball/performance.py` - Optimization modes
+19. `batted_ball/statcast_calibration.py` - MLB data validation (v1.1.1)
+20. `tests/test_league_simulation.py` - Comprehensive game testing
 
-**MLB Database System** (NEW in v1.1.0):
-17. `batted_ball/database/team_database.py` - SQLite CRUD operations
-18. `batted_ball/database/stats_converter.py` - MLB stats → attributes
-19. `batted_ball/database/pybaseball_fetcher.py` - Fetch real player data
-20. `manage_teams.py` - CLI for database management
+**MLB Database System** (v1.1.0):
+21. `batted_ball/database/team_database.py` - SQLite CRUD operations
+22. `batted_ball/database/stats_converter.py` - MLB stats → attributes
+23. `batted_ball/database/pybaseball_fetcher.py` - Fetch real player data
+24. `manage_teams.py` - CLI for database management
+
+**Series Statistics & Metrics** (NEW in v1.2.0):
+25. `batted_ball/series_metrics.py` - Multi-game aggregation with MLB benchmarks
+26. `batted_ball/sim_metrics.py` - OOTP-style simulation transparency (HUGE: 2,460 lines)
+27. `batted_ball/ballpark.py` - MLB stadium dimensions and effects
 
 ### Documentation Hierarchy
 
@@ -1131,7 +1258,11 @@ git push -u origin <branch-name>
 **Debug coordinates** → `docs/COORDINATE_SYSTEM_GUIDE.md`
 **Learn physics** → `research/Modeling Baseball Batted Ball Trajectories.md`
 **Tune scoring** → `docs/SCORING_CALIBRATION_2024.md`
-**Use MLB database** → `DATABASE_README.md` (NEW)
+**Use MLB database** → `DATABASE_README.md` (v1.1.0)
+**Use series statistics** → `batted_ball/series_metrics.py` or examples (v1.2.0)
+**Debug simulations** → `docs/SIM_METRICS_GUIDE.md` (v1.2.0)
+**Understand ballparks** → `docs/BALLPARK_HIT_CLASSIFICATION.md` (v1.2.0)
+**Validate against Statcast** → `docs/STATCAST_CALIBRATION_FINDINGS.md` (v1.1.1+)
 **See examples** → `examples/` directory
 **Run tests** → `tests/` directory
 
@@ -1210,29 +1341,85 @@ rover = Fielder(name="Rover", position="Rover", ...)
 
 1. **Check `constants.py`** - Most tunable parameters live here
 2. **Run validation** - `python -m batted_ball.validation`
-3. **Read docs** - 35+ guides in `docs/`, 8 research papers in `research/`
+3. **Read docs** - 42 guides in `docs/`, 8 research papers in `research/`
 4. **Test with examples** - 17 demonstration scripts in `examples/`
 5. **Ask questions** - This is a complex system; better to clarify than break
 
 ### Resources
 
 - **README.md**: User-facing overview
-- **docs/**: 35+ detailed implementation guides
+- **docs/**: 42 detailed implementation guides
 - **research/**: Deep physics derivations
 - **examples/**: Working code demonstrations
 - **tests/**: Validation and regression tests
 
 ---
 
-**Last Updated**: 2025-11-19
-**Version**: 1.1.0
+**Last Updated**: 2025-11-20
+**Version**: 1.2.0
 **Maintainer**: Baseball Physics Simulation Engine Project
-**Status**: Production-ready, all 5 phases complete + MLB database integration
+**Status**: Production-ready, all 5 phases complete + MLB database + series statistics
 **Validation**: 7/7 MLB benchmarks passing ✓
 
 ---
 
 ## Recent Changes
+
+### v1.2.0 - 2025-11-20 (Series Statistics & Fielding Realism)
+
+**Major Feature Additions**: Multi-game statistics, OOTP-style metrics, ballpark system, fielding realism
+
+1. **Series Statistics System** (`series_metrics.py` - 708 lines)
+   - Comprehensive multi-game aggregation for batting, pitching, fielding
+   - Advanced sabermetrics: wOBA, ISO, BABIP, HR/FB rate, OPS, wRC+
+   - Contact quality tracking: exit velocity, launch angle, barrel %, hard hit %
+   - **MLB Realism Benchmarks**: 10 metrics with pass/fail indicators (✓, ⚠️, 🚨)
+     - Validates batting avg, BABIP, K%, BB%, ISO, HR/FB, exit velo, etc.
+     - Larger sample sizes enable robust model validation
+   - Run production analysis with totals, averages, ranges, std deviation
+   - Pitching metrics: ERA, WHIP, K/9, BB/9, HR/9, K/BB ratio, pitch types
+   - Quality starts tracking and innings-based statistics
+
+2. **Simulation Metrics System** (`sim_metrics.py` - 2,460 lines)
+   - **OOTP-style transparency** for debugging and model tuning
+   - Pitch-level tracking: release mechanics, trajectory physics, command accuracy
+   - Contact-level metrics: impact location, exit velocity, launch angle, spin
+   - Play-level outcomes: fielding assignments, timing, catch probability
+   - Debug verbosity levels: OFF, BASIC, DETAILED, EXHAUSTIVE
+   - Expected vs actual outcome tracking for physics validation
+   - Complete audit trail for every pitch, contact, and play
+
+3. **Route Efficiency Analysis** (`route_efficiency.py` - 380 lines)
+   - Fielder route quality metrics for airborne batted balls
+   - Optimal vs actual distance traveled calculations
+   - Route efficiency percentage (quality of path taken)
+   - Required vs available speed analysis
+   - Catch probability based on timing margins (MarginSec)
+   - Multi-line diagnostic logging for game analysis
+
+4. **Ballpark System** (`ballpark.py` - 330 lines)
+   - MLB stadium-specific dimensions with fence distances and heights
+   - Interpolation for smooth fence profile at any spray angle
+   - Support for unique features: Green Monster, short porches, deep alleys
+   - Foundation for park factors in batted ball outcomes
+   - Hit classification based on fence interaction
+
+5. **Fielding Realism Enhancements** (Pass #2)
+   - **Route efficiency variance**: ±2% stochastic noise on fielder routes
+   - **Reaction time jitter**: ~±50ms variance in first-step timing
+   - **Jump quality modifiers**: Poor (-10%), subpar (-5%), normal (0%), quick (+2%)
+   - **Catch probability floor**: 1.5% chance of misplay on routine catches (>0.95 prob)
+   - **Positioning variability**: Fielders 1-3 steps (3-9 ft) off ideal position
+   - Creates realistic bloop hits, diving misses, late breaks
+   - Route efficiencies average 91-93% (down from 97-99%)
+
+6. **New Documentation**
+   - `SIM_METRICS_GUIDE.md` - Complete guide to simulation metrics system
+   - `BALLPARK_HIT_CLASSIFICATION.md` - Hit outcomes and fence interactions
+   - `STATCAST_METRICS_ANALYSIS.md` - Detailed Statcast validation
+   - `STATCAST_PITCH_LEVEL_INTEGRATION.md` - Pitch-level data integration
+
+**Impact**: Series-level analysis now provides robust MLB realism validation. OOTP-style metrics enable deep debugging. Fielding stochasticity creates more realistic outcome variance.
 
 ### v1.1.2 - 2025-11-19 (Angle-Dependent Spin Calibration)
 
