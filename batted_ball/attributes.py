@@ -891,32 +891,38 @@ class PitcherAttributes:
         """
         Convert COMMAND to target dispersion (inches, standard deviation).
 
-        RESCALED 2025-11-20 to account for target variance being additive.
+        RESCALED 2025-11-20 Sprint 3 after zone rate analysis (was 32.3%, target: 62-65%).
 
-        Strike zone is 17" wide × 24" tall. Pitch targets have intrinsic variance
-        (2-3" for center targets, more for edge targets), and command error is ADDED.
-        Total variance = sqrt(target_var² + command_var²).
+        Root cause: Previous sigma values too large, causing pitchers to miss strike zone
+        even when targeting center/edges. With 6.5" sigma and fatigue (1.15× avg), effective
+        sigma was ~7.5", resulting in only 32.3% zone rate despite 90% strike intentions.
 
-        For 58-62% strike rate (MLB average), need total sigma ~7-9" for average pitcher.
-        With target variance ~2-3", command sigma should be ~6-8".
+        Analysis showed need for ~5.5" effective sigma (4.8" base) to achieve MLB 62-65% zone rate:
+        - Center targets (0, 30): 84% hit with 5.5" sigma
+        - Edge targets (±6, 30): 57% hit with 5.5" sigma
+        - Corner targets (±7, 20/40): 33% hit with 5.5" sigma
+        - Weighted: 0.6×84% + 0.2×57% + 0.1×33% + 0.1×5% = 65% ✓
 
-        Lower rating = worse command (more scatter)
+        Strike zone is 17" wide × 24" tall (±8.5" horizontal, 18-42" vertical).
 
-        Anchors (tuned for MLB walk rates):
-        - 0: 10.0 in (poor command, ~14" RMS = 1.2 ft) - wild pitcher, ~20-25% walks
-        - 50k: 6.5 in (average, ~9" RMS = 0.75 ft) - typical MLB starter, ~8-9% walks
-        - 85k: 4.5 in (elite, ~6" RMS = 0.5 ft) - Maddux/Glavine level, ~3-5% walks
-        - 100k: 2.5 in (pinpoint, ~3.5" RMS = 0.3 ft) - superhuman, ~1-2% walks
+        Reduced all values by ~30-35% to fix zone rate:
 
-        Note: RMS = sigma × √2 for 2D normal distribution (horizontal + vertical)
+        Anchors (tuned for MLB zone/walk rates):
+        - 0: 7.0 in (poor command, ~10" RMS) - wild pitcher, ~15-18% walks, ~50% zone
+        - 50k: 4.8 in (average, ~6.8" RMS) - typical MLB starter, ~8-9% walks, ~65% zone
+        - 85k: 3.0 in (elite, ~4.2" RMS) - Maddux/Glavine level, ~4-6% walks, ~75% zone
+        - 100k: 2.0 in (pinpoint, ~2.8" RMS) - superhuman, ~2-3% walks, ~85% zone
 
-        Sources: Empirically calibrated to achieve MLB walk rates (8-9% average)
+        Note: Bidirectional error means corner targets sometimes miss toward center (easier pitches),
+        and center targets sometimes miss to edges/out (harder pitches). This is realistic.
+
+        Sources: Empirically calibrated via 50-game diagnostic showing 32.3% zone rate
         """
         return piecewise_logistic_map_inverse(
             self.COMMAND,
-            human_min=4.5,     # Elite command (was 5.0)
-            human_cap=10.0,    # Poor command (was 12.0)
-            super_cap=2.5      # Pinpoint (was 3.0)
+            human_min=3.0,     # Elite command (was 4.5, reduced 33%)
+            human_cap=7.0,     # Poor command (was 10.0, reduced 30%)
+            super_cap=2.0      # Pinpoint (was 2.5, reduced 20%)
         )
 
     def get_stamina_pitches(self) -> float:
