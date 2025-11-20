@@ -627,6 +627,15 @@ class AtBatSimulator:
         pitcher_whiff_mult = self.pitcher.get_pitch_whiff_multiplier(pitch_type)
         whiff_prob *= pitcher_whiff_mult
 
+        # PHASE 2A SPRINT 3: Put-away mechanism for 2-strike counts
+        # Pitchers with 2 strikes get increased whiff probability (finishing ability)
+        # MLB data shows ~30% higher whiff rate on 2-strike counts vs 0-1 strikes
+        if pitch_data.get('strikes', 0) == 2:
+            put_away_multiplier = 1.30  # 30% increase in whiff probability
+            # Future: Use pitcher's stuff rating for variable put-away (Task 3.2)
+            # put_away_multiplier = 1.0 + (0.3 * pitcher.get_stuff_rating())
+            whiff_prob *= put_away_multiplier
+
         # Clip to reasonable bounds after applying multipliers
         whiff_prob = np.clip(whiff_prob, 0.05, 0.75)
 
@@ -901,6 +910,8 @@ class AtBatSimulator:
             # Annotate pitch with contextual data for downstream logging/debugging
             pitch_data['sequence_index'] = len(pitches) + 1
             pitch_data['count_before'] = count_before_pitch
+            pitch_data['balls'] = balls  # PHASE 2A: Add count for put-away mechanism
+            pitch_data['strikes'] = strikes  # PHASE 2A: Add count for put-away mechanism
             pitch_data['swing'] = False
             pitch_data['pitch_outcome'] = 'unknown'
 
