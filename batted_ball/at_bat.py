@@ -619,6 +619,7 @@ class AtBatSimulator:
             pitch_velocity=pitch_velocity,
             pitch_type=pitch_type,
             pitch_break=pitch_break,
+            debug_collector=self.debug_collector,
         )
 
         # NEW: Apply pitcher's pitch-specific effectiveness (stuff rating)
@@ -922,6 +923,7 @@ class AtBatSimulator:
                 pitch_velocity=pitch_data['velocity_plate'],
                 pitch_type=pitch_data['pitch_type'],
                 return_diagnostics=True,
+                debug_collector=self.debug_collector,
             )
 
             # Store swing decision diagnostics in pitch data
