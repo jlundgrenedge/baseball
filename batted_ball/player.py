@@ -710,7 +710,43 @@ class Hitter:
 
         # Count situation adjustments
         swing_prob_after_count = swing_prob
-        if strikes == 2:
+
+        # PHASE 2A SPRINT 5 2025-11-20: Early-count patience adjustments
+        # Problem: Batters swinging 63.6% on 0-0 (MLB: 47%), 54.5% on 1-0 (MLB: 42%)
+        # This causes 41% first-pitch balls in play (MLB: 15-20%)
+        # Result: Only 21.4% of PA reach 2 strikes (MLB: 50-65%)
+        # Solution: Reduce early-count aggression to let counts develop
+        if balls == 0 and strikes == 0:
+            # First pitch - be significantly more patient
+            # Current: 63.6% swing rate (83.0% in-zone)
+            # Target: 47% swing rate (68% in-zone)
+            # Multiplier: 0.74× (26% reduction)
+            swing_prob_after_count = swing_prob * 0.74
+        elif balls == 1 and strikes == 0:
+            # 1-0 count - still early, be patient
+            # Current: 54.5% swing rate (84.1% in-zone)
+            # Target: 42% swing rate (63% in-zone)
+            # Multiplier: 0.77× (23% reduction)
+            swing_prob_after_count = swing_prob * 0.77
+        elif balls == 0 and strikes == 1:
+            # 0-1 count - slightly behind, be more selective
+            # Current: 52.6% swing rate (83.7% in-zone)
+            # Target: 47% swing rate (70% in-zone)
+            # Multiplier: 0.89× (11% reduction)
+            swing_prob_after_count = swing_prob * 0.89
+        elif balls == 1 and strikes == 1:
+            # 1-1 count - even count, be patient
+            # Current: 62.5% swing rate (85.3% in-zone)
+            # Target: 46% swing rate (69% in-zone)
+            # Multiplier: 0.74× (26% reduction)
+            swing_prob_after_count = swing_prob * 0.74
+        elif balls == 2 and strikes == 0:
+            # 2-0 hitter's count - be very selective
+            # Current: 59.1% swing rate (too aggressive)
+            # Target: ~38% swing rate
+            # Multiplier: 0.64× (36% reduction)
+            swing_prob_after_count = swing_prob * 0.64
+        elif strikes == 2:
             # Protect the plate with 2 strikes
             if is_strike:
                 swing_prob_after_count = min(swing_prob + 0.15, 0.95)  # +15%, cap at 95%
@@ -723,13 +759,13 @@ class Hitter:
                 base_chase_after_discipline = swing_prob
                 two_strike_bonus = 0.25  # Flat +25 percentage points (was 0.15)
                 swing_prob_after_count = min(base_chase_after_discipline * 1.4 + two_strike_bonus, 0.70)
-
-        if balls == 3:
+        elif balls == 3:
             # More selective on 3-ball counts
             if not is_strike:
                 swing_prob_after_count = swing_prob * 0.5  # Much less likely to chase
             else:
                 swing_prob_after_count = min(swing_prob, 0.85)  # Cap swing rate
+
         swing_prob = swing_prob_after_count
 
         # Clip to reasonable bounds
