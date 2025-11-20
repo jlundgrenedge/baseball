@@ -929,7 +929,10 @@ class Hitter:
         # Expected impact: Whiff rate 43.6%→30-34%, K% 14%→20-22% (close to 22% target)
         pitch_type_lower = pitch_type.lower()
         if 'fastball' in pitch_type_lower or '4-seam' in pitch_type_lower:
-            base_whiff_rate = 0.20  # 20% for fastballs (UNCHANGED - already perfect)
+            base_whiff_rate = 0.15  # Sprint 3 fix: REDUCED from 0.20 (-25%)
+            # Sprint 3 test showed 37.2% whiff (62.8% contact) vs MLB ~23% whiff (~77% contact)
+            # With multipliers (VISION + velocity + put-away), 0.20 base → 37% actual whiff
+            # Need 0.15 base → ~23% actual whiff to reach MLB 77% contact target
         elif '2-seam' in pitch_type_lower or 'sinker' in pitch_type_lower:
             base_whiff_rate = 0.18  # 18% for sinkers
         elif 'cutter' in pitch_type_lower:
