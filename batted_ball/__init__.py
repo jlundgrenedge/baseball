@@ -88,6 +88,13 @@ from .game_simulation import (
     PlayByPlayEvent,
     create_test_team,
 )
+from .series_metrics import (
+    SeriesMetrics,
+    AdvancedBattingMetrics,
+    PitchingMetrics,
+    FieldingMetrics,
+    RealismCheck,
+)
 from .ballpark import (
     BallparkDimensions,
     get_ballpark,
