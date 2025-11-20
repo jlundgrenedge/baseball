@@ -663,14 +663,15 @@ class Hitter:
             swing_prob_after_discipline = swing_prob
         else:
             # Good discipline = lower chase rate, but not eliminating chases entirely
-            # PHASE 2A FIX 2025-11-20: Reduced from 0.85 to 0.40 to enable chase swings
-            # Previous: 0.85 multiplier resulted in 0% chase rate (too strong)
-            # Elite discipline (0.90 factor): 1 - 0.90*0.40 = 0.64 → 36% reduction in chase rate
-            #   → Base chase 35% * 0.64 = 22.4% actual chase rate ✓ (MLB: 20-25%)
-            # Poor discipline (0.45 factor):  1 - 0.45*0.40 = 0.82 → 18% reduction in chase rate
-            #   → Base chase 35% * 0.82 = 28.7% actual chase rate ✓ (MLB: 30-35%)
-            # This creates 6.3 percentage point spread (elite to poor)
-            swing_prob = base_swing_prob * (1 - discipline_factor * 0.40)
+            # PHASE 2A REFINEMENT 2025-11-20: Reduced from 0.40 to 0.30 to increase chase rate
+            # Previous iterations: 0.85 → 0.40 (Sprint 1) → 0.30 (Refinement Sprint 1)
+            # Elite discipline (0.90 factor): 1 - 0.90*0.30 = 0.73 → 27% reduction in chase rate
+            #   → Base chase 35% * 0.73 = 25.6% actual chase rate ✓ (MLB elite: 20-25%)
+            # Poor discipline (0.45 factor):  1 - 0.45*0.30 = 0.865 → 13.5% reduction in chase rate
+            #   → Base chase 35% * 0.865 = 30.3% actual chase rate ✓ (MLB poor: 30-35%)
+            # This creates 4.7 percentage point spread (elite to poor)
+            # Expected K% increase: +3-5 percentage points (10.2% → 13-15%)
+            swing_prob = base_swing_prob * (1 - discipline_factor * 0.30)
             swing_prob_after_discipline = swing_prob
 
         # Adjust for decision speed (faster decisions = more aggressive swings)
@@ -712,12 +713,13 @@ class Hitter:
             if is_strike:
                 swing_prob_after_count = min(swing_prob + 0.15, 0.95)  # +15%, cap at 95%
             else:
-                # PHASE 2A FIX: Ensure minimum chase rate with 2 strikes
-                # Previous: 1.4× multiplier on ~0% chase = still ~0%
-                # New: Multiplier (1.4×) + flat bonus (+15%) for 2-strike desperation
+                # PHASE 2A REFINEMENT: Increased 2-strike chase bonus for more strikeouts
+                # Previous iterations: 0.15 (Sprint 1) → 0.25 (Refinement Sprint 2)
+                # Multiplier (1.4×) + flat bonus (+25%) for 2-strike desperation
                 # This ensures batters chase even with elite discipline
+                # Expected K% increase: +2-3 percentage points
                 base_chase_after_discipline = swing_prob
-                two_strike_bonus = 0.15  # Flat +15 percentage points
+                two_strike_bonus = 0.25  # Flat +25 percentage points (was 0.15)
                 swing_prob_after_count = min(base_chase_after_discipline * 1.4 + two_strike_bonus, 0.70)
 
         if balls == 3:
