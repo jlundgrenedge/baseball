@@ -1,6 +1,6 @@
 # MLB Realism Baseline Report
 
-**Generated**: 2025-11-20 15:24:53
+**Generated**: 2025-11-20 15:37:28
 
 **Simulation Version**: Pass 3 Baseline (5/10 passing)
 
@@ -10,26 +10,26 @@
 
 - **Games Simulated**: 10
 - **Teams**: Visitors vs Home Team
-- **Record**: Visitors 4-6 Home Team
-- **Total Runs**: 64
-- **Avg Runs/Game**: 3.20
+- **Record**: Visitors 6-4 Home Team
+- **Total Runs**: 57
+- **Avg Runs/Game**: 2.85
 
 ---
 
-## MLB Realism Benchmarks (2/10 Passing)
+## MLB Realism Benchmarks (1/10 Passing)
 
 | Status | Metric | Actual | MLB Range | MLB Avg |
 |--------|--------|--------|-----------|----------|
-| 🚨 | Batting Average | 0.178 | 0.230-0.270 | 0.248 |
-| ✓ | BABIP | 0.268 | 0.260-0.360 | 0.295 |
-| ✓ | HR/FB Rate | 0.134 | 0.090-0.160 | 0.125 |
-| 🚨 | Strikeout Rate | 0.104 | 0.180-0.260 | 0.220 |
-| 🚨 | Walk Rate | 0.170 | 0.070-0.100 | 0.085 |
-| 🚨 | Isolated Power (ISO) | 0.100 | 0.120-0.180 | 0.150 |
-| ⚠️ | Avg Exit Velocity (mph) | 95.136 | 86.000-90.000 | 88.000 |
-| 🚨 | Hard Hit Rate | 0.287 | 0.350-0.450 | 0.400 |
-| 🚨 | Runs per Team per Game | 3.200 | 3.800-5.200 | 4.500 |
-| 🚨 | Team ERA | 3.200 | 3.500-5.000 | 4.250 |
+| 🚨 | Batting Average | 0.186 | 0.230-0.270 | 0.248 |
+| ✓ | BABIP | 0.324 | 0.260-0.360 | 0.295 |
+| 🚨 | HR/FB Rate | 0.046 | 0.090-0.160 | 0.125 |
+| 🚨 | Strikeout Rate | 0.130 | 0.180-0.260 | 0.220 |
+| 🚨 | Walk Rate | 0.153 | 0.070-0.100 | 0.085 |
+| 🚨 | Isolated Power (ISO) | 0.023 | 0.120-0.180 | 0.150 |
+| ⚠️ | Avg Exit Velocity (mph) | 94.292 | 86.000-90.000 | 88.000 |
+| 🚨 | Hard Hit Rate | 0.216 | 0.350-0.450 | 0.400 |
+| 🚨 | Runs per Team per Game | 2.850 | 3.800-5.200 | 4.500 |
+| 🚨 | Team ERA | 2.850 | 3.500-5.000 | 4.250 |
 
 ---
 
@@ -39,25 +39,25 @@
 
 | Metric | Value |
 |--------|-------|
-| AVG | 0.178 |
-| OBP | 0.318 |
-| SLG | 0.278 |
-| OPS | 0.595 |
-| ISO | 0.100 |
-| BABIP | 0.268 |
-| WOBA | 0.259 |
-| K_RATE | 0.104 |
-| BB_RATE | 0.170 |
-| HR_FB_RATE | 0.134 |
+| AVG | 0.186 |
+| OBP | 0.311 |
+| SLG | 0.209 |
+| OPS | 0.520 |
+| ISO | 0.023 |
+| BABIP | 0.324 |
+| WOBA | 0.228 |
+| K_RATE | 0.130 |
+| BB_RATE | 0.153 |
+| HR_FB_RATE | 0.046 |
 
 ### Pitching
 
 | Metric | Value |
 |--------|-------|
-| ERA | 3.200 |
-| WHIP | 1.383 |
-| K_PER_9 | 4.200 |
-| BB_PER_9 | 6.800 |
+| ERA | 2.850 |
+| WHIP | 1.372 |
+| K_PER_9 | 5.400 |
+| BB_PER_9 | 6.200 |
 
 ---
 
@@ -65,14 +65,14 @@
 
 | Statistic | Value |
 |-----------|-------|
-| Mean | 95.1 mph |
-| Median | 94.3 mph |
-| Std Dev | 5.1 mph |
-| Min | 82.8 mph |
-| Max | 107.8 mph |
-| 95th percentile | 104.0 mph |
-| **95+ mph hits** | 239 (43.6%) |
-| **100+ mph hits** | 108 (19.7%) |
+| Mean | 94.3 mph |
+| Median | 93.6 mph |
+| Std Dev | 4.3 mph |
+| Min | 83.5 mph |
+| Max | 107.5 mph |
+| 95th percentile | 105.6 mph |
+| **95+ mph hits** | 175 (32.8%) |
+| **100+ mph hits** | 52 (9.8%) |
 
 ---
 
@@ -80,10 +80,10 @@
 
 | Type | Count | Percentage |
 |------|-------|------------|
-| Ground Balls | 205 | 37.4% |
-| Line Drives | 219 | 40.0% |
-| Fly Balls | 121 | 22.1% |
-| Pop Ups | 3 | 0.5% |
+| Ground Balls | 192 | 36.0% |
+| Line Drives | 243 | 45.6% |
+| Fly Balls | 96 | 18.0% |
+| Pop Ups | 2 | 0.4% |
 
 **MLB Expected**: GB ~45%, LD ~21%, FB ~34%
 
@@ -93,10 +93,10 @@
 
 | Outcome | Count | Rate |
 |---------|-------|------|
-| Total PA | 768 | 100.0% |
-| Strikeouts | 84 | 10.9% |
-| Walks | 136 | 17.7% |
-| Balls in Play | 548 | 71.4% |
+| Total PA | 765 | 100.0% |
+| Strikeouts | 108 | 14.1% |
+| Walks | 124 | 16.2% |
+| Balls in Play | 533 | 69.7% |
 
 ---
 
