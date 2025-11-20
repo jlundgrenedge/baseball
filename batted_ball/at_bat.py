@@ -404,15 +404,43 @@ class AtBatSimulator:
             horizontal_target, vertical_target = self.pitcher_control.generate_pitch_location(
                 balls, strikes, pitch_type
             )
-            # For return_intention, we still provide a simplified intention
-            # based on whether pitch is in zone or not
+
+            # Classify intention based on target location for better diagnostics
             zone_left, zone_right = -8.5, 8.5
             zone_bottom, zone_top = 18.0, 42.0
             in_zone = (
                 zone_left <= horizontal_target <= zone_right and
                 zone_bottom <= vertical_target <= zone_top
             )
-            intention = 'strike_looking' if in_zone else 'ball_intentional'
+
+            if in_zone:
+                # Classify type of strike based on location within zone
+                # Center: within 3" of dead center (0, 30)
+                h_dist_from_center = abs(horizontal_target)
+                v_dist_from_center = abs(vertical_target - 30.0)
+
+                if h_dist_from_center < 3.0 and v_dist_from_center < 5.0:
+                    intention = 'strike_looking'  # Middle of zone
+                elif h_dist_from_center > 5.0 or v_dist_from_center > 8.0:
+                    intention = 'strike_corner'  # Near corners
+                else:
+                    intention = 'strike_competitive'  # Edges
+            else:
+                # Out of zone: classify as chase or waste
+                if strikes == 2:
+                    # 2-strike count: likely chase pitch
+                    # Check if close to zone (within 4-6" = chase territory)
+                    h_dist_from_zone = max(0, abs(horizontal_target) - zone_right)
+                    v_dist_from_zone = max(0, max(zone_bottom - vertical_target, vertical_target - zone_top))
+                    total_dist = (h_dist_from_zone**2 + v_dist_from_zone**2)**0.5
+
+                    if total_dist < 6.0:
+                        intention = 'waste_chase'  # Close to zone, chase pitch
+                    else:
+                        intention = 'ball_intentional'  # Far from zone, waste
+                else:
+                    # Not 2-strike: intentional ball
+                    intention = 'ball_intentional'
 
             if return_intention:
                 return (horizontal_target, vertical_target), intention
