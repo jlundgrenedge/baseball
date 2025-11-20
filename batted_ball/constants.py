@@ -242,21 +242,27 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 
 # Collision Efficiency (q) - Master formula parameter
 # BBS = q * v_pitch + (1 + q) * v_bat
-# RECALIBRATED 2025-11-20: Increased from 0.13 to 0.18 to fix hard-hit rate
-# Previous q=0.13 base was being reduced to ~0.09 after penalties:
-# - Sweet spot penalty: ~0.6% per inch (distance * 0.006)
-# - Offset penalty: ~2.4% per inch (offset * 0.04 * 0.60)
-# - Vibration loss: ~0.9% per inch (distance * 0.015 * 0.60)
-# Total typical penalty: ~4% → q=0.13 - 0.04 = 0.09 final
-# This produced exit velocities ~90-95 mph, far below MLB hard-hit threshold (95+ mph)
-# Hard-hit rate was 5.2% vs MLB 40% - needed higher base efficiency
-# With bat speed 75 mph (avg) and pitch speed 90 mph:
-# - New q=0.18 base → ~0.14 after penalties: EV = 0.14*90 + 1.14*75 = 98 mph ✓
-# - Power contact q=0.16 (less penalty): EV = 0.16*90 + 1.16*75 = 101.4 mph ✓
-# Target: 40% hard-hit rate (95+ mph), realistic HR/FB ~12%
-COLLISION_EFFICIENCY_WOOD = 0.18        # Wood bats (raised from 0.13 for realistic hard-hit rate)
-COLLISION_EFFICIENCY_ALUMINUM = 0.16    # Aluminum bats (raised from 0.11)
-COLLISION_EFFICIENCY_COMPOSITE = 0.17   # Composite bats (raised from 0.12)
+# RECALIBRATED 2025-11-20 (Pass 3): Major reduction from 0.18 → 0.03
+# Pass 1 (0.13→0.18): 105 mph avg EV, 55% HR/FB, 95% hard-hit → 0/10 passing
+# Pass 3 iterative testing:
+# - q=0.18: 105 mph EV, 55% HR/FB → 0/10 passing
+# - q=0.14: 100 mph EV, 26% HR/FB → 1/10 passing
+# - q=0.04:  96 mph EV, 13% HR/FB → 4/10 passing
+# - q=0.03:  94 mph EV, 6% HR/FB, 40% hard-hit → **5/10 passing** (BEST)
+# - q=0.035: 95 mph EV → 3/10 passing
+#
+# Final calibration: q=0.03 achieves best MLB realism (5/10 metrics passing)
+# Passing metrics: BA (0.232), ISO (0.154), Hard Hit (40.3%), Runs/Game (4.3), ERA (4.3)
+#
+# Remaining issues (not fixable via collision efficiency):
+# - HR/FB: 6.3% vs 12.5% target (need to adjust launch angle distribution)
+# - K Rate: 8.2% vs 22% target (need to increase whiff rates)
+# - Walk Rate: 17.2% vs 8.5% target (need to reduce intentional ball rates)
+# - BABIP: 0.248 vs 0.260 (slightly low, related to HR/FB)
+# - Exit Velo: 94 mph vs 88 mph (6 mph high, but acceptable for average)
+COLLISION_EFFICIENCY_WOOD = 0.03        # Wood bats (best: 5/10 passing, hard-hit 40%, BA 0.232)
+COLLISION_EFFICIENCY_ALUMINUM = 0.028   # Aluminum bats (slightly lower)
+COLLISION_EFFICIENCY_COMPOSITE = 0.029  # Composite bats (between aluminum and wood)
 
 # Sweet Spot Physics
 SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone
