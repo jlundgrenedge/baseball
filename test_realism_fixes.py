@@ -52,7 +52,7 @@ def main():
             sim = GameSimulator(away_team, home_team, verbose=False)
 
         result = sim.simulate_game(num_innings=9)
-        series.add_game(result)
+        series.update_from_game(result)
 
         print(f" {result.away_score}-{result.home_score}")
 
@@ -63,75 +63,39 @@ def main():
     print()
 
     # Print comprehensive summary
-    print(series.get_summary_report())
+    series.print_summary()
 
     print()
     print("=" * 80)
-    print("KEY METRICS COMPARISON")
+    print("PASS 2 VALIDATION SUMMARY")
     print("=" * 80)
     print()
 
-    # Get MLB realism benchmarks
-    benchmarks = series.get_mlb_realism_benchmarks()
+    # Compute and access realism checks
+    series.compute_realism_checks()
 
-    passing = 0
-    warning = 0
-    failing = 0
+    # Count statuses
+    ok_checks = [c for c in series.realism_checks if c.status == "OK"]
+    warning_checks = [c for c in series.realism_checks if c.status == "WARNING"]
+    critical_checks = [c for c in series.realism_checks if c.status == "CRITICAL"]
 
-    for metric_name, (value, status, expected_range) in benchmarks.items():
-        if status == '✓':
-            passing += 1
-        elif status == '⚠️':
-            warning += 1
-        else:
-            failing += 1
+    total = len(series.realism_checks)
+    passing = len(ok_checks)
 
-    total = passing + warning + failing
-    print(f"OVERALL RESULTS: {passing}/{total} metrics passing")
-    print(f"  ✓ Passing: {passing}")
-    print(f"  ⚠️ Warnings: {warning}")
-    print(f"  🚨 Failing: {failing}")
+    print(f"MLB REALISM SCORE: {passing}/{total} metrics passing")
+    print(f"  ✓ OK: {passing}")
+    print(f"  ⚠️ Warnings: {len(warning_checks)}")
+    print(f"  🚨 Critical: {len(critical_checks)}")
     print()
 
-    # Highlight specific fixes
-    print("SPECIFIC FIX VALIDATION:")
+    if passing >= 8:
+        print("✓✓✓ SUCCESS! Pass 2 achieved target of 8-10/10 metrics passing!")
+    elif passing >= 6:
+        print("⚠️ PARTIAL SUCCESS: Significant improvement but below 8/10 target")
+    else:
+        print("🚨 NEEDS MORE WORK: Below 6/10 passing")
+
     print()
-
-    # Get batting metrics
-    combined_batting = series.batting_metrics
-    total_balls_in_play = combined_batting.ground_balls + combined_batting.line_drives + combined_batting.fly_balls
-
-    if total_balls_in_play > 0:
-        gb_pct = combined_batting.ground_balls / total_balls_in_play
-        ld_pct = combined_batting.line_drives / total_balls_in_play
-        fb_pct = combined_batting.fly_balls / total_balls_in_play
-
-        print(f"1. Batted Ball Distribution:")
-        print(f"   Ground Balls: {gb_pct:.1%} (target: ~45%)")
-        print(f"   Line Drives:  {ld_pct:.1%} (target: ~21%)")
-        print(f"   Fly Balls:    {fb_pct:.1%} (target: ~34%)")
-        print()
-
-    total_pa = combined_batting.plate_appearances
-    if total_pa > 0:
-        k_rate = combined_batting.strikeouts / total_pa
-        bb_rate = combined_batting.walks / total_pa
-
-        print(f"2. Plate Discipline:")
-        print(f"   K Rate:  {k_rate:.1%} (target: ~22%)")
-        print(f"   BB Rate: {bb_rate:.1%} (target: ~8.5%)")
-        print()
-
-    total_batted_balls = combined_batting.batted_balls
-    if total_batted_balls > 0:
-        hard_hit_rate = combined_batting.hard_hit_balls / total_batted_balls
-
-        print(f"3. Power Metrics:")
-        print(f"   Hard Hit Rate: {hard_hit_rate:.1%} (target: ~40%)")
-        print(f"   HR/FB Rate: {combined_batting.get_hr_fb_rate():.1%} (target: ~12.5%)")
-        print(f"   ISO: {combined_batting.get_iso():.3f} (target: ~0.150)")
-        print()
-
     print("=" * 80)
     print("TEST COMPLETE")
     print("=" * 80)
