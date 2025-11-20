@@ -286,9 +286,35 @@ class AtBatSimulator:
                 else:
                     weight *= 0.2
             elif strikes == 2:
-                # Two-strike count - put-away pitch
-                if pitch_type in ['slider', 'changeup', 'splitter']:
-                    weight *= 1.8  # Favor out pitches
+                # PHASE 2A SPRINT 9 2025-11-20: Aggressive breaking ball usage with 2 strikes
+                # Sprint 8 results: K% 17.6%, whiff rates show breaking balls >> fastballs
+                # Slider: 35.5% whiff, Curveball: 33.8% whiff, Fastball: 24.2% whiff
+                # Strategy: Throw breaking balls ~60-70% of time with 2 strikes
+
+                # Breaking balls - MAJOR boost (added curveball, increased multiplier)
+                if pitch_type in ['slider', 'curveball', 'changeup', 'splitter']:
+                    # Count-specific adjustments
+                    if balls == 0:
+                        # 0-2: Most aggressive (can waste pitch)
+                        weight *= 3.5
+                    elif balls == 1:
+                        # 1-2: Very aggressive
+                        weight *= 3.0
+                    elif balls == 2:
+                        # 2-2: Aggressive but balanced
+                        weight *= 2.5
+                    else:
+                        # 3-2: Full count, balanced approach
+                        weight *= 2.0
+
+                # Fastballs - reduce with 2 strikes (lower whiff rate)
+                elif pitch_type in ['fastball', '4-seam', '2-seam']:
+                    if balls == 3:
+                        # 3-2: Need strike reliability, keep fastballs viable
+                        weight *= 1.0
+                    else:
+                        # Other 2-strike counts: reduce fastball usage
+                        weight *= 0.6
 
             # Pitch sequencing - avoid repeating same pitch
             if recent_pitches:
