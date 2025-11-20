@@ -561,6 +561,11 @@ class Fielder:
         - Medium distances (30-60ft): Acceleration phase (~80-90% of max)
         - Long distances (> 60ft): Near full sprint with route efficiency
 
+        FIELDING REALISM ENHANCEMENTS (Pass #2):
+        - Added stochastic route efficiency variance (±2% noise)
+        - Added reaction time jitter (~±50ms)
+        - Added jump quality modifier system
+
         Parameters
         ----------
         target : FieldPosition
@@ -586,6 +591,29 @@ class Fielder:
         max_speed = self.get_sprint_speed_fps_statcast()
         first_step_time = self.get_first_step_time()
 
+        # FIELDING REALISM: Add reaction time jitter (~±50ms)
+        reaction_jitter = np.random.normal(0, 0.05)  # ~±50ms std dev
+        first_step_time = max(0.0, first_step_time + reaction_jitter)
+
+        # FIELDING REALISM: Roll for "jump quality" - affects initial reaction
+        # 5%: Poor jump → +10% penalty to route efficiency
+        # 15%: Subpar jump → +5% penalty to route efficiency
+        # 65%: Normal jump → no change
+        # 15%: Quick jump → +2% bonus to route efficiency
+        jump_roll = np.random.random()
+        if jump_roll < 0.05:
+            # Poor jump (5%)
+            jump_modifier = -0.10  # -10% route efficiency
+        elif jump_roll < 0.20:
+            # Subpar jump (15%)
+            jump_modifier = -0.05  # -5% route efficiency
+        elif jump_roll < 0.85:
+            # Normal jump (65%)
+            jump_modifier = 0.0
+        else:
+            # Quick jump (15%)
+            jump_modifier = 0.02  # +2% route efficiency
+
         # Apply directional speed penalty
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
         directional_max_speed = max_speed * direction_penalty
@@ -605,6 +633,11 @@ class Fielder:
             # Minor route inefficiency
             route_efficiency_raw = self.get_route_efficiency()
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
+
+            # FIELDING REALISM: Add stochastic variance (±2% noise) and jump quality modifier
+            route_eff_variance = np.random.normal(0, 0.02)  # ±2% noise
+            route_efficiency = np.clip(route_efficiency + route_eff_variance + jump_modifier, 0.85, 0.99)
+
             route_penalty = 1.0 + (1.0 - route_efficiency) * 0.3  # Reduced penalty
         else:
             # Long range: 98-100% of max speed
@@ -614,6 +647,11 @@ class Fielder:
             # Reduced route efficiency penalty
             route_efficiency_raw = self.get_route_efficiency()
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
+
+            # FIELDING REALISM: Add stochastic variance (±2% noise) and jump quality modifier
+            route_eff_variance = np.random.normal(0, 0.02)  # ±2% noise
+            route_efficiency = np.clip(route_efficiency + route_eff_variance + jump_modifier, 0.85, 0.99)
+
             route_penalty = 1.0 + (1.0 - route_efficiency) * 0.15  # Much reduced penalty
 
         # Calculate movement time
@@ -794,6 +832,15 @@ class Fielder:
 
         # Clamp to valid range [0.0, 1.0]
         probability = max(0.0, min(1.0, probability))
+
+        # FIELDING REALISM: For catches with probability > 0.95, introduce 1-2% chance of misplay
+        # This creates more realistic bloop hits and occasional defensive lapses on routine plays
+        if probability > 0.95:
+            # Roll for misplay: 1.5% chance of fielder misjudging or bubbling the catch
+            misplay_roll = np.random.random()
+            if misplay_roll < 0.015:  # 1.5% chance
+                # Misplay occurred - reduce probability significantly (to ~50-70%)
+                probability *= np.random.uniform(0.50, 0.70)
 
         return probability
 
@@ -1467,12 +1514,39 @@ class FieldingSimulator:
         self.current_time = 0.0
     
     def add_fielder(self, position_name: str, fielder: Fielder):
-        """Add a fielder at a specific position."""
+        """
+        Add a fielder at a specific position.
+
+        FIELDING REALISM ENHANCEMENT (Pass #2):
+        Introduces slight positioning variability (~1-3 steps off ideal spot)
+        to simulate realistic defensive alignment variance.
+        """
         # Set fielder to standard position if not already positioned
         if fielder.current_position is None:
             standard_pos = self.field_layout.get_defensive_position(position_name)
-            fielder.update_position(standard_pos)
-        
+
+            # FIELDING REALISM: Add positioning variability
+            # Fielders are not always perfectly positioned
+            # Variance: 1-3 steps (3-9 feet) in random direction
+            steps_variance = np.random.uniform(1, 3)  # 1-3 steps
+            feet_variance = steps_variance * 3.0  # Each step ~3 feet
+
+            # Random angle for position offset
+            angle = np.random.uniform(0, 2 * np.pi)
+
+            # Calculate position offset
+            x_offset = feet_variance * np.cos(angle)
+            y_offset = feet_variance * np.sin(angle)
+
+            # Apply offset to standard position
+            adjusted_pos = FieldPosition(
+                standard_pos.x + x_offset,
+                standard_pos.y + y_offset,
+                standard_pos.z
+            )
+
+            fielder.update_position(adjusted_pos)
+
         self.fielders[position_name] = fielder
     
     def determine_responsible_fielder(self, ball_position: FieldPosition,
