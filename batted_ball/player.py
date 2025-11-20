@@ -711,29 +711,33 @@ class Hitter:
         # Count situation adjustments
         swing_prob_after_count = swing_prob
 
-        # PHASE 2A SPRINT 6 2025-11-20: Zone-aware early-count patience adjustments
-        # Sprint 5 results: Good in-zone reduction but killed chase rates
-        # Problem: 0-0 chase 7.9% (MLB: 28%), but 0-0 in-zone 62.7% (MLB: 68%)
-        # Solution: Zone-dependent multipliers - reduce in-zone less, preserve/boost chase rates
+        # PHASE 2A SPRINT 8 2025-11-20: Further reduce early-count aggression
+        # Sprint 7 results: K% stuck at 14% despite zone rate 61.7% and whiff 29.5%
+        # Root cause: Batters putting balls in play too early, not reaching 2-strike counts
+        # Solution: MORE aggressive early-count patience to force deeper counts
         if balls == 0 and strikes == 0:
-            # First pitch - zone-dependent patience
-            # Sprint 6 v1: 59.6% overall (too high!), 70.7% in-zone (target: 68%), 29.6% chase (perfect!)
+            # First pitch - EXTREME zone-dependent patience
+            # Sprint 7: K% 14.0%, need to push to 18-20%
+            # Target: Reduce overall 0-0 swing to ~35-40% (MLB ~47% but need deeper counts for K's)
             if is_strike:
-                # In-zone: Need STRONGER reduction to offset chase boost (0.70× from 0.82×)
-                # Target: Get overall back to ~47% while keeping chase at 29%
-                swing_prob_after_count = swing_prob * 0.70
+                # In-zone: MUCH stronger reduction (0.55× from 0.70×)
+                # Force hitters to work count even on first-pitch strikes
+                swing_prob_after_count = swing_prob * 0.55
             else:
-                # Out-of-zone: 2.0× boost is PERFECT (29.6% hit target 28%)
-                swing_prob_after_count = swing_prob * 2.0
+                # Out-of-zone: HIGHER chase boost to balance (2.5× from 2.0×)
+                # Maintain chase rate around 28-30%
+                swing_prob_after_count = swing_prob * 2.5
         elif balls == 1 and strikes == 0:
-            # 1-0 count - zone-dependent patience
-            # Sprint 6 v1: 61.1% overall (too high), 72.3% in-zone (target: 63%), 36.7% chase (too high)
+            # 1-0 count - HITTER'S COUNT, be patient
+            # Sprint 8: Force hitters to look for their pitch, not just any strike
             if is_strike:
-                # In-zone: stronger reduction (0.75× from 0.85×)
-                swing_prob_after_count = swing_prob * 0.75
+                # In-zone: stronger reduction (0.65× from 0.75×)
+                # This is a hitter's count - should be very selective
+                swing_prob_after_count = swing_prob * 0.65
             else:
-                # Out-of-zone: reduce boost (1.5× from 1.8×) - was too high
-                swing_prob_after_count = swing_prob * 1.5
+                # Out-of-zone: INCREASE chase (2.0× from 1.5×)
+                # Balance extreme in-zone patience with maintained chase
+                swing_prob_after_count = swing_prob * 2.0
         elif balls == 0 and strikes == 1:
             # 0-1 count - behind in count, more aggressive
             # Sprint 6 v1: 60.3% overall (too high), 80.0% in-zone (too high), 30.3% chase (good!)
@@ -753,14 +757,16 @@ class Hitter:
                 # Out-of-zone: reduce boost (2.0× from 2.5×) - 29.5% is perfect
                 swing_prob_after_count = swing_prob * 2.0
         elif balls == 2 and strikes == 0:
-            # 2-0 hitter's count - very selective
-            # Sprint 5: 36.7% overall (good!), need to maintain
+            # 2-0 DEEP hitter's count - EXTREMELY selective
+            # Sprint 8: Near-automatic take unless perfect pitch
             if is_strike:
-                # In-zone: moderate reduction (0.70×)
-                swing_prob_after_count = swing_prob * 0.70
+                # In-zone: MUCH stronger reduction (0.50× from 0.70×)
+                # This is a deep count - force hitters to be patient
+                swing_prob_after_count = swing_prob * 0.50
             else:
-                # Out-of-zone: very selective, minimal chase (0.5×)
-                swing_prob_after_count = swing_prob * 0.5
+                # Out-of-zone: INCREASE chase slightly (1.0× from 0.5×)
+                # Balance extreme in-zone patience, allow some chase mistakes
+                swing_prob_after_count = swing_prob * 1.0
         elif balls == 2 and strikes == 1:
             # 2-1 count - hitter's count but not extreme
             # Sprint 5: 55.7% overall (too high, target: 45%)
