@@ -54,6 +54,13 @@ def run_50game_fixed_diagnostic():
     out_zone_swings = 0
     out_zone_pitches = 0
 
+    # Track foul balls
+    total_fouls = 0
+    fouls_with_0_strikes = 0
+    fouls_with_1_strike = 0
+    fouls_with_2_strikes = 0
+    total_pitches_per_pa = 0
+
     # Simulate 50 games
     for game_num in range(1, 51):
         print(f"  Game {game_num:2d}/50...", end=" ", flush=True)
@@ -80,6 +87,9 @@ def run_50game_fixed_diagnostic():
                 strikeouts += 1
             elif at_bat_result.outcome == 'walk':
                 walks += 1
+
+            # Track pitches per PA
+            total_pitches_per_pa += len(at_bat_result.pitches)
 
             # Extract pitch intentions from pitch_data
             for pitch_data in at_bat_result.pitches:
@@ -131,6 +141,21 @@ def run_50game_fixed_diagnostic():
                     out_zone_pitches += 1
                     if did_swing:
                         out_zone_swings += 1
+
+                # Track foul balls
+                pitch_outcome = pitch_data.get('pitch_outcome', 'unknown')
+                if pitch_outcome == 'foul':
+                    total_fouls += 1
+                    # Get strike count before this pitch
+                    count_before = pitch_data.get('count_before', (0, 0))
+                    strikes_before = count_before[1]
+
+                    if strikes_before == 0:
+                        fouls_with_0_strikes += 1
+                    elif strikes_before == 1:
+                        fouls_with_1_strike += 1
+                    elif strikes_before >= 2:
+                        fouls_with_2_strikes += 1
 
         print("Done.")
 
@@ -212,6 +237,60 @@ def run_50game_fixed_diagnostic():
         print(f"   MLB Target Whiff Rate: ~20-25%")
         print()
 
+        # NEW: Foul Ball Analysis
+        print("⚾ FOUL BALL ANALYSIS (NEW - KEY FOR K% TUNING):")
+        foul_rate = (total_fouls / total_swings) * 100 if total_swings > 0 else 0
+        pitches_per_pa = total_pitches_per_pa / total_pa if total_pa > 0 else 0
+
+        print(f"   Total Fouls: {total_fouls}")
+        print(f"   Foul Ball Rate: {foul_rate:.1f}% of swings (MLB: ~20-25%)")
+        print(f"   MLB Target: 20-25% of swings result in foul balls")
+        print()
+
+        # Foul balls by count
+        print("   Foul Balls by Count:")
+        foul_0_pct = (fouls_with_0_strikes / total_fouls * 100) if total_fouls > 0 else 0
+        foul_1_pct = (fouls_with_1_strike / total_fouls * 100) if total_fouls > 0 else 0
+        foul_2_pct = (fouls_with_2_strikes / total_fouls * 100) if total_fouls > 0 else 0
+
+        print(f"      With 0 strikes: {fouls_with_0_strikes} ({foul_0_pct:.1f}%)")
+        print(f"      With 1 strike:  {fouls_with_1_strike} ({foul_1_pct:.1f}%)")
+        print(f"      With 2 strikes: {fouls_with_2_strikes} ({foul_2_pct:.1f}%)")
+        print(f"      → 2-strike fouls should be highest (batters protecting plate)")
+        print()
+
+        # Pitches per PA
+        print("   Pitches per Plate Appearance:")
+        print(f"      Average: {pitches_per_pa:.2f} pitches/PA")
+        print(f"      MLB Target: 3.8-4.0 pitches/PA")
+        print()
+
+        # Diagnosis
+        if foul_rate < 15:
+            print(f"   🚨 FOUL RATE TOO LOW: {foul_rate:.1f}% (target: 20-25%)")
+            print(f"      → This is likely causing SHORT AT-BATS")
+            print(f"      → Fewer fouls = fewer pitches per PA = fewer 2-strike counts = lower K%")
+            print(f"      → RECOMMENDATION: Increase foul probability (especially with 2 strikes)")
+        elif foul_rate > 30:
+            print(f"   ⚠️ FOUL RATE TOO HIGH: {foul_rate:.1f}% (target: 20-25%)")
+            print(f"      → At-bats may be TOO LONG")
+        else:
+            print(f"   ✅ Foul rate looks good: {foul_rate:.1f}% (target: 20-25%)")
+
+        print()
+
+        if pitches_per_pa < 3.5:
+            print(f"   🚨 PITCHES/PA TOO LOW: {pitches_per_pa:.2f} (target: 3.8-4.0)")
+            print(f"      → At-bats ending too quickly")
+            print(f"      → Likely causes: low foul rate, high chase rate, or short counts")
+        elif pitches_per_pa > 4.5:
+            print(f"   ⚠️ PITCHES/PA TOO HIGH: {pitches_per_pa:.2f} (target: 3.8-4.0)")
+            print(f"      → At-bats too long, may indicate too many fouls or walks")
+        else:
+            print(f"   ✅ Pitches/PA looks good: {pitches_per_pa:.2f} (target: 3.8-4.0)")
+
+        print()
+
         # Contact rate by pitch type
         print("   Contact Rate by Pitch Type:")
         for pitch_type in sorted(pitch_type_contact.keys()):
@@ -233,15 +312,24 @@ def run_50game_fixed_diagnostic():
     print(f"   MLB Target BB%: ~8-9%")
     print()
 
-    # Diagnosis
+    # Diagnosis (with foul ball context)
+    pitches_per_pa = total_pitches_per_pa / total_pa if total_pa > 0 else 0
+    foul_rate = (total_fouls / total_swings) * 100 if total_swings > 0 else 0
+
     if k_pct < 18:
         print(f"   🚨 K% TOO LOW: {k_pct:.1f}% (target: 22%)")
         print(f"      → Zone rate: {overall_zone_rate:.1f}% (target: 62-65%)")
+        print(f"      → Foul rate: {foul_rate:.1f}% (target: 20-25%)")
+        print(f"      → Pitches/PA: {pitches_per_pa:.2f} (target: 3.8-4.0)")
         if overall_zone_rate < 55:
             print(f"      → ZONE RATE is the bottleneck!")
             print(f"      → Need to increase strike_looking pitches or reduce command sigma")
+        elif foul_rate < 15 or pitches_per_pa < 3.5:
+            print(f"      → Zone rate OK, but FOUL RATE TOO LOW or PITCHES/PA TOO SHORT")
+            print(f"      → At-bats not getting deep enough for K opportunities")
+            print(f"      → Need to increase foul probability (especially with 2 strikes)")
         else:
-            print(f"      → Zone rate OK, but K% still low")
+            print(f"      → Zone rate OK, fouls OK, but K% still low")
             print(f"      → May need to adjust 2-strike whiff rates or chase rate")
     elif k_pct > 26:
         print(f"   ⚠️ K% TOO HIGH: {k_pct:.1f}% (target: 22%)")
