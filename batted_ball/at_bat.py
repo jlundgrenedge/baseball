@@ -22,10 +22,14 @@ from .pitch import (
 )
 from .contact import ContactModel
 from .trajectory import BattedBallSimulator
+from .pitcher_control import PitcherControlModule
+from .umpire import UmpireModel
 from .constants import (
     STRIKE_ZONE_WIDTH,
     STRIKE_ZONE_BOTTOM,
     STRIKE_ZONE_TOP,
+    V2_PITCHER_CONTROL_MODULE_ENABLED,
+    V2_UMPIRE_MODEL_ENABLED,
 )
 
 
@@ -84,6 +88,7 @@ class AtBatSimulator:
         fast_mode: bool = False,
         metrics_collector=None,
         debug_collector=None,
+        catcher_framing_rating: float = 50000.0,
     ):
         """
         Initialize at-bat simulator.
@@ -113,6 +118,9 @@ class AtBatSimulator:
             Metrics collector for debug output (default: None = no metrics)
         debug_collector : DebugMetricsCollector, optional
             Debug metrics collector for Phase 1 analysis (default: None)
+        catcher_framing_rating : float, optional
+            Catcher's framing ability (0-100k scale) for V2 umpire model
+            Default: 50000 (average MLB catcher)
         """
         self.pitcher = pitcher
         self.hitter = hitter
@@ -124,11 +132,23 @@ class AtBatSimulator:
         self.fast_mode = fast_mode
         self.metrics_collector = metrics_collector
         self.debug_collector = debug_collector
+        self.catcher_framing_rating = catcher_framing_rating
 
         # Create physics simulators
         self.pitch_sim = PitchSimulator()
         self.contact_model = ContactModel()
         self.batted_ball_sim = BattedBallSimulator()
+
+        # V2 Phase 2B: Create pitcher control and umpire models
+        if V2_PITCHER_CONTROL_MODULE_ENABLED:
+            self.pitcher_control = PitcherControlModule(pitcher)
+        else:
+            self.pitcher_control = None
+
+        if V2_UMPIRE_MODEL_ENABLED:
+            self.umpire = UmpireModel()
+        else:
+            self.umpire = None
 
     def _record_pitch_metrics(self, pitch_data: Dict, sequence_index: int):
         """
@@ -359,6 +379,8 @@ class AtBatSimulator:
         """
         Select target location for pitch with realistic strike/ball distribution.
 
+        V2 Phase 2B: Uses PitcherControlModule for dynamic zone targeting when enabled.
+
         Parameters
         ----------
         count : tuple
@@ -376,6 +398,27 @@ class AtBatSimulator:
         """
         balls, strikes = count
 
+        # V2 Phase 2B: Use PitcherControlModule if enabled
+        if V2_PITCHER_CONTROL_MODULE_ENABLED and self.pitcher_control is not None:
+            # Use new pitcher control module for dynamic zone targeting
+            horizontal_target, vertical_target = self.pitcher_control.generate_pitch_location(
+                balls, strikes, pitch_type
+            )
+            # For return_intention, we still provide a simplified intention
+            # based on whether pitch is in zone or not
+            zone_left, zone_right = -8.5, 8.5
+            zone_bottom, zone_top = 18.0, 42.0
+            in_zone = (
+                zone_left <= horizontal_target <= zone_right and
+                zone_bottom <= vertical_target <= zone_top
+            )
+            intention = 'strike_looking' if in_zone else 'ball_intentional'
+
+            if return_intention:
+                return (horizontal_target, vertical_target), intention
+            return horizontal_target, vertical_target
+
+        # Legacy V1 logic: Hardcoded intention probabilities
         # MLB strike rate is typically 62-65%. We need to intentionally target
         # outside the zone more often to achieve realistic ball rates.
 
@@ -605,6 +648,20 @@ class AtBatSimulator:
         # Update pitcher state
         self.pitcher.throw_pitch()
 
+        # V2 Phase 2B: Use UmpireModel for ball/strike calls if enabled
+        if V2_UMPIRE_MODEL_ENABLED and self.umpire is not None:
+            # Get framing bonus from catcher
+            framing_bonus = self.umpire.get_framing_bonus(self.catcher_framing_rating)
+
+            # Umpire makes call based on final pitch location
+            final_h = result.plate_y * 12  # Convert feet to inches
+            final_v = result.plate_z * 12  # Convert feet to inches
+            umpire_call = self.umpire.call_pitch(final_h, final_v, framing_bonus)
+            is_strike = (umpire_call == 'strike')
+        else:
+            # Legacy V1: Use physics-based strike zone (perfect umpire)
+            is_strike = result.is_strike
+
         pitch_data = {
             'pitch_type': pitch_type,
             'target_location': target_location,
@@ -612,7 +669,7 @@ class AtBatSimulator:
             'final_location': (result.plate_y * 12, result.plate_z * 12),  # Inches - now accurate!
             'velocity_release': velocity,
             'velocity_plate': result.plate_speed,
-            'is_strike': result.is_strike,
+            'is_strike': is_strike,  # Now uses umpire call in V2
             'break': (result.vertical_break, result.horizontal_break),
             'result': result,
             'spin_rpm': spin,
