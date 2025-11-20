@@ -932,8 +932,9 @@ TAG_AVOIDANCE_SUCCESS_RATE = 0.15  # 15% chance to avoid tag if close
 # Controls how often pitchers target the strike zone based on count/situation
 # Replaces hardcoded "intentional ball" probabilities with dynamic control model
 
-BB_ZONE_TARGET_NEUTRAL = 0.62  # Target zone % in neutral counts (0-0, 1-1, 2-2)
+BB_ZONE_TARGET_NEUTRAL = 0.59  # Target zone % in neutral counts (0-0, 1-1, 2-2)
                                # Tune range: 0.58-0.68 to achieve MLB zone rate ~62-65%
+                               # TUNED 2025-11-20: Reduced from 0.62 to increase BB%
 
 BB_ZONE_TARGET_AHEAD = 0.70    # Target zone % when ahead in count (0-2, 1-2)
                                # Tune range: 0.65-0.75; pitchers attack more when ahead
@@ -941,8 +942,10 @@ BB_ZONE_TARGET_AHEAD = 0.70    # Target zone % when ahead in count (0-2, 1-2)
 BB_ZONE_TARGET_BEHIND = 0.55   # Target zone % when behind in count (2-0, 3-0, 3-1)
                                # Tune range: 0.50-0.60; pitchers nibble more when behind
 
-BB_ZONE_TARGET_THREE_BALL = 0.90  # Target zone % on 3-ball counts (must throw strike)
-                                  # Very high to avoid walk
+BB_ZONE_TARGET_THREE_BALL = 0.72  # Target zone % on 3-ball counts (must throw strike)
+                                  # TUNED 2025-11-20: Reduced from 0.90 to 0.72
+                                  # MLB reality: ~70-75% strikes on 3-ball, not 90%
+                                  # This allows more walks from 3-ball counts
 
 # --- Umpire Model: Borderline Call Variability ---
 # Probabilistic strike/ball calls on pitches near zone edge
