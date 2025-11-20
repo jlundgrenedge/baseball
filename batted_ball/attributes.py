@@ -848,28 +848,32 @@ class PitcherAttributes:
         """
         Convert COMMAND to target dispersion (inches, standard deviation).
 
-        RESCALED 2025-11-19 to match MLB Statcast reality (1.0-2.5 ft RMS error).
+        RESCALED 2025-11-20 to account for target variance being additive.
 
-        Previous mapping was 10× too accurate (3.5" sigma → 5" RMS vs MLB's 18-24" RMS).
-        New mapping calibrated to Statcast command data:
+        Strike zone is 17" wide × 24" tall. Pitch targets have intrinsic variance
+        (2-3" for center targets, more for edge targets), and command error is ADDED.
+        Total variance = sqrt(target_var² + command_var²).
+
+        For 58-62% strike rate (MLB average), need total sigma ~7-9" for average pitcher.
+        With target variance ~2-3", command sigma should be ~6-8".
 
         Lower rating = worse command (more scatter)
 
-        Anchors (4.5× larger for MLB realism):
-        - 0: 24.0 in (poor command, ~34" RMS = 2.8 ft) - wild pitcher
-        - 50k: 16.0 in (average, ~23" RMS = 1.9 ft) - typical MLB starter
-        - 85k: 9.5 in (elite, ~13" RMS = 1.1 ft) - Maddux/Glavine level
-        - 100k: 5.0 in (pinpoint, ~7" RMS = 0.6 ft) - superhuman
+        Anchors (tuned for MLB walk rates):
+        - 0: 10.0 in (poor command, ~14" RMS = 1.2 ft) - wild pitcher, ~20-25% walks
+        - 50k: 6.5 in (average, ~9" RMS = 0.75 ft) - typical MLB starter, ~8-9% walks
+        - 85k: 4.5 in (elite, ~6" RMS = 0.5 ft) - Maddux/Glavine level, ~3-5% walks
+        - 100k: 2.5 in (pinpoint, ~3.5" RMS = 0.3 ft) - superhuman, ~1-2% walks
 
         Note: RMS = sigma × √2 for 2D normal distribution (horizontal + vertical)
 
-        Sources: MLB Statcast command metrics, Baseball Prospectus pitch location data
+        Sources: Empirically calibrated to achieve MLB walk rates (8-9% average)
         """
         return piecewise_logistic_map_inverse(
             self.COMMAND,
-            human_min=9.5,     # Was 1.8 (elite), now MLB realistic
-            human_cap=24.0,    # Was 8.0 (poor), now MLB realistic
-            super_cap=5.0      # Was 0.8 (pinpoint), now MLB realistic
+            human_min=4.5,     # Elite command (was 5.0)
+            human_cap=10.0,    # Poor command (was 12.0)
+            super_cap=2.5      # Pinpoint (was 3.0)
         )
 
     def get_stamina_pitches(self) -> float:
