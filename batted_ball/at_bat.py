@@ -83,6 +83,7 @@ class AtBatSimulator:
         wind_direction: float = 0.0,
         fast_mode: bool = False,
         metrics_collector=None,
+        debug_collector=None,
     ):
         """
         Initialize at-bat simulator.
@@ -110,6 +111,8 @@ class AtBatSimulator:
             Recommended for bulk simulations (1000+ at-bats)
         metrics_collector : SimMetricsCollector, optional
             Metrics collector for debug output (default: None = no metrics)
+        debug_collector : DebugMetricsCollector, optional
+            Debug metrics collector for Phase 1 analysis (default: None)
         """
         self.pitcher = pitcher
         self.hitter = hitter
@@ -120,6 +123,7 @@ class AtBatSimulator:
         self.wind_direction = wind_direction
         self.fast_mode = fast_mode
         self.metrics_collector = metrics_collector
+        self.debug_collector = debug_collector
 
         # Create physics simulators
         self.pitch_sim = PitchSimulator()
@@ -875,6 +879,24 @@ class AtBatSimulator:
                 'missed_into_zone': missed_into_zone
             }
 
+            # Log pitch intention for Phase 1 debug metrics
+            if self.debug_collector:
+                self.debug_collector.log_pitch_intention(
+                    inning=0,  # At-bat simulator doesn't have inning context
+                    balls=balls,
+                    strikes=strikes,
+                    outs=0,  # At-bat simulator doesn't have outs context
+                    pitch_type=pitch_type,
+                    intention=pitch_intention,
+                    target_x=target_h,
+                    target_z=target_v,
+                    actual_x=actual_h,
+                    actual_z=actual_v,
+                    is_in_zone=pitch_data['is_strike'],
+                    pitcher_control=self.pitcher.attributes.get_control_zone_bias(),
+                    pitcher_command_sigma=self.pitcher.attributes.get_command_sigma_inches()
+                )
+
             # Annotate pitch with contextual data for downstream logging/debugging
             pitch_data['sequence_index'] = len(pitches) + 1
             pitch_data['count_before'] = count_before_pitch
@@ -989,6 +1011,32 @@ class AtBatSimulator:
 
                         pitch_data['count_after'] = (balls, strikes)
                         pitches.append(pitch_data)
+
+                        # Log plate appearance outcome for Phase 1 debug metrics
+                        if self.debug_collector:
+                            num_swings = sum(1 for p in pitches if p.get('swing', False))
+                            num_whiffs = sum(1 for p in pitches if p.get('swing', False) and p.get('whiff', False))
+                            num_fouls = sum(1 for p in pitches if p.get('pitch_outcome') == 'foul')
+                            num_fouls_with_2_strikes = sum(1 for p in pitches if p.get('pitch_outcome') == 'foul' and p.get('count_before', (0, 0))[1] >= 2)
+
+                            self.debug_collector.log_plate_appearance_outcome(
+                                inning=0,
+                                batter_name=self.hitter.name,
+                                pitcher_name=self.pitcher.name,
+                                initial_count=(0, 0),
+                                final_count=(balls, strikes),
+                                num_pitches=len(pitches),
+                                num_fouls_with_2_strikes=num_fouls_with_2_strikes,
+                                result='in_play',
+                                num_swings=num_swings,
+                                num_whiffs=num_whiffs,
+                                num_fouls=num_fouls,
+                                made_contact=True,
+                                exit_velocity_mph=contact_result.get('exit_velocity') if contact_result else None,
+                                launch_angle_deg=contact_result.get('launch_angle') if contact_result else None,
+                                distance_ft=contact_result.get('distance') if contact_result else None
+                            )
+
                         return AtBatResult(
                             outcome='in_play',
                             pitches=pitches,
@@ -1014,6 +1062,31 @@ class AtBatSimulator:
 
         if verbose:
             print(f"\n{outcome.upper()}!")
+
+        # Log plate appearance outcome for Phase 1 debug metrics
+        if self.debug_collector:
+            num_swings = sum(1 for p in pitches if p.get('swing', False))
+            num_whiffs = sum(1 for p in pitches if p.get('swing', False) and p.get('whiff', False))
+            num_fouls = sum(1 for p in pitches if p.get('pitch_outcome') == 'foul')
+            num_fouls_with_2_strikes = sum(1 for p in pitches if p.get('pitch_outcome') == 'foul' and p.get('count_before', (0, 0))[1] >= 2)
+
+            self.debug_collector.log_plate_appearance_outcome(
+                inning=0,
+                batter_name=self.hitter.name,
+                pitcher_name=self.pitcher.name,
+                initial_count=(0, 0),
+                final_count=(balls, strikes),
+                num_pitches=len(pitches),
+                num_fouls_with_2_strikes=num_fouls_with_2_strikes,
+                result=outcome,
+                num_swings=num_swings,
+                num_whiffs=num_whiffs,
+                num_fouls=num_fouls,
+                made_contact=False,
+                exit_velocity_mph=None,
+                launch_angle_deg=None,
+                distance_ft=None
+            )
 
         return AtBatResult(
             outcome=outcome,
