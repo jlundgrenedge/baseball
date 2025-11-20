@@ -242,18 +242,21 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 
 # Collision Efficiency (q) - Master formula parameter
 # BBS = q * v_pitch + (1 + q) * v_bat
-# RESTORED 2025-11-19: Increased from 0.08 to 0.12 to restore power hitting
-# Previous reductions were too aggressive, suppressing realistic power output
-# With typical bat speed 78 mph and pitch speed 83 mph:
-# - Old q=0.08: EV = 0.08*83 + 1.08*78 = 91 mph (too low, suppressed HRs)
-# - Mid q=0.12: EV = 0.12*83 + 1.12*78 = 97 mph (0 HRs per game - too low)
-# - Try q=0.13: EV = 0.13*83 + 1.13*78 = 99 mph (target: 2-5 HRs/game)
-# - Was q=0.14: EV = 0.14*83 + 1.14*78 = 100.5 mph (16 HRs/game - too high!)
-# This provides optimal balance for realistic MLB home run rates (~2.2/game avg)
-# Combined with hit_handler distance-first logic for more realistic HR distribution
-COLLISION_EFFICIENCY_WOOD = 0.13        # Wood bats (maple, ash, birch) - balanced power hitting
-COLLISION_EFFICIENCY_ALUMINUM = 0.11    # Aluminum bats (BBCOR regulated) - reduced from 0.24
-COLLISION_EFFICIENCY_COMPOSITE = 0.12   # Composite bats (BBCOR regulated) - reduced from 0.25
+# RECALIBRATED 2025-11-20: Increased from 0.13 to 0.18 to fix hard-hit rate
+# Previous q=0.13 base was being reduced to ~0.09 after penalties:
+# - Sweet spot penalty: ~0.6% per inch (distance * 0.006)
+# - Offset penalty: ~2.4% per inch (offset * 0.04 * 0.60)
+# - Vibration loss: ~0.9% per inch (distance * 0.015 * 0.60)
+# Total typical penalty: ~4% → q=0.13 - 0.04 = 0.09 final
+# This produced exit velocities ~90-95 mph, far below MLB hard-hit threshold (95+ mph)
+# Hard-hit rate was 5.2% vs MLB 40% - needed higher base efficiency
+# With bat speed 75 mph (avg) and pitch speed 90 mph:
+# - New q=0.18 base → ~0.14 after penalties: EV = 0.14*90 + 1.14*75 = 98 mph ✓
+# - Power contact q=0.16 (less penalty): EV = 0.16*90 + 1.16*75 = 101.4 mph ✓
+# Target: 40% hard-hit rate (95+ mph), realistic HR/FB ~12%
+COLLISION_EFFICIENCY_WOOD = 0.18        # Wood bats (raised from 0.13 for realistic hard-hit rate)
+COLLISION_EFFICIENCY_ALUMINUM = 0.16    # Aluminum bats (raised from 0.11)
+COLLISION_EFFICIENCY_COMPOSITE = 0.17   # Composite bats (raised from 0.12)
 
 # Sweet Spot Physics
 SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone

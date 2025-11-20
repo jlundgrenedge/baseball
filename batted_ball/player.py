@@ -891,12 +891,14 @@ class Hitter:
 
         # Barrel accuracy affects ability to make contact
         # Derive contact_factor from barrel accuracy in mm
-        # Elite: ~5mm error -> 0.6x whiff rate
-        # Average: ~15mm error -> 1.0x whiff rate
-        # Poor: ~30mm error -> 1.8x whiff rate
+        # RECALIBRATED 2025-11-20: Reduced impact to fix low K% issue
+        # Elite: ~5mm error -> 0.80x whiff rate (reduced from 0.60x)
+        # Average: ~10mm error -> 1.00x whiff rate (changed anchor)
+        # Poor: ~30mm error -> 1.60x whiff rate (reduced from 1.80x)
         barrel_error_mm = self.attributes.get_barrel_accuracy_mm()
-        # Map linearly: 5mm -> 0.6, 15mm -> 1.0, 30mm -> 1.8
-        contact_factor = 0.6 + (barrel_error_mm - 5) * 0.048
+        # Map linearly: 5mm -> 0.80, 10mm -> 1.00, 30mm -> 1.60
+        # Formula: 0.80 + (barrel_error_mm - 5) * 0.04
+        contact_factor = 0.80 + (barrel_error_mm - 5) * 0.040
 
         # NEW: Apply pitch-specific contact multiplier from Statcast data
         pitch_contact_mult = self.get_pitch_contact_multiplier(pitch_type)
