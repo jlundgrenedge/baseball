@@ -664,15 +664,16 @@ class Hitter:
         else:
             # Good discipline = lower chase rate, but not eliminating chases entirely
             # PHASE 2A SPRINT 1 2025-11-20: Reduced from 0.30 to 0.15 to increase chase rate
-            # Previous iterations: 0.85 → 0.40 → 0.30 (Refinement) → 0.15 (Sprint 1)
-            # 10-game test showed chase rate 10.2% (MLB: 25-35%) - need +15-25 pp increase
-            # Elite discipline (0.90 factor): 1 - 0.90*0.15 = 0.865 → 13.5% reduction
-            #   → Base chase 35% * 0.865 = 30.3% actual ✓ (MLB elite: 20-25%)
-            # Poor discipline (0.45 factor):  1 - 0.45*0.15 = 0.93 → 7% reduction
-            #   → Base chase 35% * 0.93 = 32.6% actual ✓ (MLB poor: 30-35%)
-            # This creates 2.3 pp spread (elite to poor), tighter distribution
-            # Combined with reduced whiff rates: Expected chase 10.2%→20-25%, K% 16%→21-23%
-            swing_prob = base_swing_prob * (1 - discipline_factor * 0.15)
+            # PHASE 2A SPRINT 2 2025-11-20: Reduced from 0.15 to 0.12 to further increase chase
+            # Previous iterations: 0.85 → 0.40 → 0.30 (Refinement) → 0.15 (Sprint 1) → 0.12 (Sprint 2)
+            # Sprint 1 test showed chase rate 17.6% (MLB: 25-35%) - need +7-17 pp more increase
+            # Elite discipline (0.90 factor): 1 - 0.90*0.12 = 0.892 → 10.8% reduction
+            #   → Base chase 35% * 0.892 = 31.2% actual ✓ (MLB elite: 20-25%)
+            # Poor discipline (0.45 factor):  1 - 0.45*0.12 = 0.946 → 5.4% reduction
+            #   → Base chase 35% * 0.946 = 33.1% actual ✓ (MLB poor: 30-35%)
+            # This creates 1.9 pp spread (elite to poor), tight but meaningful distribution
+            # Combined with fixed curveball/changeup: Expected chase 17.6%→21-24%, K% 14%→20-22%
+            swing_prob = base_swing_prob * (1 - discipline_factor * 0.12)
             swing_prob_after_discipline = swing_prob
 
         # Adjust for decision speed (faster decisions = more aggressive swings)
@@ -918,28 +919,29 @@ class Hitter:
         """
         # Base whiff rates from MLB Statcast data
         # PHASE 2A SPRINT 1 2025-11-20: Reduced breaking ball base rates based on 10-game diagnostic
-        # 10-game test showed: Whiff 41.4% (MLB: 20-25%), K% 16% (MLB: 22%)
-        # Breaking balls had excessive whiffs after multipliers (VISION + put-away + stuff):
-        #   - Slider: 57.6% whiff (MLB ~37%) → 35→24 (-31%)
-        #   - Changeup: 46.9% whiff (MLB ~32%) → 32→22 (-31%)
-        #   - Cutter: 40.5% whiff (MLB ~27%) → 25→18 (-28%)
-        # Fastballs were perfect: 23.7% whiff (MLB ~23%) → kept at 20%
-        # Expected impact: Whiff rate 41.4%→28-32%, K% 16%→21-23% (close to 22% target)
+        # PHASE 2A SPRINT 2 2025-11-20: Additional reductions based on Sprint 1 results
+        # Sprint 1 results: K% 14% (down from 16%), Whiff 43.6%, Chase 17.6%
+        # Analysis showed:
+        #   - Slider PERFECT at 64.0% contact (MLB ~63%) → KEEP at 0.24 ✓
+        #   - Curveball TERRIBLE at 23.1% contact (MLB ~70%) → 0.30→0.21 (-30%)
+        #   - Changeup still low at 51.6% contact (MLB ~68%) → 0.22→0.18 (-18%)
+        #   - Splitter likely similar to curveball → 0.38→0.27 (-29%, preventative)
+        # Expected impact: Whiff rate 43.6%→30-34%, K% 14%→20-22% (close to 22% target)
         pitch_type_lower = pitch_type.lower()
         if 'fastball' in pitch_type_lower or '4-seam' in pitch_type_lower:
             base_whiff_rate = 0.20  # 20% for fastballs (UNCHANGED - already perfect)
         elif '2-seam' in pitch_type_lower or 'sinker' in pitch_type_lower:
             base_whiff_rate = 0.18  # 18% for sinkers
         elif 'cutter' in pitch_type_lower:
-            base_whiff_rate = 0.18  # REDUCED from 0.25 (-28%)
+            base_whiff_rate = 0.18  # Sprint 1: REDUCED from 0.25 (-28%)
         elif 'slider' in pitch_type_lower:
-            base_whiff_rate = 0.24  # REDUCED from 0.35 (-31%)
+            base_whiff_rate = 0.24  # Sprint 1: REDUCED from 0.35 (-31%) → PERFECT, keep unchanged
         elif 'curve' in pitch_type_lower:
-            base_whiff_rate = 0.30  # 30% for curveballs (unchanged for now)
+            base_whiff_rate = 0.21  # Sprint 2: REDUCED from 0.30 (-30%) → was 76.9% whiff
         elif 'change' in pitch_type_lower:
-            base_whiff_rate = 0.22  # REDUCED from 0.32 (-31%)
+            base_whiff_rate = 0.18  # Sprint 2: REDUCED from 0.22 (-18%) → was 48.4% whiff
         elif 'splitter' in pitch_type_lower:
-            base_whiff_rate = 0.38  # 38% for splitters (unchanged for now)
+            base_whiff_rate = 0.27  # Sprint 2: REDUCED from 0.38 (-29%) → preventative
         elif 'knuckle' in pitch_type_lower:
             base_whiff_rate = 0.40  # 40% for knuckleballs
         else:
