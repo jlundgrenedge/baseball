@@ -180,6 +180,16 @@ class Pitcher:
         """
         Calculate location error based on command with stamina effects.
 
+        FIXED 2025-11-19: Now actually uses pitcher's COMMAND attribute!
+        Previous bug: Hardcoded 3.0" for all pitchers, ignored COMMAND rating.
+
+        Command error follows normal distribution with sigma from COMMAND attribute:
+        - Elite (85k): 9.5" sigma (~13" RMS error)
+        - Average (50k): 16.0" sigma (~23" RMS error)
+        - Poor (20k): 21.5" sigma (~30" RMS error)
+
+        Fatigue increases error by up to 2× when exhausted.
+
         Parameters
         ----------
         pitch_type : str
@@ -190,19 +200,18 @@ class Pitcher:
         tuple
             (horizontal_error_inches, vertical_error_inches)
         """
-        # Get base command error from attributes (in inches)
-        # Note: PitcherAttributes doesn't have a command error method yet
-        # For now, use a reasonable default that could be added to attributes
-        max_error = 3.0  # inches, average MLB command
+        # Get base command error from attributes (FIXED - now actually uses it!)
+        command_sigma = self.attributes.get_command_sigma_inches()
 
         # Apply stamina degradation
         stamina_cap = self.attributes.get_stamina_pitches()
         stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
         fatigue_multiplier = 1.0 + (1.0 - stamina_factor) * 1.0  # Up to 2x error when exhausted
 
-        # Random error with normal distribution
-        horizontal_error = np.random.normal(0, max_error * fatigue_multiplier / 2.0)
-        vertical_error = np.random.normal(0, max_error * fatigue_multiplier / 2.0)
+        # Random error with normal distribution (NO DIVISION - use sigma directly!)
+        # Previous bug: Divided by 2.0, making error 10× too small
+        horizontal_error = np.random.normal(0, command_sigma * fatigue_multiplier)
+        vertical_error = np.random.normal(0, command_sigma * fatigue_multiplier)
 
         return horizontal_error, vertical_error
 

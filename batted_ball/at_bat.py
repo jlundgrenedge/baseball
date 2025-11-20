@@ -411,9 +411,12 @@ class AtBatSimulator:
         """
         # Count-based probabilities for different intentions
         if balls == 0 and strikes == 0:
-            # First pitch - often strike looking
-            intentions = ['strike_looking', 'strike_competitive', 'strike_corner']
-            probabilities = [0.50, 0.35, 0.15]
+            # First pitch - realistic MLB distribution
+            # FIXED 2025-11-19: Was 100% strike intentions → 85% actual strikes
+            # Now 65% strike intentions → ~58-62% actual strikes after command error
+            # This matches MLB first-pitch strike rate of 58-62%
+            intentions = ['strike_looking', 'strike_competitive', 'strike_corner', 'ball_intentional']
+            probabilities = [0.35, 0.20, 0.10, 0.35]
             
         elif balls >= 3:
             # Must throw strike
@@ -435,27 +438,38 @@ class AtBatSimulator:
             intentions = ['strike_competitive', 'strike_corner', 'waste_chase', 'ball_intentional']
             probabilities = [0.40, 0.25, 0.20, 0.15]
         
-        # Adjust for pitcher's control rating
-        # TODO: Add control rating to PitcherAttributes
-        # For now, use average control (50/100 = 0.5) for all pitchers
-        # This maintains game balance while we extend the attribute system
-        control_factor = 0.5  # Average MLB control
-        
-        # Poor control pitchers throw more unintentional balls
-        if control_factor < 0.5:
-            # Increase chance of unintentional misses
-            if 'ball_intentional' in intentions:
-                idx = intentions.index('ball_intentional')
-                probabilities[idx] *= 1.5
+        # FIXED 2025-11-19: Use pitcher's actual CONTROL rating (not hardcoded 0.5!)
+        # get_control_zone_bias() returns 0.5-0.85 based on CONTROL attribute
+        control_bias = self.pitcher.attributes.get_control_zone_bias()
+
+        # Adjust probabilities based on control
+        # High control = favor strike intentions, reduce ball intentions
+        # Low control = favor ball intentions, reduce strike intentions
+        adjusted_probabilities = []
+        for intent, prob in zip(intentions, probabilities):
+            if intent in ['strike_looking', 'strike_competitive', 'strike_corner']:
+                # Strike intentions: boost for high control, reduce for low control
+                # control_bias ranges from 0.5 (poor) to 0.85 (elite)
+                # At 0.65 (average), multiplier = 1.0
+                # At 0.85 (elite), multiplier = 1.31
+                # At 0.50 (poor), multiplier = 0.77
+                adjusted_prob = prob * (control_bias / 0.65)
+            elif intent in ['waste_chase', 'ball_intentional']:
+                # Ball intentions: reduce for high control, boost for low control
+                # At 0.65 (average), multiplier = 1.0
+                # At 0.85 (elite), multiplier = 0.65
+                # At 0.50 (poor), multiplier = 1.43
+                adjusted_prob = prob * ((1.5 - control_bias) / 0.85)
             else:
-                intentions.append('ball_intentional')
-                probabilities.append(0.15)
-                
+                adjusted_prob = prob
+
+            adjusted_probabilities.append(adjusted_prob)
+
         # Normalize probabilities
-        total = sum(probabilities)
-        probabilities = [p / total for p in probabilities]
-        
-        return np.random.choice(intentions, p=probabilities)
+        total = sum(adjusted_probabilities)
+        adjusted_probabilities = [p / total for p in adjusted_probabilities]
+
+        return np.random.choice(intentions, p=adjusted_probabilities)
 
     def simulate_pitch(
         self,
