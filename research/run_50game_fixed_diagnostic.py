@@ -104,10 +104,18 @@ def run_50game_fixed_diagnostic():
 
                     pitch_type_contact[pitch_type]['swings'] += 1
 
-                    if pitch_data.get('contact', False):
+                    # Check pitch outcome to determine contact
+                    pitch_outcome = pitch_data.get('pitch_outcome', 'unknown')
+                    if pitch_outcome in ['foul', 'ball_in_play', 'contact']:
+                        # Made contact
                         total_contacts += 1
                         pitch_type_contact[pitch_type]['contacts'] += 1
+                    elif pitch_outcome in ['swinging_strike', 'whiff']:
+                        # Whiffed
+                        total_whiffs += 1
+                        pitch_type_contact[pitch_type]['whiffs'] += 1
                     else:
+                        # Unknown outcome on swing - count as whiff to be safe
                         total_whiffs += 1
                         pitch_type_contact[pitch_type]['whiffs'] += 1
 
