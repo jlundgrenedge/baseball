@@ -1,0 +1,164 @@
+{
+  "metadata": {
+    "timestamp": "2025-11-20T14:38:26.905750",
+    "num_games": 10,
+    "away_team": "Visitors",
+    "home_team": "Home Team",
+    "simulation_version": "Pass 3 Baseline (5/10 passing)",
+    "benchmarks_passing": "3/10"
+  },
+  "series_summary": {
+    "away_wins": 4,
+    "home_wins": 6,
+    "away_total_runs": 47,
+    "home_total_runs": 39,
+    "avg_runs_per_game": 4.3
+  },
+  "mlb_benchmarks": {
+    "Batting Average": {
+      "actual": 0.21311475409836064,
+      "mlb_min": 0.23,
+      "mlb_max": 0.27,
+      "mlb_avg": 0.248,
+      "status": "WARNING",
+      "passing": false
+    },
+    "BABIP": {
+      "actual": 0.3,
+      "mlb_min": 0.26,
+      "mlb_max": 0.36,
+      "mlb_avg": 0.295,
+      "status": "OK",
+      "passing": true
+    },
+    "HR/FB Rate": {
+      "actual": 0.16666666666666666,
+      "mlb_min": 0.09,
+      "mlb_max": 0.16,
+      "mlb_avg": 0.125,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Strikeout Rate": {
+      "actual": 0.06516290726817042,
+      "mlb_min": 0.18,
+      "mlb_max": 0.26,
+      "mlb_avg": 0.22,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Walk Rate": {
+      "actual": 0.1846282372598162,
+      "mlb_min": 0.07,
+      "mlb_max": 0.1,
+      "mlb_avg": 0.085,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Isolated Power (ISO)": {
+      "actual": 0.11065573770491807,
+      "mlb_min": 0.12,
+      "mlb_max": 0.18,
+      "mlb_avg": 0.15,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Avg Exit Velocity (mph)": {
+      "actual": 94.61986644407347,
+      "mlb_min": 86.0,
+      "mlb_max": 90.0,
+      "mlb_avg": 88.0,
+      "status": "WARNING",
+      "passing": false
+    },
+    "Hard Hit Rate": {
+      "actual": 0.23385300668151449,
+      "mlb_min": 0.35,
+      "mlb_max": 0.45,
+      "mlb_avg": 0.4,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Runs per Team per Game": {
+      "actual": 4.3,
+      "mlb_min": 3.8,
+      "mlb_max": 5.2,
+      "mlb_avg": 4.5,
+      "status": "OK",
+      "passing": true
+    },
+    "Team ERA": {
+      "actual": 4.3,
+      "mlb_min": 3.5,
+      "mlb_max": 5.0,
+      "mlb_avg": 4.25,
+      "status": "OK",
+      "passing": true
+    }
+  },
+  "detailed_metrics": {
+    "batting": {
+      "avg": 0.21311475409836064,
+      "obp": 0.3583959899749373,
+      "slg": 0.3237704918032787,
+      "ops": 0.682166481778216,
+      "iso": 0.11065573770491807,
+      "babip": 0.3,
+      "woba": 0.29275689223057644,
+      "k_rate": 0.06516290726817042,
+      "bb_rate": 0.1846282372598162,
+      "hr_fb_rate": 0.16666666666666666
+    },
+    "pitching": {
+      "era": 4.3,
+      "whip": 1.577777777777778,
+      "k_per_9": 2.85,
+      "bb_per_9": 7.2
+    }
+  },
+  "distributions": {
+    "exit_velocity": {
+      "mean": 94.61986644407347,
+      "median": 93.8,
+      "std": 4.848153976221719,
+      "min": 82.9,
+      "max": 107.5,
+      "percentile_25": 91.4,
+      "percentile_75": 96.0,
+      "percentile_90": 102.4,
+      "percentile_95": 103.83,
+      "count_95plus": 210,
+      "percent_95plus": 35.058430717863104,
+      "count_100plus": 113,
+      "percent_100plus": 18.864774624373958
+    },
+    "launch_angle": {
+      "mean": 14.890150250417364,
+      "median": 13.9,
+      "std": 12.568047295908094,
+      "min": -8.8,
+      "max": 49.7,
+      "percentile_25": 5.5,
+      "percentile_75": 23.3
+    },
+    "batted_ball_types": {
+      "ground_balls": 220,
+      "line_drives": 252,
+      "fly_balls": 127,
+      "pop_ups": 0,
+      "ground_ball_pct": 36.727879799666105,
+      "line_drive_pct": 42.07011686143572,
+      "fly_ball_pct": 21.202003338898166,
+      "pop_up_pct": 0.0
+    },
+    "plate_appearance_outcomes": {
+      "total_pa": 800,
+      "strikeouts": 57,
+      "walks": 144,
+      "balls_in_play": 599,
+      "k_rate": 0.07125,
+      "bb_rate": 0.18,
+      "contact_rate": 0.74875
+    }
+  }
+}
