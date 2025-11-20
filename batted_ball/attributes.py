@@ -159,17 +159,20 @@ class HitterAttributes:
         """
         Convert ATTACK_ANGLE_CONTROL to mean swing plane angle (degrees).
 
-        Anchors:
+        Anchors (RECALIBRATED 2025-11-20 for proper batted ball distribution):
         - 0: -5° (extreme downward chop)
-        - 50k: 12° (average MLB)
-        - 85k: 28° (elite uppercut / power hitter)
-        - 100k: 40° (extreme uppercut)
+        - 50k: 7° (average MLB - produces ~45% GB, 21% LD, 34% FB with 15° variance)
+        - 85k: 17° (elite uppercut / power hitter - more fly balls but still realistic)
+        - 100k: 28° (extreme uppercut - mostly fly balls)
+
+        Note: With 15° natural variance in player.py, a 7° mean produces MLB-realistic
+        batted ball distribution. Previous 12° mean created excessive fly balls (54%).
         """
         return piecewise_logistic_map(
             self.ATTACK_ANGLE_CONTROL,
             human_min=-5.0,
-            human_cap=28.0,
-            super_cap=40.0
+            human_cap=17.0,  # Reduced from 28.0
+            super_cap=28.0   # Reduced from 40.0
         )
 
     def get_attack_angle_variance_deg(self) -> float:
