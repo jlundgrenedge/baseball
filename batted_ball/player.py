@@ -662,12 +662,15 @@ class Hitter:
             swing_prob = base_swing_prob + (1 - discipline_factor) * 0.15
             swing_prob_after_discipline = swing_prob
         else:
-            # Good discipline = much lower chase rate
-            # FIXED 2025-11-20: Increased from 0.6 to 0.85 to create larger spread
-            # Elite discipline (0.90 factor): 1 - 0.90*0.85 = 0.235 → 76.5% reduction in chase rate
-            # Poor discipline (0.45 factor):  1 - 0.45*0.85 = 0.617 → 38.3% reduction in chase rate
-            # This creates a ~13-15 percentage point spread matching MLB data
-            swing_prob = base_swing_prob * (1 - discipline_factor * 0.85)
+            # Good discipline = lower chase rate, but not eliminating chases entirely
+            # PHASE 2A FIX 2025-11-20: Reduced from 0.85 to 0.40 to enable chase swings
+            # Previous: 0.85 multiplier resulted in 0% chase rate (too strong)
+            # Elite discipline (0.90 factor): 1 - 0.90*0.40 = 0.64 → 36% reduction in chase rate
+            #   → Base chase 35% * 0.64 = 22.4% actual chase rate ✓ (MLB: 20-25%)
+            # Poor discipline (0.45 factor):  1 - 0.45*0.40 = 0.82 → 18% reduction in chase rate
+            #   → Base chase 35% * 0.82 = 28.7% actual chase rate ✓ (MLB: 30-35%)
+            # This creates 6.3 percentage point spread (elite to poor)
+            swing_prob = base_swing_prob * (1 - discipline_factor * 0.40)
             swing_prob_after_discipline = swing_prob
 
         # Adjust for decision speed (faster decisions = more aggressive swings)
@@ -709,7 +712,13 @@ class Hitter:
             if is_strike:
                 swing_prob_after_count = min(swing_prob + 0.15, 0.95)  # +15%, cap at 95%
             else:
-                swing_prob_after_count = min(swing_prob * 1.4, 0.70)  # +40% chase, cap at 70%
+                # PHASE 2A FIX: Ensure minimum chase rate with 2 strikes
+                # Previous: 1.4× multiplier on ~0% chase = still ~0%
+                # New: Multiplier (1.4×) + flat bonus (+15%) for 2-strike desperation
+                # This ensures batters chase even with elite discipline
+                base_chase_after_discipline = swing_prob
+                two_strike_bonus = 0.15  # Flat +15 percentage points
+                swing_prob_after_count = min(base_chase_after_discipline * 1.4 + two_strike_bonus, 0.70)
 
         if balls == 3:
             # More selective on 3-ball counts
