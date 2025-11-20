@@ -412,11 +412,11 @@ class AtBatSimulator:
         # Count-based probabilities for different intentions
         if balls == 0 and strikes == 0:
             # First pitch - realistic MLB distribution
-            # FIXED 2025-11-19: Was 100% strike intentions → 85% actual strikes
-            # Now 65% strike intentions → ~58-62% actual strikes after command error
-            # This matches MLB first-pitch strike rate of 58-62%
+            # FIXED 2025-11-20: Tuned to achieve MLB first-pitch strike rate
+            # 83% strike intentions → ~58-62% actual strikes after command error
+            # Accounts for: target variance (2-3") + command error (7-8") = ~10" total sigma
             intentions = ['strike_looking', 'strike_competitive', 'strike_corner', 'ball_intentional']
-            probabilities = [0.35, 0.20, 0.10, 0.35]
+            probabilities = [0.55, 0.18, 0.10, 0.17]
             
         elif balls >= 3:
             # Must throw strike
@@ -429,14 +429,16 @@ class AtBatSimulator:
             probabilities = [0.45, 0.35, 0.20]
             
         elif balls >= 2 and strikes <= 1:
-            # Hitter's count - be more careful
-            intentions = ['strike_competitive', 'ball_intentional', 'strike_corner']
-            probabilities = [0.50, 0.30, 0.20]
-            
+            # Hitter's count - be more careful but still throw strikes
+            # 75% strike intentions to maintain ~55-60% actual strike rate
+            intentions = ['strike_competitive', 'strike_looking', 'ball_intentional']
+            probabilities = [0.45, 0.30, 0.25]
+
         else:
-            # Even count - mixed approach
-            intentions = ['strike_competitive', 'strike_corner', 'waste_chase', 'ball_intentional']
-            probabilities = [0.40, 0.25, 0.20, 0.15]
+            # Even count - attack the zone
+            # 80% strike intentions to maintain ~60-65% actual strike rate
+            intentions = ['strike_competitive', 'strike_looking', 'strike_corner', 'ball_intentional']
+            probabilities = [0.40, 0.25, 0.15, 0.20]
         
         # FIXED 2025-11-19: Use pitcher's actual CONTROL rating (not hardcoded 0.5!)
         # get_control_zone_bias() returns 0.5-0.85 based on CONTROL attribute

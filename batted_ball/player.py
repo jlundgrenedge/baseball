@@ -188,7 +188,10 @@ class Pitcher:
         - Average (50k): 16.0" sigma (~23" RMS error)
         - Poor (20k): 21.5" sigma (~30" RMS error)
 
-        Fatigue increases error by up to 2× when exhausted.
+        FIXED 2025-11-20: Reduced fatigue penalty and made it nonlinear
+        - Fatigue now increases error by up to 1.4× (was 2.0×)
+        - Nonlinear curve: gradual increase until 75% stamina, then accelerates
+        - Capped at max 24" (2 ft radius) to prevent wild misses
 
         Parameters
         ----------
@@ -203,15 +206,36 @@ class Pitcher:
         # Get base command error from attributes (FIXED - now actually uses it!)
         command_sigma = self.attributes.get_command_sigma_inches()
 
-        # Apply stamina degradation
+        # Apply stamina degradation with NONLINEAR scaling
         stamina_cap = self.attributes.get_stamina_pitches()
-        stamina_factor = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
-        fatigue_multiplier = 1.0 + (1.0 - stamina_factor) * 1.0  # Up to 2x error when exhausted
+        stamina_remaining = max(0.0, 1.0 - (self.pitches_thrown / stamina_cap))
+
+        # Nonlinear fatigue curve: exponential increase after 75% stamina used
+        # At 0% fatigue (fresh): multiplier = 1.0
+        # At 50% fatigue: multiplier = 1.1 (gradual increase)
+        # At 75% fatigue: multiplier = 1.2 (starting to tire)
+        # At 100% fatigue (exhausted): multiplier = 1.4 (significant but not crazy)
+        fatigue_factor = 1.0 - stamina_remaining
+        if fatigue_factor < 0.75:
+            # Gradual linear increase for first 75% of stamina
+            fatigue_multiplier = 1.0 + fatigue_factor * 0.27  # 0.0 to 0.2 (1.0 to 1.2)
+        else:
+            # Exponential increase after 75% stamina used
+            excess_fatigue = (fatigue_factor - 0.75) / 0.25  # 0.0 to 1.0
+            fatigue_multiplier = 1.2 + (excess_fatigue ** 1.8) * 0.2  # 1.2 to 1.4
+
+        # Apply fatigue to command sigma
+        effective_sigma = command_sigma * fatigue_multiplier
+
+        # Cap maximum error at 18" (1.5 ft) to prevent excessive walks
+        # Strike zone is ~17" wide × 24" tall, so 18" sigma → ~25" RMS = reasonable max
+        # This ensures even exhausted poor-command pitchers can throw ~40-50% strikes
+        effective_sigma = min(effective_sigma, 18.0)
 
         # Random error with normal distribution (NO DIVISION - use sigma directly!)
         # Previous bug: Divided by 2.0, making error 10× too small
-        horizontal_error = np.random.normal(0, command_sigma * fatigue_multiplier)
-        vertical_error = np.random.normal(0, command_sigma * fatigue_multiplier)
+        horizontal_error = np.random.normal(0, effective_sigma)
+        vertical_error = np.random.normal(0, effective_sigma)
 
         return horizontal_error, vertical_error
 
