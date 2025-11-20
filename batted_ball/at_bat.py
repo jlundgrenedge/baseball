@@ -615,7 +615,7 @@ class AtBatSimulator:
 
         # Calculate whiff probability using MLB Statcast data
         # This includes hitter's pitch-specific contact ability
-        whiff_prob = self.hitter.calculate_whiff_probability(
+        base_whiff_prob = self.hitter.calculate_whiff_probability(
             pitch_velocity=pitch_velocity,
             pitch_type=pitch_type,
             pitch_break=pitch_break,
@@ -625,7 +625,7 @@ class AtBatSimulator:
         # NEW: Apply pitcher's pitch-specific effectiveness (stuff rating)
         # Elite pitchers with great stuff on a specific pitch get more whiffs
         pitcher_whiff_mult = self.pitcher.get_pitch_whiff_multiplier(pitch_type)
-        whiff_prob *= pitcher_whiff_mult
+        whiff_prob = base_whiff_prob * pitcher_whiff_mult
 
         # PHASE 2A SPRINT 3: Put-away mechanism for 2-strike counts
         # Pitchers with 2 strikes get increased whiff probability (finishing ability)
@@ -635,16 +635,42 @@ class AtBatSimulator:
         # - Elite closer (stuff ~0.85): 1.0 + (0.3 × 0.85) = 1.255× multiplier
         # - Average pitcher (stuff ~0.50): 1.0 + (0.3 × 0.50) = 1.15× multiplier
         # - Poor stuff (stuff ~0.20): 1.0 + (0.3 × 0.20) = 1.06× multiplier
+        stuff_rating = self.pitcher.attributes.get_stuff_rating()  # 0.0-1.0
+        put_away_multiplier = 1.0
         if pitch_data.get('strikes', 0) == 2:
-            stuff_rating = self.pitcher.attributes.get_stuff_rating()  # 0.0-1.0
             put_away_multiplier = 1.0 + (0.3 * stuff_rating)  # 1.0-1.30× range
             whiff_prob *= put_away_multiplier
 
         # Clip to reasonable bounds after applying multipliers
-        whiff_prob = np.clip(whiff_prob, 0.05, 0.75)
+        final_whiff_prob = np.clip(whiff_prob, 0.05, 0.75)
 
         # Check if whiff occurs
-        if np.random.random() < whiff_prob:
+        did_whiff = np.random.random() < final_whiff_prob
+
+        # OPTION A: Log whiff decision for contact rate analysis
+        if self.debug_collector and self.debug_collector.enabled:
+            v_break, h_break = pitch_break
+            pitch_movement_total = np.sqrt(v_break**2 + h_break**2)
+
+            self.debug_collector.log_whiff(
+                inning=0,  # at_bat doesn't know inning context
+                balls=pitch_data.get('balls', 0),
+                strikes=pitch_data.get('strikes', 0),
+                pitch_type=pitch_type,
+                pitch_velocity_mph=pitch_velocity,
+                pitch_movement_total=pitch_movement_total,
+                base_whiff_rate=base_whiff_prob,
+                velocity_multiplier=1.0,  # Already baked into base_whiff_prob
+                movement_multiplier=1.0,  # Already baked into base_whiff_prob
+                contact_factor=self.hitter.attributes.get_tracking_ability_factor(),
+                stuff_multiplier=pitcher_whiff_mult * put_away_multiplier,
+                final_whiff_prob=final_whiff_prob,
+                did_whiff=did_whiff,
+                batter_barrel_accuracy_mm=self.hitter.attributes.get_barrel_accuracy_mm(),
+                pitcher_stuff_rating=stuff_rating
+            )
+
+        if did_whiff:
             return None  # Whiff!
 
         # Get bat speed from hitter attributes

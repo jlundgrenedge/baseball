@@ -123,6 +123,60 @@ def run_debug_test():
             print(f"   ✓ Chase rate looks reasonable")
         print()
 
+    # Contact Rate Analysis (OPTION A: NEW DIAGNOSTIC)
+    print("🎯 CONTACT RATE ANALYSIS:")
+    total_swings = summary.get('total_swings', 0)
+    total_whiffs = summary.get('total_whiffs', 0)
+    # Calculate contacts as swings - whiffs (collision_logs may not be fully populated)
+    total_contacts = total_swings - total_whiffs
+
+    if total_swings > 0:
+        contact_rate = (total_contacts / total_swings) * 100
+        whiff_rate = (total_whiffs / total_swings) * 100
+
+        print(f"   Total Swings: {total_swings}")
+        print(f"   Total Contact: {total_contacts} ({contact_rate:.1f}%)")
+        print(f"   Total Whiffs: {total_whiffs} ({whiff_rate:.1f}%)")
+        print(f"   MLB Target Contact Rate: ~75-80%")
+        print(f"   MLB Target Whiff Rate: ~20-25%")
+        print()
+
+        # Diagnosis
+        if contact_rate > 82:
+            print(f"   🚨 CONTACT RATE TOO HIGH → Primary cause of low K%")
+            print(f"      Batters making contact {contact_rate:.1f}% of swings (should be ~75-80%)")
+            print(f"      Recommendations:")
+            print(f"         - Increase base whiff rates in player.py")
+            print(f"         - Tune VISION impact on whiff probability")
+            print(f"         - Increase put-away multiplier range")
+        elif contact_rate < 73:
+            print(f"   ⚠️  Contact rate is LOW → May indicate whiff rates too high")
+        else:
+            print(f"   ✓ Contact rate looks reasonable for MLB")
+        print()
+
+        # Contact rate by pitch type
+        if 'whiff_rates' in summary:
+            print("   Contact Rate by Pitch Type:")
+            whiff_data = summary['whiff_rates']
+
+            # Sort by total swings descending
+            sorted_pitches = sorted(whiff_data.items(), key=lambda x: x[1].get('total', 0), reverse=True)
+
+            for pitch_type, data in sorted_pitches:
+                total = data.get('total', 0)
+                whiffs = data.get('whiffs', 0)
+                contacts = total - whiffs
+
+                if total > 0:
+                    contact_pct = (contacts / total) * 100
+                    whiff_pct = data.get('whiff_rate', 0) * 100
+                    print(f"      {pitch_type:12s}: {contacts:3d}/{total:3d} contact ({contact_pct:5.1f}%) | {whiffs:3d} whiffs ({whiff_pct:5.1f}%)")
+            print()
+    else:
+        print("   No swing data available")
+        print()
+
     # PA Outcome Analysis
     if 'pa_outcomes' in summary:
         print("📊 PLATE APPEARANCE OUTCOMES:")
