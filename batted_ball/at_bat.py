@@ -630,10 +630,14 @@ class AtBatSimulator:
         # PHASE 2A SPRINT 3: Put-away mechanism for 2-strike counts
         # Pitchers with 2 strikes get increased whiff probability (finishing ability)
         # MLB data shows ~30% higher whiff rate on 2-strike counts vs 0-1 strikes
+        #
+        # Variable put-away based on pitcher's stuff rating (Task 3.2):
+        # - Elite closer (stuff ~0.85): 1.0 + (0.3 × 0.85) = 1.255× multiplier
+        # - Average pitcher (stuff ~0.50): 1.0 + (0.3 × 0.50) = 1.15× multiplier
+        # - Poor stuff (stuff ~0.20): 1.0 + (0.3 × 0.20) = 1.06× multiplier
         if pitch_data.get('strikes', 0) == 2:
-            put_away_multiplier = 1.30  # 30% increase in whiff probability
-            # Future: Use pitcher's stuff rating for variable put-away (Task 3.2)
-            # put_away_multiplier = 1.0 + (0.3 * pitcher.get_stuff_rating())
+            stuff_rating = self.pitcher.attributes.get_stuff_rating()  # 0.0-1.0
+            put_away_multiplier = 1.0 + (0.3 * stuff_rating)  # 1.0-1.30× range
             whiff_prob *= put_away_multiplier
 
         # Clip to reasonable bounds after applying multipliers

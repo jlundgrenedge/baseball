@@ -971,6 +971,61 @@ class PitcherAttributes:
             super_cap=0.85
         )
 
+    def get_stuff_rating(self) -> float:
+        """
+        Composite "stuff" rating for put-away ability with 2 strikes (0.0-1.0 scale).
+
+        PHASE 2A SPRINT 3: NEW method for variable put-away multiplier.
+
+        Combines three key components of finishing ability:
+        1. Velocity - Raw power to overpower hitters
+        2. Movement (spin rate) - Deceptive action to induce whiffs
+        3. Deception - Hidden release, late break, pitch tunneling
+
+        Higher stuff rating = better finishing ability with 2 strikes
+        - Elite closer (90k+): stuff_rating ~0.85-1.0 → 1.26-1.30× put-away mult
+        - Average pitcher (50k): stuff_rating ~0.50 → 1.15× put-away mult
+        - Poor stuff (20k): stuff_rating ~0.20 → 1.06× put-away mult
+
+        Returns
+        -------
+        float
+            Composite stuff rating (0.0-1.0), used in put-away multiplier:
+            put_away_mult = 1.0 + (0.3 * stuff_rating)
+
+        Sources: MLB Statcast pitch effectiveness metrics, closer K% data
+        """
+        # Normalize each component to 0-1 scale
+        # Using 0-100k as the normalization range (elite at 85k, max at 100k)
+
+        # Velocity component (0-1)
+        # Elite: 85k-100k → 0.85-1.0
+        # Average: 50k → 0.50
+        # Poor: 20k → 0.20
+        velocity_rating = self.RAW_VELOCITY_CAP / 100000.0
+
+        # Spin rate component (0-1)
+        # Elite spin: 85k+ → 0.85+
+        # Average spin: 50k → 0.50
+        spin_rating = self.SPIN_RATE_CAP / 100000.0
+
+        # Deception component (0-1)
+        # Deceptive pitchers get more whiffs with 2 strikes
+        # Elite deception: 85k+ → 0.85+
+        # Average: 50k → 0.50
+        deception_rating = self.DECEPTION / 100000.0
+
+        # Weighted average (velocity and movement more important than deception)
+        # Weights: velocity 40%, movement 40%, deception 20%
+        stuff_rating = (
+            velocity_rating * 0.40 +
+            spin_rating * 0.40 +
+            deception_rating * 0.20
+        )
+
+        # Clip to reasonable bounds
+        return np.clip(stuff_rating, 0.0, 1.0)
+
 
 # =============================================================================
 # HELPER FUNCTIONS FOR FIELDER CREATION
