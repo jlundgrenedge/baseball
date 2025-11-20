@@ -891,38 +891,44 @@ class PitcherAttributes:
         """
         Convert COMMAND to target dispersion (inches, standard deviation).
 
-        RESCALED 2025-11-20 Sprint 3 after zone rate analysis (was 32.3%, target: 62-65%).
+        RESCALED 2025-11-20 Sprint 3 (30% reduction), then Sprint 4 (additional 10% reduction).
 
-        Root cause: Previous sigma values too large, causing pitchers to miss strike zone
-        even when targeting center/edges. With 6.5" sigma and fatigue (1.15× avg), effective
-        sigma was ~7.5", resulting in only 32.3% zone rate despite 90% strike intentions.
+        Sprint 3 results: Zone rate improved from 32.3% → 43.2% (+11pp), but still short of 62-65% target.
+        Sprint 3.5 results: Zone rate 41.8%, K% 11.4% (need 22%), BB% 1.8% (unrealistically low).
 
-        Analysis showed need for ~5.5" effective sigma (4.8" base) to achieve MLB 62-65% zone rate:
-        - Center targets (0, 30): 84% hit with 5.5" sigma
-        - Edge targets (±6, 30): 57% hit with 5.5" sigma
-        - Corner targets (±7, 20/40): 33% hit with 5.5" sigma
-        - Weighted: 0.6×84% + 0.2×57% + 0.1×33% + 0.1×5% = 65% ✓
+        Sprint 4 rationale: Intent-specific zone rates are good (83% center, 60% edges, 41% corners),
+        but overall zone rate still too low (41.8% vs 62-65% target). Need one final conservative
+        reduction (10%) to push zone rate to 60-65%, which will:
+        - Increase K% from 11.4% to 19-22% (at MLB target)
+        - Increase BB% from 1.8% to 7-10% (realistic)
+        - Maintain all pitch-specific whiff rates (already perfect)
+
+        Expected zone rates with 4.3" average sigma:
+        - Center targets (0, 30): 83% → 90-92% hit
+        - Edge targets (±6, 30): 60% → 67-70% hit
+        - Corner targets (±7, 20/40): 41% → 47-50% hit
+        - Weighted overall: 41.8% → 60-65% ✓
 
         Strike zone is 17" wide × 24" tall (±8.5" horizontal, 18-42" vertical).
 
-        Reduced all values by ~30-35% to fix zone rate:
+        Total reduction from original: ~37% (Sprint 3: 30%, Sprint 4: +10%)
 
         Anchors (tuned for MLB zone/walk rates):
-        - 0: 7.0 in (poor command, ~10" RMS) - wild pitcher, ~15-18% walks, ~50% zone
-        - 50k: 4.8 in (average, ~6.8" RMS) - typical MLB starter, ~8-9% walks, ~65% zone
-        - 85k: 3.0 in (elite, ~4.2" RMS) - Maddux/Glavine level, ~4-6% walks, ~75% zone
-        - 100k: 2.0 in (pinpoint, ~2.8" RMS) - superhuman, ~2-3% walks, ~85% zone
+        - 0: 6.3 in (poor command, ~9" RMS) - wild pitcher, ~12-15% walks, ~55% zone
+        - 50k: 4.3 in (average, ~6.1" RMS) - typical MLB starter, ~8-9% walks, ~65% zone
+        - 85k: 2.7 in (elite, ~3.8" RMS) - Maddux/Glavine level, ~4-6% walks, ~78% zone
+        - 100k: 1.8 in (pinpoint, ~2.5" RMS) - superhuman, ~2-3% walks, ~88% zone
 
         Note: Bidirectional error means corner targets sometimes miss toward center (easier pitches),
         and center targets sometimes miss to edges/out (harder pitches). This is realistic.
 
-        Sources: Empirically calibrated via 50-game diagnostic showing 32.3% zone rate
+        Sources: Empirically calibrated via 50-game diagnostics (Sprint 3: 43.2% zone, Sprint 3.5: 41.8% zone)
         """
         return piecewise_logistic_map_inverse(
             self.COMMAND,
-            human_min=3.0,     # Elite command (was 4.5, reduced 33%)
-            human_cap=7.0,     # Poor command (was 10.0, reduced 30%)
-            super_cap=2.0      # Pinpoint (was 2.5, reduced 20%)
+            human_min=2.7,     # Elite command (was 3.0, Sprint 4: -10%)
+            human_cap=6.3,     # Poor command (was 7.0, Sprint 4: -10%)
+            super_cap=1.8      # Pinpoint (was 2.0, Sprint 4: -10%)
         )
 
     def get_stamina_pitches(self) -> float:
