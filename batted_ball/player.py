@@ -600,6 +600,7 @@ class Hitter:
         pitch_velocity: float = 90.0,
         pitch_type: str = 'fastball',
         return_diagnostics: bool = False,
+        debug_collector=None,
     ):
         """
         Decide whether to swing at a pitch.
@@ -655,9 +656,11 @@ class Hitter:
         # Adjust for zone discipline (higher = more selective)
         # Use zone_discernment_factor from attributes (0-1 scale, higher = better recognition)
         discipline_factor = self.attributes.get_zone_discernment_factor()
+        swing_prob_after_discipline = base_swing_prob  # Track for logging
         if is_strike:
             # Good discipline = slightly lower swing rate in zone (but still high)
             swing_prob = base_swing_prob + (1 - discipline_factor) * 0.15
+            swing_prob_after_discipline = swing_prob
         else:
             # Good discipline = much lower chase rate
             # FIXED 2025-11-20: Increased from 0.6 to 0.85 to create larger spread
@@ -665,6 +668,7 @@ class Hitter:
             # Poor discipline (0.45 factor):  1 - 0.45*0.85 = 0.617 → 38.3% reduction in chase rate
             # This creates a ~13-15 percentage point spread matching MLB data
             swing_prob = base_swing_prob * (1 - discipline_factor * 0.85)
+            swing_prob_after_discipline = swing_prob
 
         # Adjust for decision speed (faster decisions = more aggressive swings)
         # Swing decision latency: lower ms = faster = more aggressive
@@ -678,41 +682,81 @@ class Hitter:
         #   → 130ms gives (200-130)/125 = 0.56 ✓ average
         #   → 200ms gives (200-200)/125 = 0.0 (clipped to 0.2) ✓ passive
         aggression_factor = np.clip((200.0 - decision_latency_ms) / 125.0, 0.2, 0.9)
-        swing_prob = swing_prob * (0.8 + aggression_factor * 0.4)
+        swing_prob_after_reaction = swing_prob * (0.8 + aggression_factor * 0.4)
+        swing_prob = swing_prob_after_reaction
 
         # Velocity effect (faster pitches = less time to decide = more takes)
         velocity_difficulty = (pitch_velocity - 85) / 15.0  # Normalized
+        swing_prob_after_velocity = swing_prob
         if velocity_difficulty > 0:
-            swing_prob *= (1.0 - velocity_difficulty * 0.10)  # Up to -10% for 100 mph
+            swing_prob_after_velocity = swing_prob * (1.0 - velocity_difficulty * 0.10)  # Up to -10% for 100 mph
+        swing_prob = swing_prob_after_velocity
 
         # Pitch type affects chase rate (breaking balls fool hitters)
         pitch_type_lower = pitch_type.lower()
+        swing_prob_after_pitch_type = swing_prob
         if not is_strike:  # Only affects out-of-zone pitches
             if 'slider' in pitch_type_lower or 'curve' in pitch_type_lower:
-                swing_prob *= 1.25  # +25% chase rate on breaking balls
+                swing_prob_after_pitch_type = swing_prob * 1.25  # +25% chase rate on breaking balls
             elif 'change' in pitch_type_lower or 'splitter' in pitch_type_lower:
-                swing_prob *= 1.15  # +15% chase rate on off-speed
+                swing_prob_after_pitch_type = swing_prob * 1.15  # +15% chase rate on off-speed
+        swing_prob = swing_prob_after_pitch_type
 
         # Count situation adjustments
+        swing_prob_after_count = swing_prob
         if strikes == 2:
             # Protect the plate with 2 strikes
             if is_strike:
-                swing_prob = min(swing_prob + 0.15, 0.95)  # +15%, cap at 95%
+                swing_prob_after_count = min(swing_prob + 0.15, 0.95)  # +15%, cap at 95%
             else:
-                swing_prob = min(swing_prob * 1.4, 0.70)  # +40% chase, cap at 70%
+                swing_prob_after_count = min(swing_prob * 1.4, 0.70)  # +40% chase, cap at 70%
 
         if balls == 3:
             # More selective on 3-ball counts
             if not is_strike:
-                swing_prob *= 0.5  # Much less likely to chase
+                swing_prob_after_count = swing_prob * 0.5  # Much less likely to chase
             else:
-                swing_prob = min(swing_prob, 0.85)  # Cap swing rate
+                swing_prob_after_count = min(swing_prob, 0.85)  # Cap swing rate
+        swing_prob = swing_prob_after_count
 
         # Clip to reasonable bounds
         swing_prob = np.clip(swing_prob, 0.0, 0.98)
 
         # Make decision
         decision = np.random.random() < swing_prob
+
+        # Log swing decision for Phase 1 debug metrics
+        if debug_collector:
+            # Calculate distance from zone for logging
+            if is_strike:
+                distance_from_zone_inches = 0.0
+            else:
+                h_dist = max(0, abs(pitch_location[0]) - 8.5)
+                v_dist_top = max(0, pitch_location[1] - 42.0)
+                v_dist_bottom = max(0, 18.0 - pitch_location[1])
+                distance_from_zone_inches = np.sqrt(h_dist**2 + (v_dist_top + v_dist_bottom)**2)
+
+            debug_collector.log_swing_decision(
+                inning=0,  # Player method doesn't have game context
+                balls=balls,
+                strikes=strikes,
+                outs=0,
+                pitch_type=pitch_type,
+                pitch_x=pitch_location[0],
+                pitch_z=pitch_location[1],
+                is_in_zone=is_strike,
+                distance_from_zone=distance_from_zone_inches,
+                base_swing_prob=base_swing_prob,
+                discipline_modifier=swing_prob_after_discipline - base_swing_prob,
+                reaction_modifier=swing_prob_after_reaction - swing_prob_after_discipline,
+                velocity_modifier=swing_prob_after_velocity - swing_prob_after_reaction,
+                pitch_type_modifier=swing_prob_after_pitch_type - swing_prob_after_velocity,
+                count_modifier=swing_prob_after_count - swing_prob_after_pitch_type,
+                final_swing_prob=swing_prob,
+                did_swing=decision,
+                batter_discipline=discipline_factor,
+                batter_reaction_time_ms=decision_latency_ms
+            )
 
         if return_diagnostics:
             # Simplified run value estimates (approximations)
@@ -839,6 +883,7 @@ class Hitter:
         pitch_velocity: float,
         pitch_type: str,
         pitch_break: Tuple[float, float],
+        debug_collector=None,
     ) -> float:
         """
         Calculate probability of whiffing (missing) on a swing.
