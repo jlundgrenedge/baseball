@@ -306,51 +306,16 @@ class AtBatSimulator:
                 else:
                     weight *= 0.2
             elif strikes == 2:
-                # PHASE 2A SPRINT 9 2025-11-20: Aggressive breaking ball usage with 2 strikes
-                # Sprint 9 v1 results: K% DROPPED 17.6% → 15.8% (regression!)
-                # Root cause: Multipliers not strong enough to overcome low base usage
-                # Sprint 9 v2: MUCH stronger multipliers + reduced sequencing penalty
-
-                # Breaking balls - EXTREME boost to overcome arsenal composition
-                if pitch_type in ['slider', 'curveball', 'changeup', 'splitter']:
-                    # Count-specific adjustments (STRENGTHENED from v1)
-                    if balls == 0:
-                        # 0-2: Most aggressive (can waste pitch)
-                        weight *= 5.0  # Was 3.5×, now +43% stronger
-                    elif balls == 1:
-                        # 1-2: Very aggressive
-                        weight *= 4.5  # Was 3.0×, now +50% stronger
-                    elif balls == 2:
-                        # 2-2: Aggressive but balanced
-                        weight *= 4.0  # Was 2.5×, now +60% stronger
-                    else:
-                        # 3-2: Full count, balanced approach
-                        weight *= 3.0  # Was 2.0×, now +50% stronger
-
-                # Fastballs - FURTHER reduce with 2 strikes (lower whiff rate)
-                elif pitch_type in ['fastball', '4-seam', '2-seam']:
-                    if balls == 3:
-                        # 3-2: Need strike reliability, keep fastballs viable
-                        weight *= 1.0
-                    else:
-                        # Other 2-strike counts: aggressive reduction
-                        weight *= 0.4  # Was 0.6×, now 33% less usage
+                # Two-strike count - put-away pitch (Sprint 8 baseline)
+                if pitch_type in ['slider', 'changeup', 'splitter']:
+                    weight *= 1.8  # Favor out pitches
 
             # Pitch sequencing - avoid repeating same pitch
-            # PHASE 2A SPRINT 9 v2: Weaker penalty with 2 strikes to allow breaking ball usage
             if recent_pitches:
                 if pitch_type == recent_pitches[-1]:
-                    if strikes == 2:
-                        # With 2 strikes: Allow more repetition of breaking balls
-                        weight *= 0.6  # Was 0.3×, now 100% weaker penalty
-                    else:
-                        weight *= 0.3  # Strongly discourage same pitch
+                    weight *= 0.3  # Strongly discourage same pitch
                 if len(recent_pitches) >= 2 and pitch_type == recent_pitches[-2]:
-                    if strikes == 2:
-                        # With 2 strikes: Allow more repetition
-                        weight *= 0.7  # Was 0.5×, now 40% weaker penalty
-                    else:
-                        weight *= 0.5  # Discourage pitch from 2 ago
+                    weight *= 0.5  # Discourage pitch from 2 ago
 
             # Set-up sequences (fastball -> offspeed)
             if recent_pitches and len(recent_pitches) >= 1:
