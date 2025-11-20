@@ -119,9 +119,18 @@ class HitterAttributes:
         LAUNCH_OFFSET_CONTROL: float = 50000,
         SWING_DECISION_LATENCY: float = 50000,
         ZONE_DISCERNMENT: float = 50000,
+        VISION: float = 50000,  # PHASE 2A: Pitch tracking ability (contact frequency)
         SPRAY_TENDENCY: float = 50000
     ):
-        """Initialize hitter attributes (default: league average = 50,000)"""
+        """Initialize hitter attributes (default: league average = 50,000)
+
+        PHASE 2A NEW: VISION attribute
+        - Decouples contact frequency (VISION) from contact quality (BARREL_ACCURACY)
+        - VISION affects whiff probability (tracking ability)
+        - BARREL_ACCURACY affects exit velo/launch angle (contact quality)
+        - Power hitters can have low VISION (high K%) and high power (high HR)
+        - Contact hitters can have high VISION (low K%) and low power (low HR)
+        """
         self.BAT_SPEED = np.clip(BAT_SPEED, 0, 100000)
         self.ATTACK_ANGLE_CONTROL = np.clip(ATTACK_ANGLE_CONTROL, 0, 100000)
         self.ATTACK_ANGLE_VARIANCE = np.clip(ATTACK_ANGLE_VARIANCE, 0, 100000)
@@ -132,6 +141,7 @@ class HitterAttributes:
         self.LAUNCH_OFFSET_CONTROL = np.clip(LAUNCH_OFFSET_CONTROL, 0, 100000)
         self.SWING_DECISION_LATENCY = np.clip(SWING_DECISION_LATENCY, 0, 100000)
         self.ZONE_DISCERNMENT = np.clip(ZONE_DISCERNMENT, 0, 100000)
+        self.VISION = np.clip(VISION, 0, 100000)  # PHASE 2A: NEW
         self.SPRAY_TENDENCY = np.clip(SPRAY_TENDENCY, 0, 100000)
 
     def get_bat_speed_mph(self) -> float:
@@ -291,6 +301,36 @@ class HitterAttributes:
             human_min=0.40,
             human_cap=0.88,
             super_cap=0.96
+        )
+
+    def get_tracking_ability_factor(self) -> float:
+        """
+        Pitch tracking ability / contact frequency (0.5-1.0 scale).
+
+        PHASE 2A NEW: Separate from barrel accuracy (contact quality).
+        - VISION affects whiff probability (how often contact is made)
+        - BARREL_ACCURACY affects exit velo (quality of contact when made)
+
+        This decouples power and contact: power hitters can have low VISION (high K%)
+        while contact hitters can have high VISION (low K%).
+
+        Higher = better tracking, more frequent contact, lower whiff rate
+
+        Anchors:
+        - 0: 0.50 (poor tracking → high whiff multiplier 1.5×)
+        - 50k: 0.75 (average tracking → whiff multiplier 1.25×)
+        - 85k: 0.90 (elite tracking → whiff multiplier 1.10×)
+        - 100k: 1.00 (superhuman tracking → whiff multiplier 1.0×)
+
+        Usage in whiff calculation:
+          vision_factor = 2.0 - tracking_ability  # Inverted: 1.0-1.5
+          whiff_prob *= vision_factor
+        """
+        return piecewise_logistic_map(
+            self.VISION,
+            human_min=0.50,
+            human_cap=0.90,
+            super_cap=1.00
         )
 
     def get_spray_tendency_deg(self) -> float:

@@ -943,22 +943,25 @@ class Hitter:
         break_magnitude = np.sqrt(v_break**2 + h_break**2)
         break_factor = 1.0 + (break_magnitude / 100.0)  # +1% per inch of break
 
-        # Barrel accuracy affects ability to make contact
-        # Derive contact_factor from barrel accuracy in mm
-        # RECALIBRATED 2025-11-20: Reduced impact to fix low K% issue
-        # Elite: ~5mm error -> 0.80x whiff rate (reduced from 0.60x)
-        # Average: ~10mm error -> 1.00x whiff rate (changed anchor)
-        # Poor: ~30mm error -> 1.60x whiff rate (reduced from 1.80x)
-        barrel_error_mm = self.attributes.get_barrel_accuracy_mm()
-        # Map linearly: 5mm -> 0.80, 10mm -> 1.00, 30mm -> 1.60
-        # Formula: 0.80 + (barrel_error_mm - 5) * 0.04
-        contact_factor = 0.80 + (barrel_error_mm - 5) * 0.040
+        # PHASE 2A: Use VISION for contact frequency, NOT barrel accuracy
+        # Previous: barrel_error_mm affected whiff (double-dipping)
+        # New: VISION affects whiff probability (tracking ability)
+        #      barrel_error_mm ONLY affects contact quality in contact.py
+        #
+        # VISION decouples contact frequency from contact quality:
+        # - Power hitters: Low VISION (high whiff) + low barrel_error (high exit velo)
+        # - Contact hitters: High VISION (low whiff) + high barrel_error (low exit velo)
+        tracking_ability = self.attributes.get_tracking_ability_factor()  # 0.5-1.0
+        vision_factor = 2.0 - tracking_ability  # Invert to multiplier: 1.0-1.5
+        # Elite VISION (tracking=1.0) → vision_factor=1.0 (low whiff)
+        # Average VISION (tracking=0.75) → vision_factor=1.25 (average whiff)
+        # Poor VISION (tracking=0.5) → vision_factor=1.5 (high whiff)
 
-        # NEW: Apply pitch-specific contact multiplier from Statcast data
+        # Apply pitch-specific contact multiplier from Statcast data
         pitch_contact_mult = self.get_pitch_contact_multiplier(pitch_type)
 
-        # Combine factors
-        whiff_prob = base_whiff_rate * velocity_factor * break_factor * contact_factor * pitch_contact_mult
+        # Combine factors (using VISION instead of barrel accuracy)
+        whiff_prob = base_whiff_rate * velocity_factor * break_factor * vision_factor * pitch_contact_mult
 
         # Clip to reasonable bounds (5% minimum, 70% maximum)
         whiff_prob = np.clip(whiff_prob, 0.05, 0.70)
