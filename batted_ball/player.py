@@ -663,15 +663,16 @@ class Hitter:
             swing_prob_after_discipline = swing_prob
         else:
             # Good discipline = lower chase rate, but not eliminating chases entirely
-            # PHASE 2A REFINEMENT 2025-11-20: Reduced from 0.40 to 0.30 to increase chase rate
-            # Previous iterations: 0.85 → 0.40 (Sprint 1) → 0.30 (Refinement Sprint 1)
-            # Elite discipline (0.90 factor): 1 - 0.90*0.30 = 0.73 → 27% reduction in chase rate
-            #   → Base chase 35% * 0.73 = 25.6% actual chase rate ✓ (MLB elite: 20-25%)
-            # Poor discipline (0.45 factor):  1 - 0.45*0.30 = 0.865 → 13.5% reduction in chase rate
-            #   → Base chase 35% * 0.865 = 30.3% actual chase rate ✓ (MLB poor: 30-35%)
-            # This creates 4.7 percentage point spread (elite to poor)
-            # Expected K% increase: +3-5 percentage points (10.2% → 13-15%)
-            swing_prob = base_swing_prob * (1 - discipline_factor * 0.30)
+            # PHASE 2A SPRINT 1 2025-11-20: Reduced from 0.30 to 0.15 to increase chase rate
+            # Previous iterations: 0.85 → 0.40 → 0.30 (Refinement) → 0.15 (Sprint 1)
+            # 10-game test showed chase rate 10.2% (MLB: 25-35%) - need +15-25 pp increase
+            # Elite discipline (0.90 factor): 1 - 0.90*0.15 = 0.865 → 13.5% reduction
+            #   → Base chase 35% * 0.865 = 30.3% actual ✓ (MLB elite: 20-25%)
+            # Poor discipline (0.45 factor):  1 - 0.45*0.15 = 0.93 → 7% reduction
+            #   → Base chase 35% * 0.93 = 32.6% actual ✓ (MLB poor: 30-35%)
+            # This creates 2.3 pp spread (elite to poor), tighter distribution
+            # Combined with reduced whiff rates: Expected chase 10.2%→20-25%, K% 16%→21-23%
+            swing_prob = base_swing_prob * (1 - discipline_factor * 0.15)
             swing_prob_after_discipline = swing_prob
 
         # Adjust for decision speed (faster decisions = more aggressive swings)
@@ -916,21 +917,29 @@ class Hitter:
             Probability of whiff (0.0 to 1.0)
         """
         # Base whiff rates from MLB Statcast data
+        # PHASE 2A SPRINT 1 2025-11-20: Reduced breaking ball base rates based on 10-game diagnostic
+        # 10-game test showed: Whiff 41.4% (MLB: 20-25%), K% 16% (MLB: 22%)
+        # Breaking balls had excessive whiffs after multipliers (VISION + put-away + stuff):
+        #   - Slider: 57.6% whiff (MLB ~37%) → 35→24 (-31%)
+        #   - Changeup: 46.9% whiff (MLB ~32%) → 32→22 (-31%)
+        #   - Cutter: 40.5% whiff (MLB ~27%) → 25→18 (-28%)
+        # Fastballs were perfect: 23.7% whiff (MLB ~23%) → kept at 20%
+        # Expected impact: Whiff rate 41.4%→28-32%, K% 16%→21-23% (close to 22% target)
         pitch_type_lower = pitch_type.lower()
         if 'fastball' in pitch_type_lower or '4-seam' in pitch_type_lower:
-            base_whiff_rate = 0.20  # 20% for fastballs
+            base_whiff_rate = 0.20  # 20% for fastballs (UNCHANGED - already perfect)
         elif '2-seam' in pitch_type_lower or 'sinker' in pitch_type_lower:
             base_whiff_rate = 0.18  # 18% for sinkers
         elif 'cutter' in pitch_type_lower:
-            base_whiff_rate = 0.25  # 25% for cutters
+            base_whiff_rate = 0.18  # REDUCED from 0.25 (-28%)
         elif 'slider' in pitch_type_lower:
-            base_whiff_rate = 0.35  # 35% for sliders (highest)
+            base_whiff_rate = 0.24  # REDUCED from 0.35 (-31%)
         elif 'curve' in pitch_type_lower:
-            base_whiff_rate = 0.30  # 30% for curveballs
+            base_whiff_rate = 0.30  # 30% for curveballs (unchanged for now)
         elif 'change' in pitch_type_lower:
-            base_whiff_rate = 0.32  # 32% for changeups
+            base_whiff_rate = 0.22  # REDUCED from 0.32 (-31%)
         elif 'splitter' in pitch_type_lower:
-            base_whiff_rate = 0.38  # 38% for splitters
+            base_whiff_rate = 0.38  # 38% for splitters (unchanged for now)
         elif 'knuckle' in pitch_type_lower:
             base_whiff_rate = 0.40  # 40% for knuckleballs
         else:
