@@ -1,0 +1,164 @@
+{
+  "metadata": {
+    "timestamp": "2025-11-20T15:37:28.031034",
+    "num_games": 10,
+    "away_team": "Visitors",
+    "home_team": "Home Team",
+    "simulation_version": "Pass 3 Baseline (5/10 passing)",
+    "benchmarks_passing": "1/10"
+  },
+  "series_summary": {
+    "away_wins": 6,
+    "home_wins": 4,
+    "away_total_runs": 37,
+    "home_total_runs": 20,
+    "avg_runs_per_game": 2.85
+  },
+  "mlb_benchmarks": {
+    "Batting Average": {
+      "actual": 0.18638743455497384,
+      "mlb_min": 0.23,
+      "mlb_max": 0.27,
+      "mlb_avg": 0.248,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "BABIP": {
+      "actual": 0.32386363636363635,
+      "mlb_min": 0.26,
+      "mlb_max": 0.36,
+      "mlb_avg": 0.295,
+      "status": "OK",
+      "passing": true
+    },
+    "HR/FB Rate": {
+      "actual": 0.046052631578947366,
+      "mlb_min": 0.09,
+      "mlb_max": 0.16,
+      "mlb_avg": 0.125,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Strikeout Rate": {
+      "actual": 0.129547471162378,
+      "mlb_min": 0.18,
+      "mlb_max": 0.26,
+      "mlb_avg": 0.22,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Walk Rate": {
+      "actual": 0.1526175687666371,
+      "mlb_min": 0.07,
+      "mlb_max": 0.1,
+      "mlb_avg": 0.085,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Isolated Power (ISO)": {
+      "actual": 0.02303664921465967,
+      "mlb_min": 0.12,
+      "mlb_max": 0.18,
+      "mlb_avg": 0.15,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Avg Exit Velocity (mph)": {
+      "actual": 94.29174484052531,
+      "mlb_min": 86.0,
+      "mlb_max": 90.0,
+      "mlb_avg": 88.0,
+      "status": "WARNING",
+      "passing": false
+    },
+    "Hard Hit Rate": {
+      "actual": 0.21631644004944375,
+      "mlb_min": 0.35,
+      "mlb_max": 0.45,
+      "mlb_avg": 0.4,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Runs per Team per Game": {
+      "actual": 2.85,
+      "mlb_min": 3.8,
+      "mlb_max": 5.2,
+      "mlb_avg": 4.5,
+      "status": "CRITICAL",
+      "passing": false
+    },
+    "Team ERA": {
+      "actual": 2.85,
+      "mlb_min": 3.5,
+      "mlb_max": 5.0,
+      "mlb_avg": 4.25,
+      "status": "CRITICAL",
+      "passing": false
+    }
+  },
+  "detailed_metrics": {
+    "batting": {
+      "avg": 0.18638743455497384,
+      "obp": 0.3105590062111801,
+      "slg": 0.2094240837696335,
+      "ops": 0.5199830899808136,
+      "iso": 0.02303664921465967,
+      "babip": 0.32386363636363635,
+      "woba": 0.22751552795031058,
+      "k_rate": 0.129547471162378,
+      "bb_rate": 0.1526175687666371,
+      "hr_fb_rate": 0.046052631578947366
+    },
+    "pitching": {
+      "era": 2.85,
+      "whip": 1.3722222222222222,
+      "k_per_9": 5.4,
+      "bb_per_9": 6.199999999999999
+    }
+  },
+  "distributions": {
+    "exit_velocity": {
+      "mean": 94.29174484052531,
+      "median": 93.6,
+      "std": 4.306054831579271,
+      "min": 83.5,
+      "max": 107.5,
+      "percentile_25": 91.8,
+      "percentile_75": 95.8,
+      "percentile_90": 98.86000000000001,
+      "percentile_95": 105.61999999999999,
+      "count_95plus": 175,
+      "percent_95plus": 32.833020637898684,
+      "count_100plus": 52,
+      "percent_100plus": 9.75609756097561
+    },
+    "launch_angle": {
+      "mean": 14.684615384615384,
+      "median": 14.6,
+      "std": 12.050882885622544,
+      "min": -9.8,
+      "max": 55.2,
+      "percentile_25": 6.1,
+      "percentile_75": 21.9
+    },
+    "batted_ball_types": {
+      "ground_balls": 192,
+      "line_drives": 243,
+      "fly_balls": 96,
+      "pop_ups": 2,
+      "ground_ball_pct": 36.02251407129456,
+      "line_drive_pct": 45.590994371482175,
+      "fly_ball_pct": 18.01125703564728,
+      "pop_up_pct": 0.37523452157598497
+    },
+    "plate_appearance_outcomes": {
+      "total_pa": 765,
+      "strikeouts": 108,
+      "walks": 124,
+      "balls_in_play": 533,
+      "k_rate": 0.1411764705882353,
+      "bb_rate": 0.16209150326797386,
+      "contact_rate": 0.6967320261437908
+    }
+  }
+}

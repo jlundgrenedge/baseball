@@ -83,6 +83,7 @@ class AtBatSimulator:
         wind_direction: float = 0.0,
         fast_mode: bool = False,
         metrics_collector=None,
+        debug_collector=None,
     ):
         """
         Initialize at-bat simulator.
@@ -110,6 +111,8 @@ class AtBatSimulator:
             Recommended for bulk simulations (1000+ at-bats)
         metrics_collector : SimMetricsCollector, optional
             Metrics collector for debug output (default: None = no metrics)
+        debug_collector : DebugMetricsCollector, optional
+            Debug metrics collector for Phase 1 analysis (default: None)
         """
         self.pitcher = pitcher
         self.hitter = hitter
@@ -120,6 +123,7 @@ class AtBatSimulator:
         self.wind_direction = wind_direction
         self.fast_mode = fast_mode
         self.metrics_collector = metrics_collector
+        self.debug_collector = debug_collector
 
         # Create physics simulators
         self.pitch_sim = PitchSimulator()
@@ -611,22 +615,62 @@ class AtBatSimulator:
 
         # Calculate whiff probability using MLB Statcast data
         # This includes hitter's pitch-specific contact ability
-        whiff_prob = self.hitter.calculate_whiff_probability(
+        base_whiff_prob = self.hitter.calculate_whiff_probability(
             pitch_velocity=pitch_velocity,
             pitch_type=pitch_type,
             pitch_break=pitch_break,
+            debug_collector=self.debug_collector,
         )
 
         # NEW: Apply pitcher's pitch-specific effectiveness (stuff rating)
         # Elite pitchers with great stuff on a specific pitch get more whiffs
         pitcher_whiff_mult = self.pitcher.get_pitch_whiff_multiplier(pitch_type)
-        whiff_prob *= pitcher_whiff_mult
+        whiff_prob = base_whiff_prob * pitcher_whiff_mult
+
+        # PHASE 2A SPRINT 3: Put-away mechanism for 2-strike counts
+        # Pitchers with 2 strikes get increased whiff probability (finishing ability)
+        # MLB data shows ~30% higher whiff rate on 2-strike counts vs 0-1 strikes
+        #
+        # Variable put-away based on pitcher's stuff rating (Task 3.2):
+        # - Elite closer (stuff ~0.85): 1.0 + (0.3 × 0.85) = 1.255× multiplier
+        # - Average pitcher (stuff ~0.50): 1.0 + (0.3 × 0.50) = 1.15× multiplier
+        # - Poor stuff (stuff ~0.20): 1.0 + (0.3 × 0.20) = 1.06× multiplier
+        stuff_rating = self.pitcher.attributes.get_stuff_rating()  # 0.0-1.0
+        put_away_multiplier = 1.0
+        if pitch_data.get('strikes', 0) == 2:
+            put_away_multiplier = 1.0 + (0.3 * stuff_rating)  # 1.0-1.30× range
+            whiff_prob *= put_away_multiplier
 
         # Clip to reasonable bounds after applying multipliers
-        whiff_prob = np.clip(whiff_prob, 0.05, 0.75)
+        final_whiff_prob = np.clip(whiff_prob, 0.05, 0.75)
 
         # Check if whiff occurs
-        if np.random.random() < whiff_prob:
+        did_whiff = np.random.random() < final_whiff_prob
+
+        # OPTION A: Log whiff decision for contact rate analysis
+        if self.debug_collector and self.debug_collector.enabled:
+            v_break, h_break = pitch_break
+            pitch_movement_total = np.sqrt(v_break**2 + h_break**2)
+
+            self.debug_collector.log_whiff(
+                inning=0,  # at_bat doesn't know inning context
+                balls=pitch_data.get('balls', 0),
+                strikes=pitch_data.get('strikes', 0),
+                pitch_type=pitch_type,
+                pitch_velocity_mph=pitch_velocity,
+                pitch_movement_total=pitch_movement_total,
+                base_whiff_rate=base_whiff_prob,
+                velocity_multiplier=1.0,  # Already baked into base_whiff_prob
+                movement_multiplier=1.0,  # Already baked into base_whiff_prob
+                contact_factor=self.hitter.attributes.get_tracking_ability_factor(),
+                stuff_multiplier=pitcher_whiff_mult * put_away_multiplier,
+                final_whiff_prob=final_whiff_prob,
+                did_whiff=did_whiff,
+                batter_barrel_accuracy_mm=self.hitter.attributes.get_barrel_accuracy_mm(),
+                pitcher_stuff_rating=stuff_rating
+            )
+
+        if did_whiff:
             return None  # Whiff!
 
         # Get bat speed from hitter attributes
@@ -875,9 +919,29 @@ class AtBatSimulator:
                 'missed_into_zone': missed_into_zone
             }
 
+            # Log pitch intention for Phase 1 debug metrics
+            if self.debug_collector:
+                self.debug_collector.log_pitch_intention(
+                    inning=0,  # At-bat simulator doesn't have inning context
+                    balls=balls,
+                    strikes=strikes,
+                    outs=0,  # At-bat simulator doesn't have outs context
+                    pitch_type=pitch_type,
+                    intention=pitch_intention,
+                    target_x=target_h,
+                    target_z=target_v,
+                    actual_x=actual_h,
+                    actual_z=actual_v,
+                    is_in_zone=pitch_data['is_strike'],
+                    pitcher_control=self.pitcher.attributes.get_control_zone_bias(),
+                    pitcher_command_sigma=self.pitcher.attributes.get_command_sigma_inches()
+                )
+
             # Annotate pitch with contextual data for downstream logging/debugging
             pitch_data['sequence_index'] = len(pitches) + 1
             pitch_data['count_before'] = count_before_pitch
+            pitch_data['balls'] = balls  # PHASE 2A: Add count for put-away mechanism
+            pitch_data['strikes'] = strikes  # PHASE 2A: Add count for put-away mechanism
             pitch_data['swing'] = False
             pitch_data['pitch_outcome'] = 'unknown'
 
@@ -900,6 +964,7 @@ class AtBatSimulator:
                 pitch_velocity=pitch_data['velocity_plate'],
                 pitch_type=pitch_data['pitch_type'],
                 return_diagnostics=True,
+                debug_collector=self.debug_collector,
             )
 
             # Store swing decision diagnostics in pitch data
@@ -989,6 +1054,32 @@ class AtBatSimulator:
 
                         pitch_data['count_after'] = (balls, strikes)
                         pitches.append(pitch_data)
+
+                        # Log plate appearance outcome for Phase 1 debug metrics
+                        if self.debug_collector:
+                            num_swings = sum(1 for p in pitches if p.get('swing', False))
+                            num_whiffs = sum(1 for p in pitches if p.get('swing', False) and p.get('whiff', False))
+                            num_fouls = sum(1 for p in pitches if p.get('pitch_outcome') == 'foul')
+                            num_fouls_with_2_strikes = sum(1 for p in pitches if p.get('pitch_outcome') == 'foul' and p.get('count_before', (0, 0))[1] >= 2)
+
+                            self.debug_collector.log_plate_appearance_outcome(
+                                inning=0,
+                                batter_name=self.hitter.name,
+                                pitcher_name=self.pitcher.name,
+                                initial_count=(0, 0),
+                                final_count=(balls, strikes),
+                                num_pitches=len(pitches),
+                                num_fouls_with_2_strikes=num_fouls_with_2_strikes,
+                                result='in_play',
+                                num_swings=num_swings,
+                                num_whiffs=num_whiffs,
+                                num_fouls=num_fouls,
+                                made_contact=True,
+                                exit_velocity_mph=contact_result.get('exit_velocity') if contact_result else None,
+                                launch_angle_deg=contact_result.get('launch_angle') if contact_result else None,
+                                distance_ft=contact_result.get('distance') if contact_result else None
+                            )
+
                         return AtBatResult(
                             outcome='in_play',
                             pitches=pitches,
@@ -1014,6 +1105,31 @@ class AtBatSimulator:
 
         if verbose:
             print(f"\n{outcome.upper()}!")
+
+        # Log plate appearance outcome for Phase 1 debug metrics
+        if self.debug_collector:
+            num_swings = sum(1 for p in pitches if p.get('swing', False))
+            num_whiffs = sum(1 for p in pitches if p.get('swing', False) and p.get('whiff', False))
+            num_fouls = sum(1 for p in pitches if p.get('pitch_outcome') == 'foul')
+            num_fouls_with_2_strikes = sum(1 for p in pitches if p.get('pitch_outcome') == 'foul' and p.get('count_before', (0, 0))[1] >= 2)
+
+            self.debug_collector.log_plate_appearance_outcome(
+                inning=0,
+                batter_name=self.hitter.name,
+                pitcher_name=self.pitcher.name,
+                initial_count=(0, 0),
+                final_count=(balls, strikes),
+                num_pitches=len(pitches),
+                num_fouls_with_2_strikes=num_fouls_with_2_strikes,
+                result=outcome,
+                num_swings=num_swings,
+                num_whiffs=num_whiffs,
+                num_fouls=num_fouls,
+                made_contact=False,
+                exit_velocity_mph=None,
+                launch_angle_deg=None,
+                distance_ft=None
+            )
 
         return AtBatResult(
             outcome=outcome,
