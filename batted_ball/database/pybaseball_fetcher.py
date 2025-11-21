@@ -22,12 +22,19 @@ try:
         team_pitching,
         team_batting,
         statcast_sprint_speed,
-        statcast_fielding,         # v2: For OAA and arm strength
         fielding_stats,             # v2: For DRS and traditional fielding metrics
     )
+    # Try to import Statcast fielding functions (may not be available in all versions)
+    try:
+        from pybaseball import statcast_outs_above_average
+        STATCAST_FIELDING_AVAILABLE = True
+    except ImportError:
+        STATCAST_FIELDING_AVAILABLE = False
+
     PYBASEBALL_AVAILABLE = True
 except ImportError:
     PYBASEBALL_AVAILABLE = False
+    STATCAST_FIELDING_AVAILABLE = False
     print("Warning: pybaseball not installed. Run: pip install pybaseball")
 
 
@@ -313,44 +320,57 @@ class PybaseballFetcher:
 
         try:
             # 1. Fetch Statcast fielding data (OAA, arm strength, jump)
-            # Note: statcast_fielding only available 2016+
-            if self.season >= 2016:
+            # Note: Statcast fielding data only available 2016+ and in newer pybaseball versions
+            if self.season >= 2016 and STATCAST_FIELDING_AVAILABLE:
                 try:
                     print(f"    Fetching Statcast fielding data (OAA)...")
-                    statcast_defense = statcast_fielding(self.season, min_att=10)
+                    # Use statcast_outs_above_average if available
+                    statcast_defense = statcast_outs_above_average(self.season)
 
                     if statcast_defense is not None and len(statcast_defense) > 0:
                         # Match players by name
                         for idx, row in hitters_df.iterrows():
                             player_name = row['player_name']
 
-                            # Try exact match first
-                            match = statcast_defense[
-                                statcast_defense['last_name, first_name'] == player_name
-                            ]
+                            # Try different name column possibilities
+                            name_columns = ['last_name, first_name', 'name', 'player_name']
+                            match = None
 
-                            if len(match) == 0:
-                                # Try partial match (last name)
-                                last_name = player_name.split()[-1] if ' ' in player_name else player_name
-                                match = statcast_defense[
-                                    statcast_defense['last_name, first_name'].str.contains(
-                                        last_name, case=False, na=False
-                                    )
-                                ]
+                            for name_col in name_columns:
+                                if name_col in statcast_defense.columns:
+                                    # Try exact match
+                                    match = statcast_defense[
+                                        statcast_defense[name_col] == player_name
+                                    ]
 
-                            if len(match) > 0:
+                                    if len(match) == 0:
+                                        # Try partial match (last name)
+                                        last_name = player_name.split()[-1] if ' ' in player_name else player_name
+                                        match = statcast_defense[
+                                            statcast_defense[name_col].str.contains(
+                                                last_name, case=False, na=False
+                                            )
+                                        ]
+
+                                    if len(match) > 0:
+                                        break
+
+                            if match is not None and len(match) > 0:
                                 player_defense = match.iloc[0]
 
                                 # OAA (Outs Above Average)
-                                if 'outs_above_average' in player_defense.index:
-                                    hitters_df.at[idx, 'oaa'] = player_defense['outs_above_average']
+                                oaa_columns = ['outs_above_average', 'oaa', 'outs_above_avg']
+                                for col in oaa_columns:
+                                    if col in player_defense.index and pd.notna(player_defense[col]):
+                                        hitters_df.at[idx, 'oaa'] = player_defense[col]
+                                        break
 
-                                # Arm strength (mph)
-                                if 'arm_strength' in player_defense.index:
+                                # Arm strength (mph) - might not be in OAA data
+                                if 'arm_strength' in player_defense.index and pd.notna(player_defense['arm_strength']):
                                     hitters_df.at[idx, 'arm_strength_mph'] = player_defense['arm_strength']
 
                                 # Jump (outfielders first step efficiency)
-                                if 'jump' in player_defense.index:
+                                if 'jump' in player_defense.index and pd.notna(player_defense['jump']):
                                     hitters_df.at[idx, 'jump'] = player_defense['jump']
 
                         oaa_count = hitters_df['oaa'].notna().sum()
@@ -358,6 +378,13 @@ class PybaseballFetcher:
 
                 except Exception as e:
                     print(f"    Could not fetch Statcast fielding data: {e}")
+                    print(f"    Will use DRS-based estimates instead")
+            else:
+                if self.season < 2016:
+                    print(f"    Statcast fielding data not available before 2016")
+                else:
+                    print(f"    Statcast fielding functions not available in this pybaseball version")
+                print(f"    Will derive defensive metrics from DRS")
 
             # 2. Fetch FanGraphs fielding data (DRS, fielding %, position)
             try:
@@ -407,6 +434,28 @@ class PybaseballFetcher:
 
             except Exception as e:
                 print(f"    Could not fetch FanGraphs fielding data: {e}")
+
+            # 3. Derive OAA from DRS when Statcast data unavailable
+            # OAA and DRS measure similar things; OAA ≈ DRS * 0.6
+            missing_oaa = hitters_df['oaa'].isna() & hitters_df['drs'].notna()
+            if missing_oaa.sum() > 0:
+                print(f"    Deriving OAA from DRS for {missing_oaa.sum()} players without Statcast data")
+                hitters_df.loc[missing_oaa, 'oaa'] = hitters_df.loc[missing_oaa, 'drs'] * 0.6
+
+            # 4. Estimate fielding_pct from FanGraphs if not already set
+            # Most players have fielding% in FanGraphs data (already fetched above)
+            # If still missing, use position-based defaults
+            missing_fpct = hitters_df['fielding_pct'].isna()
+            if missing_fpct.sum() > 0:
+                # Use conservative defaults by position
+                position_defaults = {
+                    'C': 0.990, '1B': 0.993, '2B': 0.983, 'SS': 0.972,
+                    '3B': 0.958, 'LF': 0.982, 'CF': 0.988, 'RF': 0.985
+                }
+                for idx in hitters_df[missing_fpct].index:
+                    pos = hitters_df.at[idx, 'primary_position']
+                    if pos and pos in position_defaults:
+                        hitters_df.at[idx, 'fielding_pct'] = position_defaults[pos]
 
         except Exception as e:
             print(f"  Error fetching defensive metrics: {e}")
