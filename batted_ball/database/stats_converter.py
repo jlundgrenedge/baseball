@@ -598,10 +598,11 @@ class StatsConverter:
         stolen_bases: Optional[int] = None,
     ) -> Dict[str, int]:
         """
-        Convert MLB hitter statistics to v2 game attributes (Phase 2A).
+        Convert MLB hitter statistics to v2 game attributes (Phase 2A + 2C).
 
         Includes all v1 attributes PLUS v2 additions:
         - VISION: Contact frequency independent of power (from K%)
+        - ATTACK_ANGLE_CONTROL: Launch angle tendency for HR generation (from HR rate, SLG, barrel%)
 
         Parameters
         ----------
@@ -611,7 +612,7 @@ class StatsConverter:
         -------
         dict
             Dictionary with v1 keys (contact, power, discipline, speed)
-            PLUS v2 key (vision)
+            PLUS v2 keys (vision, attack_angle_control)
         """
         # Get v1 attributes using existing method
         attrs = cls.mlb_stats_to_hitter_attributes(
@@ -636,7 +637,145 @@ class StatsConverter:
         else:
             attrs['vision'] = 50000  # Default average
 
+        # Add v2 attribute: ATTACK_ANGLE_CONTROL (Phase 2C - CRITICAL for HR generation)
+        # Controls launch angle tendency - higher = more fly balls = more HR potential
+        # Inferred from HR rate, SLG, and barrel% since launch angle data not always available
+        #
+        # Target ranges (matching generic team creation in attributes.py):
+        # - Power hitters (high HR, high SLG): 72k-88k → mean launch angle 18-24°
+        # - Balanced hitters (moderate HR/SLG): 58k-75k → mean launch angle 13-19°
+        # - Contact/groundball hitters (low HR/SLG): 45k-60k → mean launch angle 9-15°
+        attrs['attack_angle_control'] = cls._calculate_attack_angle_control(
+            home_runs=home_runs,
+            at_bats=at_bats,
+            slugging_pct=slugging_pct,
+            barrel_pct=barrel_pct,
+            avg_exit_velo=avg_exit_velo
+        )
+
         return attrs
+
+    @classmethod
+    def _calculate_attack_angle_control(
+        cls,
+        home_runs: Optional[int] = None,
+        at_bats: Optional[int] = None,
+        slugging_pct: Optional[float] = None,
+        barrel_pct: Optional[float] = None,
+        avg_exit_velo: Optional[float] = None
+    ) -> int:
+        """
+        Calculate ATTACK_ANGLE_CONTROL from available MLB stats.
+
+        Since launch angle data may not always be available, we infer it from:
+        - HR rate (most indicative of elevated launch tendency)
+        - Slugging percentage (correlates with extra base hits / fly ball success)
+        - Barrel % (optimal EV+LA combo frequency)
+        - Exit velocity (power indicator)
+
+        Target ranges to match generic team creation:
+        - Power hitters: 72k-88k (HR rate > 5%, SLG > 0.500)
+        - Balanced hitters: 58k-75k (HR rate 2-5%, SLG 0.400-0.500)
+        - Contact/GB hitters: 45k-60k (HR rate < 2%, SLG < 0.400)
+
+        Returns
+        -------
+        int
+            ATTACK_ANGLE_CONTROL rating (0-100k scale)
+        """
+        attack_angle_scores = []
+
+        # 1. HR rate - most direct indicator of elevated launch tendency
+        if home_runs is not None and at_bats is not None and at_bats > 0:
+            hr_per_ab = home_runs / at_bats
+            # Thresholds based on MLB data:
+            # Elite power (40+ HR in 600 AB): >0.065 HR/AB
+            # Good power (30 HR): ~0.050
+            # Average power (18-20 HR): ~0.033
+            # Low power (<12 HR): <0.020
+            hr_score = cls.percentile_to_rating(
+                hr_per_ab,
+                0.065,  # Elite HR rate
+                0.050,  # Good
+                0.033,  # Average
+                0.020,  # Poor
+                inverse=False
+            )
+            attack_angle_scores.append(hr_score * 1.5)  # Weight HR most heavily
+
+        # 2. Slugging percentage - correlates with launch success
+        if slugging_pct is not None:
+            slg_score = cls.percentile_to_rating(
+                slugging_pct,
+                0.550,  # Elite SLG
+                0.470,  # Good
+                0.410,  # Average
+                0.360,  # Poor
+                inverse=False
+            )
+            attack_angle_scores.append(slg_score)
+
+        # 3. Barrel % - optimal EV+LA combo frequency (direct measure of good fly balls)
+        if barrel_pct is not None:
+            barrel_score = cls.percentile_to_rating(
+                barrel_pct,
+                cls.HITTER_BARREL_ELITE,   # 12% = elite
+                cls.HITTER_BARREL_GOOD,    # 8%
+                cls.HITTER_BARREL_AVG,     # 6%
+                cls.HITTER_BARREL_POOR,    # 4%
+                inverse=False
+            )
+            attack_angle_scores.append(barrel_score * 1.2)  # Weight barrel highly
+
+        # 4. Exit velocity as tie-breaker (power hitters tend to hit more fly balls)
+        if avg_exit_velo is not None:
+            ev_score = cls.percentile_to_rating(
+                avg_exit_velo,
+                cls.HITTER_EV_ELITE,   # 92 mph
+                cls.HITTER_EV_GOOD,    # 89.5
+                cls.HITTER_EV_AVG,     # 87.5
+                cls.HITTER_EV_POOR,    # 85
+                inverse=False
+            )
+            attack_angle_scores.append(ev_score * 0.5)  # Lower weight
+
+        if attack_angle_scores:
+            # Calculate weighted average
+            total_weight = 0
+            weighted_sum = 0
+            weights = [1.5, 1.0, 1.2, 0.5]  # HR, SLG, Barrel, EV
+            for i, score in enumerate(attack_angle_scores):
+                w = weights[i] if i < len(weights) else 1.0
+                weighted_sum += score * w
+                total_weight += w
+            raw_score = weighted_sum / total_weight
+
+            # Scale to target ranges:
+            # - Raw score 90k+ → 80k-88k (power hitter)
+            # - Raw score 70k-90k → 65k-80k (balanced)
+            # - Raw score 50k-70k → 55k-65k (contact)
+            # - Raw score <50k → 45k-55k (groundball)
+            #
+            # Apply boost to ensure adequate HR generation (Phase 2C calibration)
+            # The generic teams use 72k-88k for power, 58k-75k for balanced
+            # We need to match these ranges
+            if raw_score >= 90000:
+                # Elite power hitter → max attack angle
+                attack_angle = 80000 + int((raw_score - 90000) / 10000 * 8000)
+            elif raw_score >= 70000:
+                # Good power hitter
+                attack_angle = 65000 + int((raw_score - 70000) / 20000 * 15000)
+            elif raw_score >= 50000:
+                # Balanced hitter
+                attack_angle = 55000 + int((raw_score - 50000) / 20000 * 10000)
+            else:
+                # Contact/groundball hitter
+                attack_angle = 45000 + int(raw_score / 50000 * 10000)
+
+            return int(np.clip(attack_angle, 45000, 88000))
+        else:
+            # No data - use balanced default that matches generic teams
+            return 60000  # Moderate attack angle (higher than previous 50k default)
 
     @classmethod
     def mlb_stats_to_defensive_attributes(

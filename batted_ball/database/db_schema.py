@@ -91,8 +91,9 @@ class DatabaseSchema:
                 discipline INTEGER NOT NULL,
                 speed INTEGER NOT NULL,
 
-                -- Game attributes v2 offensive (Phase 2A addition)
+                -- Game attributes v2 offensive (Phase 2A/2C additions)
                 vision INTEGER,                    -- v2: Contact frequency (0-100k) from K%
+                attack_angle_control INTEGER,      -- v2: Launch angle tendency (0-100k) from HR rate/SLG/barrel%
 
                 -- Game attributes v2 defensive (0-100,000 scale) - CRITICAL for BABIP tuning
                 reaction_time INTEGER,             -- First movement delay from OAA/jump

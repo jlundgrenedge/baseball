@@ -304,7 +304,7 @@ class TeamDatabase:
             cursor.execute("""
                 UPDATE hitters SET
                     contact = ?, power = ?, discipline = ?, speed = ?,
-                    vision = ?,
+                    vision = ?, attack_angle_control = ?,
                     reaction_time = ?, top_sprint_speed = ?, route_efficiency = ?,
                     arm_strength = ?, arm_accuracy = ?, fielding_secure = ?,
                     primary_position = ?,
@@ -318,6 +318,7 @@ class TeamDatabase:
             """, (
                 attrs['contact'], attrs['power'], attrs['discipline'], attrs['speed'],
                 attrs.get('vision'),  # v2 offensive attribute
+                attrs.get('attack_angle_control'),  # v2 Phase 2C - CRITICAL for HR generation
                 defensive_attrs.get('reaction_time'), defensive_attrs.get('top_sprint_speed'),  # v2 defensive
                 defensive_attrs.get('route_efficiency'), defensive_attrs.get('arm_strength'),
                 defensive_attrs.get('arm_accuracy'), defensive_attrs.get('fielding_secure'),
@@ -339,7 +340,7 @@ class TeamDatabase:
             cursor.execute("""
                 INSERT INTO hitters (
                     player_name, contact, power, discipline, speed,
-                    vision,
+                    vision, attack_angle_control,
                     reaction_time, top_sprint_speed, route_efficiency,
                     arm_strength, arm_accuracy, fielding_secure,
                     primary_position,
@@ -348,11 +349,12 @@ class TeamDatabase:
                     avg_exit_velo, max_exit_velo, barrel_pct, sprint_speed,
                     season, games_played, at_bats,
                     oaa, drs, arm_strength_mph, fielding_pct, jump
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stats.get('player_name'), attrs['contact'], attrs['power'],
                 attrs['discipline'], attrs['speed'],
                 attrs.get('vision'),  # v2 offensive attribute
+                attrs.get('attack_angle_control'),  # v2 Phase 2C - CRITICAL for HR generation
                 defensive_attrs.get('reaction_time'), defensive_attrs.get('top_sprint_speed'),  # v2 defensive
                 defensive_attrs.get('route_efficiency'), defensive_attrs.get('arm_strength'),
                 defensive_attrs.get('arm_accuracy'), defensive_attrs.get('fielding_secure'),
