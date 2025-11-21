@@ -749,20 +749,21 @@ class StatsConverter:
             attrs['route_efficiency'] = 50000
 
         # 4. ARM_STRENGTH - Position-specific from Statcast arm data
-        if arm_strength_mph is not None:
-            # Position-specific thresholds (in mph)
-            position_thresholds = {
-                'C': {'elite': 83, 'good': 80, 'avg': 77, 'poor': 74},  # Catcher
-                'SS': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Shortstop
-                '3B': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Third base
-                '2B': {'elite': 85, 'good': 82, 'avg': 79, 'poor': 76},  # Second base
-                '1B': {'elite': 85, 'good': 82, 'avg': 79, 'poor': 76},  # First base
-                'RF': {'elite': 92, 'good': 88, 'avg': 85, 'poor': 82},  # Right field (strongest)
-                'CF': {'elite': 90, 'good': 87, 'avg': 84, 'poor': 81},  # Center field
-                'LF': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Left field
-            }
+        # Position-specific thresholds (in mph)
+        position_thresholds = {
+            'C': {'elite': 83, 'good': 80, 'avg': 77, 'poor': 74},  # Catcher
+            'SS': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Shortstop
+            '3B': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Third base
+            '2B': {'elite': 85, 'good': 82, 'avg': 79, 'poor': 76},  # Second base
+            '1B': {'elite': 85, 'good': 82, 'avg': 79, 'poor': 76},  # First base
+            'RF': {'elite': 92, 'good': 88, 'avg': 85, 'poor': 82},  # Right field (strongest)
+            'CF': {'elite': 90, 'good': 87, 'avg': 84, 'poor': 81},  # Center field
+            'LF': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Left field
+        }
 
-            thresh = position_thresholds.get(position, position_thresholds.get('CF', position_thresholds['CF']))
+        thresh = position_thresholds.get(position, position_thresholds.get('CF', position_thresholds['CF']))
+
+        if arm_strength_mph is not None:
             attrs['arm_strength'] = cls.percentile_to_rating(
                 arm_strength_mph,
                 thresh['elite'],
@@ -772,7 +773,26 @@ class StatsConverter:
                 inverse=False
             )
         else:
-            attrs['arm_strength'] = 50000
+            # Estimate from DRS/OAA if arm strength not available
+            # Better defenders tend to have better arms
+            if (drs is not None and drs > 5) or (oaa is not None and oaa > 5):
+                # Elite defender - likely above average arm
+                estimated_arm = thresh['good']
+            elif (drs is not None and drs < -5) or (oaa is not None and oaa < -5):
+                # Poor defender - likely below average arm
+                estimated_arm = thresh['poor']
+            else:
+                # Average defender - average arm
+                estimated_arm = thresh['avg']
+
+            attrs['arm_strength'] = cls.percentile_to_rating(
+                estimated_arm,
+                thresh['elite'],
+                thresh['good'],
+                thresh['avg'],
+                thresh['poor'],
+                inverse=False
+            )
 
         # 5. FIELDING_SECURE - From fielding % (higher % = more secure)
         if fielding_pct is not None:
@@ -789,8 +809,14 @@ class StatsConverter:
 
         # 6. ARM_ACCURACY - Residual from defensive metrics
         # Use DRS that isn't explained by range (proxy for throwing accuracy)
-        if drs is not None and oaa is not None:
-            accuracy_score = drs - (oaa * 0.5)  # DRS beyond range
+        if drs is not None:
+            # If we have OAA, calculate residual
+            # If not, use DRS scaled down (less confident estimate)
+            if oaa is not None:
+                accuracy_score = drs - (oaa * 0.5)  # DRS beyond range
+            else:
+                accuracy_score = drs * 0.3  # Conservative estimate from DRS alone
+
             attrs['arm_accuracy'] = cls.percentile_to_rating(
                 accuracy_score,
                 5.0,   # Elite accuracy
