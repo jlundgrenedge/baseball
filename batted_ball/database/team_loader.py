@@ -112,17 +112,31 @@ class TeamLoader:
         while len(pitchers) < 9:
             pitchers.append(pitchers[len(pitchers) % len(pitchers)])
 
-        # Create fielders from hitters' fielder objects (v2: player-specific defensive attributes)
+        # Create fielders dictionary from hitters' fielder objects (v2: player-specific defensive attributes)
         # This replaces create_standard_defense() which uses generic 50k fielders
-        fielders = []
+        
+        # Map database position abbreviations to standard position names
+        POSITION_MAP = {
+            'P': 'pitcher', 'C': 'catcher',
+            '1B': 'first_base', '2B': 'second_base', '3B': 'third_base', 'SS': 'shortstop',
+            'LF': 'left_field', 'CF': 'center_field', 'RF': 'right_field'
+        }
+        
+        fielders = {}
         for hitter in hitters[:9]:  # Use first 9 hitters
             if hasattr(hitter, 'fielder') and hitter.fielder is not None:
-                fielders.append(hitter.fielder)
+                position_abbr = hitter.fielder.position.upper()  # Normalize to uppercase
+                position_name = POSITION_MAP.get(position_abbr, position_abbr.lower())
+                fielders[position_name] = hitter.fielder
 
         # If we don't have enough fielders (shouldn't happen), fill with defaults
         if len(fielders) < 9:
             print(f"Warning: Only {len(fielders)} fielders found, filling with defaults")
-            fielders = create_standard_defense()
+            default_fielders = create_standard_defense()
+            # Merge: default fielders for missing positions
+            for pos, fielder in default_fielders.items():
+                if pos not in fielders:
+                    fielders[pos] = fielder
 
         # Create Team object
         team = Team(
@@ -132,14 +146,14 @@ class TeamLoader:
             fielders=fielders
         )
 
-        print(f"✓ Loaded {team_info['team_name']} ({season})")
-        print(f"  {len(pitchers)} pitchers, {len(hitters)} hitters")
+        print(f"[OK] Loaded {team_info['team_name']} ({season})")
+        print(f"  {len(pitchers)} pitchers, {len(hitters)} hitters")  
 
         return team
 
     def _create_pitcher_from_record(self, record: Dict) -> Optional[Pitcher]:
         """
-        Create a Pitcher object from database record (v2: includes PUTAWAY_SKILL, NIBBLING_TENDENCY).
+        Create a Pitcher object from database record (v2: includes NIBBLING_TENDENCY).
 
         Parameters
         ----------
@@ -151,14 +165,20 @@ class TeamLoader:
         Pitcher or None
         """
         # Create PitcherAttributes from stored ratings (v1 + v2)
+        # Note: PUTAWAY_SKILL was removed - put-away mechanism uses get_stuff_rating()
+        # which is calculated from RAW_VELOCITY_CAP, SPIN_RATE_CAP, and DECEPTION
+        
+        # NIBBLING_TENDENCY: Database stores as 0.0-1.0 REAL, but PitcherAttributes needs 0-100k
+        nibbling_db = record.get('nibbling_tendency', 0.50)  # Get 0.0-1.0 value
+        nibbling_attr = int(nibbling_db * 100000)  # Convert to 0-100k scale
+        
         attrs = PitcherAttributes(
             RAW_VELOCITY_CAP=record['velocity'],
             COMMAND=record['command'],
             STAMINA=record['stamina'],
             SPIN_RATE_CAP=record['movement'],  # Use movement for spin
-            # v2 attributes (Phase 2A/2B additions)
-            PUTAWAY_SKILL=record.get('putaway_skill', 50000),  # Default to average if missing
-            NIBBLING_TENDENCY=record.get('nibbling_tendency', 0.50),  # Default to average (note: 0.0-1.0, not 0-100k)
+            # v2 attribute (Phase 2B addition)
+            NIBBLING_TENDENCY=nibbling_attr,  # Converted from 0.0-1.0 to 0-100k
         )
 
         # Generate realistic pitch arsenal based on velocity/movement
@@ -224,6 +244,8 @@ class TeamLoader:
         position = record.get('primary_position', 'LF')
         if position is None or position == '':
             position = 'LF'
+        # Normalize to uppercase (database may have lowercase)
+        position = position.upper()
 
         fielder = Fielder(
             name=record['player_name'],

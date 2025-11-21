@@ -21,6 +21,73 @@ from batted_ball.game_simulation import GameSimulator
 from batted_ball.series_metrics import SeriesMetrics
 
 
+# Map team abbreviations to their home ballpark
+TEAM_BALLPARKS = {
+    'CHC': 'wrigley',           # Chicago Cubs - Wrigley Field
+    'CIN': 'great_american',    # Cincinnati Reds - Great American Ball Park
+    'MIL': 'generic',           # Milwaukee Brewers - American Family Field (not in system yet)
+    'PIT': 'generic',           # Pittsburgh Pirates - PNC Park (not in system yet)
+    'STL': 'generic',           # St. Louis Cardinals - Busch Stadium (not in system yet)
+    'ATL': 'generic',           # Atlanta Braves - Truist Park (not in system yet)
+    'NYY': 'yankee',            # New York Yankees - Yankee Stadium
+    'BOS': 'fenway',            # Boston Red Sox - Fenway Park
+    'LAD': 'dodger',            # Los Angeles Dodgers - Dodger Stadium
+    'SF': 'oracle',             # San Francisco Giants - Oracle Park
+    'COL': 'coors',             # Colorado Rockies - Coors Field
+    'HOU': 'minute_maid',       # Houston Astros - Minute Maid Park
+    'SD': 'petco',              # San Diego Padres - Petco Park
+    # Add more as needed - defaults to 'generic' if not found
+}
+
+
+def get_team_ballpark(team_name: str, team_abbr: str = None) -> str:
+    """
+    Get the home ballpark for a team.
+    
+    Parameters
+    ----------
+    team_name : str
+        Full team name (e.g., "Chicago Cubs")
+    team_abbr : str, optional
+        Team abbreviation (e.g., "CHC")
+    
+    Returns
+    -------
+    str
+        Ballpark name for simulation (e.g., "wrigley")
+    """
+    # If abbreviation provided, use direct lookup
+    if team_abbr and team_abbr.upper() in TEAM_BALLPARKS:
+        return TEAM_BALLPARKS[team_abbr.upper()]
+    
+    # Try to extract abbreviation from team name
+    team_lower = team_name.lower()
+    
+    # Simple team name to abbreviation mapping
+    name_to_abbr = {
+        'cubs': 'CHC',
+        'reds': 'CIN', 
+        'brewers': 'MIL',
+        'pirates': 'PIT',
+        'cardinals': 'STL',
+        'braves': 'ATL',
+        'yankees': 'NYY',
+        'red sox': 'BOS',
+        'dodgers': 'LAD',
+        'giants': 'SF',
+        'rockies': 'COL',
+        'diamondbacks': 'ARI',
+        'padres': 'SD',
+    }
+    
+    for key, abbr in name_to_abbr.items():
+        if key in team_lower:
+            return TEAM_BALLPARKS.get(abbr, 'generic')
+    
+    # Default to generic ballpark
+    return 'generic'
+
+
 def clear_screen():
     """Clear the console screen."""
     import os
@@ -168,11 +235,25 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
 
     loader.close()
 
+    # Get team abbreviations from database for ballpark lookup
+    import sqlite3
+    conn = sqlite3.connect('baseball_teams.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT team_abbr FROM teams WHERE team_name = ? AND season = ?", (home_name, home_season))
+    home_abbr_row = cursor.fetchone()
+    home_abbr = home_abbr_row[0] if home_abbr_row else None
+    conn.close()
+
+    # Determine home team's ballpark for simulation
+    home_ballpark = get_team_ballpark(home_name, home_abbr)
+
     # Display matchup
     display_header("Matchup")
     print(f"\n  Away: {away_team.name} ({away_season})")
     print(f"  Home: {home_team.name} ({home_season})")
+    print(f"  Ballpark: {home_ballpark.title()} (home field)")
     print(f"  Games: {num_games}")
+    print(f"  Wind: Enabled (randomized per game)")
     print()
 
     # Confirm before running
@@ -233,7 +314,15 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
 
             # Create simulator with verbose=True and EXHAUSTIVE metrics (level 3)
             # This provides maximum detail for tuning and analysis
-            sim = GameSimulator(away_team, home_team, verbose=True, debug_metrics=3)
+            # Uses home team's ballpark and enables wind effects
+            sim = GameSimulator(
+                away_team, 
+                home_team, 
+                verbose=True, 
+                debug_metrics=3,
+                ballpark=home_ballpark,  # Home team's ballpark
+                wind_enabled=True  # Randomized wind per game
+            )
 
             # Capture stdout to write to log file
             import io
@@ -259,7 +348,7 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
                 sys.stdout = captured_output
 
             try:
-                # Simulate game
+                # Simulate game with home team's ballpark and wind effects
                 final_state = sim.simulate_game(num_innings=9)
             finally:
                 # Restore stdout

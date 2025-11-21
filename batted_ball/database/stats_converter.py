@@ -122,50 +122,53 @@ class StatsConverter:
         Returns
         -------
         int
-            Rating from 0-100,000
+            Rating from 0-100,000 (ALWAYS clipped to this range)
         """
         if inverse:
             # Lower is better - flip the scale
             if value <= elite:
                 # Elite range (90k-100k)
-                return int(90000 + 10000 * (elite - value) / max(elite * 0.2, 0.5))
+                rating = 90000 + 10000 * (elite - value) / max(elite * 0.2, 0.5)
             elif value <= good:
                 # Good range (70k-90k)
                 t = (value - elite) / (good - elite)
-                return int(90000 - 20000 * t)
+                rating = 90000 - 20000 * t
             elif value <= avg:
                 # Average range (50k-70k)
                 t = (value - good) / (avg - good)
-                return int(70000 - 20000 * t)
+                rating = 70000 - 20000 * t
             elif value <= poor:
                 # Below average (30k-50k)
                 t = (value - avg) / (poor - avg)
-                return int(50000 - 20000 * t)
+                rating = 50000 - 20000 * t
             else:
                 # Poor range (0-30k)
                 t = min((value - poor) / (poor * 0.5), 1.0)
-                return int(30000 - 30000 * t)
+                rating = 30000 - 30000 * t
         else:
             # Higher is better
             if value >= elite:
                 # Elite range (90k-100k)
-                return int(90000 + 10000 * (value - elite) / max(elite * 0.1, 0.05))
+                rating = 90000 + 10000 * (value - elite) / max(elite * 0.1, 0.05)
             elif value >= good:
                 # Good range (70k-90k)
                 t = (value - good) / (elite - good)
-                return int(70000 + 20000 * t)
+                rating = 70000 + 20000 * t
             elif value >= avg:
                 # Average range (50k-70k)
                 t = (value - avg) / (good - avg)
-                return int(50000 + 20000 * t)
+                rating = 50000 + 20000 * t
             elif value >= poor:
                 # Below average (30k-50k)
                 t = (value - poor) / (avg - poor)
-                return int(30000 + 20000 * t)
+                rating = 30000 + 20000 * t
             else:
                 # Poor range (0-30k)
                 t = max(value / poor, 0.0)
-                return int(30000 * t)
+                rating = 30000 * t
+
+        # CRITICAL: Clip to valid 0-100,000 range
+        return int(np.clip(rating, 0, 100000))
 
     @classmethod
     def mlb_stats_to_pitcher_attributes(

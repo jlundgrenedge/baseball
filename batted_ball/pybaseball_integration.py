@@ -362,7 +362,7 @@ def map_fielder_stats_to_attributes(stats: Dict, position: str) -> FielderAttrib
 
     Key stat mappings:
     - Sprint Speed → TOP_SPRINT_SPEED
-    - Outs Above Average → REACTION_TIME, ROUTE_EFFICIENCY, FIELDING_SECURE
+    - Outs Above Average → REACTION_TIME (inverted), ROUTE_EFFICIENCY, FIELDING_SECURE
     - Arm Strength (from position) → ARM_STRENGTH
     - Fielding% → FIELDING_SECURE
 
@@ -388,10 +388,17 @@ def map_fielder_stats_to_attributes(stats: Dict, position: str) -> FielderAttrib
     sprint_percentile = get_stat('sprint_speed_percentile', 50.0)
     top_sprint_speed = percentile_to_attribute(sprint_percentile)
 
-    # Outs Above Average → REACTION_TIME, ROUTE_EFFICIENCY, FIELDING_SECURE
+    # Outs Above Average → REACTION_TIME (INVERTED - better OAA = lower reaction time)
+    # ROUTE_EFFICIENCY, FIELDING_SECURE (higher OAA = better)
     oaa_percentile = get_stat('outs_above_avg_percentile', 50.0)
-    reaction_time = percentile_to_attribute(oaa_percentile)
+    
+    # REACTION_TIME: Inverse mapping (better defense = faster reaction = LOWER value)
+    reaction_time = percentile_to_attribute(oaa_percentile, invert=True)
+    
+    # ROUTE_EFFICIENCY: Normal mapping (better defense = better routes = HIGHER value)
     route_efficiency = percentile_to_attribute(oaa_percentile)
+    
+    # FIELDING_SECURE: Normal mapping (better defense = more secure = HIGHER value)
     fielding_secure = percentile_to_attribute(oaa_percentile)
 
     # Position-based ARM_STRENGTH defaults
@@ -407,9 +414,12 @@ def map_fielder_stats_to_attributes(stats: Dict, position: str) -> FielderAttrib
     # Fielding% → FIELDING_SECURE
     fielding_pct = get_stat('fielding_pct', 0.98)
     if fielding_pct >= 0.99:
-        fielding_secure = (fielding_secure + 70000) / 2
+        fielding_secure = min((fielding_secure + 70000) / 2, 100000)
     elif fielding_pct < 0.97:
-        fielding_secure = (fielding_secure + 30000) / 2
+        fielding_secure = max((fielding_secure + 30000) / 2, 0)
+
+    # Clip to ensure valid range
+    fielding_secure = np.clip(fielding_secure, 0, 100000)
 
     # ACCELERATION → correlates with sprint speed
     acceleration = top_sprint_speed
@@ -423,16 +433,17 @@ def map_fielder_stats_to_attributes(stats: Dict, position: str) -> FielderAttrib
     # ARM_ACCURACY → use default (hard to measure from basic stats)
     arm_accuracy = 50000
 
+    # Ensure all values are clipped to 0-100,000 range
     return FielderAttributes(
-        REACTION_TIME=reaction_time,
-        ACCELERATION=acceleration,
-        TOP_SPRINT_SPEED=top_sprint_speed,
-        ROUTE_EFFICIENCY=route_efficiency,
-        AGILITY=agility,
-        FIELDING_SECURE=fielding_secure,
-        TRANSFER_TIME=transfer_time,
-        ARM_STRENGTH=arm_strength,
-        ARM_ACCURACY=arm_accuracy
+        REACTION_TIME=np.clip(reaction_time, 0, 100000),
+        ACCELERATION=np.clip(acceleration, 0, 100000),
+        TOP_SPRINT_SPEED=np.clip(top_sprint_speed, 0, 100000),
+        ROUTE_EFFICIENCY=np.clip(route_efficiency, 0, 100000),
+        AGILITY=np.clip(agility, 0, 100000),
+        FIELDING_SECURE=np.clip(fielding_secure, 0, 100000),
+        TRANSFER_TIME=np.clip(transfer_time, 0, 100000),
+        ARM_STRENGTH=np.clip(arm_strength, 0, 100000),
+        ARM_ACCURACY=np.clip(arm_accuracy, 0, 100000)
     )
 
 
