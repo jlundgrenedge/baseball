@@ -822,8 +822,12 @@ class AtBatSimulator:
         # Get hitter's spray tendency bias (pull vs. opposite field tendency)
         base_spray = self.hitter.attributes.get_spray_tendency_deg()
         # Add realistic spray variance around the hitter's tendency
-        # Standard deviation of ~22° creates realistic MLB spray patterns
-        spray_std_dev = 22.0  # degrees - realistic MLB spray variation
+        # Standard deviation increased to 27° for Phase 2C HR tuning
+        # Rationale: More extreme pulls/oppo hits reach short fences (330ft at ±45°)
+        # vs deep center (400ft at 0°). Creates more realistic HR distribution.
+        # 22° std dev only had ~1-5% of balls reaching ±40-45° range
+        # 27° std dev increases that to ~8-12%, boosting HR rate appropriately
+        spray_std_dev = 27.0  # degrees - INCREASED from 22° for HR rate tuning
         spray_angle = np.random.normal(base_spray, spray_std_dev)
         # Clamp to reasonable bounds (-45° to +45°, foul lines)
         spray_angle = np.clip(spray_angle, -45.0, 45.0)
