@@ -209,11 +209,30 @@ class DatabaseSchema:
             return 0
 
     @staticmethod
+    def migrate_database(conn: sqlite3.Connection) -> None:
+        """Run any needed migrations on existing database."""
+        cursor = conn.cursor()
+
+        # Check if attack_angle_control column exists in hitters table
+        cursor.execute("PRAGMA table_info(hitters)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if 'attack_angle_control' not in columns:
+            print("Migrating database: Adding attack_angle_control column to hitters...")
+            cursor.execute("""
+                ALTER TABLE hitters
+                ADD COLUMN attack_angle_control INTEGER
+            """)
+            conn.commit()
+            print("  Migration complete.")
+
+    @staticmethod
     def initialize_database(db_path: Path) -> sqlite3.Connection:
         """Initialize database with schema."""
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row  # Enable column access by name
         DatabaseSchema.create_tables(conn)
+        DatabaseSchema.migrate_database(conn)  # Run migrations for existing DBs
         return conn
 
 
