@@ -71,12 +71,26 @@ def is_home_run_simple(batted_ball_result, spray_angle_deg, ballpark_name="gener
     return is_home_run
 
 
-def run_tto_diagnostic_fast(num_games=20, verbose=False):
+def run_tto_diagnostic_fast(num_games=20, verbose=False, wind_mph=0.0, wind_direction_deg=0.0):
     """
     Fast TTO diagnostic that skips fielding/baserunning simulation.
 
     Only simulates K/BB/HR - ignores other hit outcomes.
     5-10× faster than full game simulation.
+
+    Parameters
+    ----------
+    num_games : int
+        Number of games to simulate
+    verbose : bool
+        Print detailed output
+    wind_mph : float
+        Wind speed in mph (positive = outfield direction)
+    wind_direction_deg : float
+        Wind direction in degrees:
+        0° = toward center field (tailwind)
+        90° = left-to-right (toward RF)
+        270° = right-to-left (toward LF - helps RHH pull-side!)
     """
     print(f"\n{'='*80}")
     print(f"FAST Three True Outcomes (TTO) Diagnostic - Phase 2C")
@@ -84,6 +98,21 @@ def run_tto_diagnostic_fast(num_games=20, verbose=False):
     print(f"Sample size: {num_games} games (~{num_games * 50} PA expected)")
     print(f"Mode: FAST (skips fielding/baserunning for 5-10× speedup)")
     print(f"Focus: K%, BB%, HR% only")
+
+    # Show wind conditions if non-zero
+    if abs(wind_mph) > 0.1:
+        if wind_direction_deg == 0:
+            wind_desc = f"{wind_mph} mph TAILWIND (toward CF)"
+        elif wind_direction_deg == 90:
+            wind_desc = f"{wind_mph} mph CROSSWIND (L→R, toward RF)"
+        elif wind_direction_deg == 270 or wind_direction_deg == -90:
+            wind_desc = f"{wind_mph} mph CROSSWIND (R→L, toward LF - HELPS RHH PULLS!)"
+        elif wind_direction_deg == 180:
+            wind_desc = f"{wind_mph} mph HEADWIND (toward home)"
+        else:
+            wind_desc = f"{wind_mph} mph at {wind_direction_deg}°"
+        print(f"Wind: {wind_desc}")
+
     print(f"{'='*80}\n")
 
     start_time = time.time()
@@ -125,7 +154,13 @@ def run_tto_diagnostic_fast(num_games=20, verbose=False):
             hitter = away_team.hitters[batter_idx % len(away_team.hitters)]
 
         # Simulate at-bat
-        sim = AtBatSimulator(pitcher=pitcher, hitter=hitter, fast_mode=True)
+        sim = AtBatSimulator(
+            pitcher=pitcher,
+            hitter=hitter,
+            wind_speed=wind_mph,
+            wind_direction=wind_direction_deg,
+            fast_mode=True
+        )
         result = sim.simulate_at_bat()
 
         total_pa += 1
@@ -268,16 +303,22 @@ def run_tto_diagnostic_fast(num_games=20, verbose=False):
 
 
 if __name__ == "__main__":
-    # Parse command line arguments
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "--quick":
-            print("Running QUICK diagnostic (10 games, ~500 PA)...")
-            run_tto_diagnostic_fast(num_games=10)
-        else:
-            print(f"Unknown option: {sys.argv[1]}")
-            print("Usage:")
-            print("  python research/run_tto_diagnostic_fast.py           # Default 20 games (~1000 PA)")
-            print("  python research/run_tto_diagnostic_fast.py --quick   # Quick 10 games (~500 PA)")
-    else:
-        # Default: 20 games
-        run_tto_diagnostic_fast(num_games=20)
+    import argparse
+    parser = argparse.ArgumentParser(description='Run TTO diagnostic (fast mode)')
+    parser.add_argument('--quick', action='store_true', help='Run quick test (10 games)')
+    parser.add_argument('--verbose', action='store_true', help='Verbose output')
+    parser.add_argument('--wind', type=float, default=0.0, help='Wind speed in mph')
+    parser.add_argument('--wind-dir', type=float, default=0.0,
+                       help='Wind direction: 0°=CF, 90°=RF, 270°=LF (helps RHH pulls!)')
+    args = parser.parse_args()
+
+    num_games = 10 if args.quick else 20
+    if args.quick:
+        print("Running QUICK diagnostic (10 games, ~500 PA)...")
+
+    run_tto_diagnostic_fast(
+        num_games=num_games,
+        verbose=args.verbose,
+        wind_mph=args.wind,
+        wind_direction_deg=args.wind_dir
+    )
