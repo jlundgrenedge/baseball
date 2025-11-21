@@ -704,13 +704,14 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
     bat_speed_min = max(88000, min_r + 33000)  # Minimum 88k for power
     bat_speed_max = min(98000, bat_speed_min + 10000)
 
-    # RECALIBRATED (2025-11-19): Increased attack angle to enable more home runs
-    # 42k-58k → 8-14° mean, which with 15° variance creates realistic launch angle distribution
-    # With higher bat speeds (88k-98k) and better collision efficiency, this produces:
-    # ~38-42% GB, ~22-26% LD, ~32-40% FB (MLB realistic with power hitter bias)
-    # Home runs come from combination of high bat speed + elevated launch angles (20-35°)
-    attack_angle_min = max(42000, min_r - 3000)  # Raised from 32k
-    attack_angle_max = min(58000, attack_angle_min + 16000)  # Raised from 45k, up to 58k
+    # RECALIBRATED (2025-11-20 Phase 2C): BOOSTED attack angle to achieve 3-4% HR rate
+    # 52k-70k → 12-19° mean, which with 15° variance creates more balls in HR zone (25-35°)
+    # With elite bat speeds (88k-98k) producing 95-105 mph EV, this generates:
+    # - More fly balls in optimal HR launch angle range (25-35°)
+    # - Target: 3-4% HR rate of PA (10-13% of hits)
+    # Previous 42k-58k (8-14° mean) only produced 0.6% HR rate - insufficient power
+    attack_angle_min = max(52000, min_r + 7000)  # BOOSTED: +10k from 42k
+    attack_angle_max = min(70000, attack_angle_min + 18000)  # BOOSTED: +12k from 58k, wider range
     
     # Ensure valid ranges (min < max)
     if bat_speed_min >= bat_speed_max:
