@@ -18,8 +18,17 @@ Date: 2025-11-20
 """
 
 import sys
+import os
 import time
 from collections import defaultdict
+
+# Add parent directory to path to allow imports from batted_ball package
+# This allows the script to be run from anywhere
+script_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(script_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
 from batted_ball import create_test_team
 from batted_ball.at_bat import AtBatSimulator
 from batted_ball.play_outcome import PlayOutcome
