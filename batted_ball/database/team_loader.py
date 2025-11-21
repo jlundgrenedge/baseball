@@ -112,8 +112,17 @@ class TeamLoader:
         while len(pitchers) < 9:
             pitchers.append(pitchers[len(pitchers) % len(pitchers)])
 
-        # Create fielders (standard defense for now)
-        fielders = create_standard_defense()
+        # Create fielders from hitters' fielder objects (v2: player-specific defensive attributes)
+        # This replaces create_standard_defense() which uses generic 50k fielders
+        fielders = []
+        for hitter in hitters[:9]:  # Use first 9 hitters
+            if hasattr(hitter, 'fielder') and hitter.fielder is not None:
+                fielders.append(hitter.fielder)
+
+        # If we don't have enough fielders (shouldn't happen), fill with defaults
+        if len(fielders) < 9:
+            print(f"Warning: Only {len(fielders)} fielders found, filling with defaults")
+            fielders = create_standard_defense()
 
         # Create Team object
         team = Team(
@@ -130,7 +139,7 @@ class TeamLoader:
 
     def _create_pitcher_from_record(self, record: Dict) -> Optional[Pitcher]:
         """
-        Create a Pitcher object from database record.
+        Create a Pitcher object from database record (v2: includes PUTAWAY_SKILL, NIBBLING_TENDENCY).
 
         Parameters
         ----------
@@ -141,13 +150,15 @@ class TeamLoader:
         -------
         Pitcher or None
         """
-        # Create PitcherAttributes from stored ratings
+        # Create PitcherAttributes from stored ratings (v1 + v2)
         attrs = PitcherAttributes(
             RAW_VELOCITY_CAP=record['velocity'],
             COMMAND=record['command'],
             STAMINA=record['stamina'],
             SPIN_RATE_CAP=record['movement'],  # Use movement for spin
-            # Other attributes use defaults or derived values
+            # v2 attributes (Phase 2A/2B additions)
+            PUTAWAY_SKILL=record.get('putaway_skill', 50000),  # Default to average if missing
+            NIBBLING_TENDENCY=record.get('nibbling_tendency', 0.50),  # Default to average (note: 0.0-1.0, not 0-100k)
         )
 
         # Generate realistic pitch arsenal based on velocity/movement
@@ -167,7 +178,7 @@ class TeamLoader:
 
     def _create_hitter_from_record(self, record: Dict) -> Optional[Hitter]:
         """
-        Create a Hitter object from database record.
+        Create a Hitter object from database record (v2: includes VISION + defensive attributes).
 
         Parameters
         ----------
@@ -178,13 +189,13 @@ class TeamLoader:
         -------
         Hitter or None
         """
-        # Create HitterAttributes from stored ratings
-        # Map database attributes to HitterAttributes fields
+        # Create HitterAttributes from stored ratings (v1 + v2)
         hitter_attrs = HitterAttributes(
             BAT_SPEED=record['power'],  # Power maps to bat speed
             BARREL_ACCURACY=record['contact'],  # Contact maps to barrel accuracy
             ZONE_DISCERNMENT=record['discipline'],  # Discipline maps to pitch recognition
-            # Other attributes use defaults
+            # v2 attribute (Phase 2A addition)
+            VISION=record.get('vision', 50000),  # Contact frequency, default to average if missing
         )
 
         # Create Hitter with speed for baserunning
@@ -193,6 +204,35 @@ class TeamLoader:
             attributes=hitter_attrs,
             speed=record['speed']  # Use stored speed rating for baserunning
         )
+
+        # Create player-specific Fielder with defensive attributes (v2: CRITICAL for BABIP tuning)
+        # This replaces generic 50k fielders with realistic defensive variety
+        from batted_ball.attributes import FielderAttributes
+        from batted_ball.fielding import Fielder
+
+        defensive_attrs = FielderAttributes(
+            REACTION_TIME=record.get('reaction_time', 50000),  # Default to average if missing
+            TOP_SPRINT_SPEED=record.get('top_sprint_speed', 50000),
+            ROUTE_EFFICIENCY=record.get('route_efficiency', 50000),
+            ARM_STRENGTH=record.get('arm_strength', 50000),
+            ARM_ACCURACY=record.get('arm_accuracy', 50000),
+            FIELDING_SECURE=record.get('fielding_secure', 50000),
+            # Other attributes use defaults
+        )
+
+        # Get position for fielder (default to LF if missing)
+        position = record.get('primary_position', 'LF')
+        if position is None or position == '':
+            position = 'LF'
+
+        fielder = Fielder(
+            name=record['player_name'],
+            position=position,
+            attributes=defensive_attrs
+        )
+
+        # Link fielder to hitter for field/hit integration
+        hitter.fielder = fielder
 
         return hitter
 
