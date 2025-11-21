@@ -210,8 +210,13 @@ class TeamLoader:
         Hitter or None
         """
         # Create HitterAttributes from stored ratings (v1 + v2)
+        # NOTE: Generic teams apply a +8k to +13k boost to BAT_SPEED beyond base attributes
+        # to produce realistic exit velocities (~88 mph MLB average). We apply similar boost here.
+        bat_speed_boost = 10000  # Match generic team behavior
+        boosted_bat_speed = min(record['power'] + bat_speed_boost, 100000)
+
         hitter_attrs = HitterAttributes(
-            BAT_SPEED=record['power'],  # Power maps to bat speed
+            BAT_SPEED=boosted_bat_speed,  # Power + boost for realistic exit velo
             BARREL_ACCURACY=record['contact'],  # Contact maps to barrel accuracy
             ZONE_DISCERNMENT=record['discipline'],  # Discipline maps to pitch recognition
             # v2 attributes (Phase 2A/2C additions)
