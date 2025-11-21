@@ -214,19 +214,34 @@ class TeamLoader:
         # Generic power hitters: 88k-98k BAT_SPEED → 85-93 mph bat speed → 95-105 mph EV
         # Without boost, DB teams were getting ~85-90 mph EV (not enough for HRs)
         #
-        # Variable boost based on power level:
-        # - Low power (<50k): +10k (contact hitters still need reasonable EV)
-        # - Medium power (50k-70k): +15k (balanced hitters)
-        # - High power (>70k): +20k (power hitters need 85k+ for HR capability)
+        # Variable boost based on power level (INCREASED v2 - still not enough HRs):
+        # - Low power (<50k): +15k (contact hitters still need reasonable EV)
+        # - Medium power (50k-70k): +20k (balanced hitters)
+        # - High power (>70k): +25k (power hitters need 90k+ for HR capability)
         raw_power = record['power']
         if raw_power >= 70000:
-            bat_speed_boost = 20000  # Power hitters need to reach 85k+ for HRs
+            bat_speed_boost = 25000  # Power hitters need to reach 90k+ for HRs
         elif raw_power >= 50000:
-            bat_speed_boost = 15000  # Balanced hitters
+            bat_speed_boost = 20000  # Balanced hitters
         else:
-            bat_speed_boost = 10000  # Contact hitters
+            bat_speed_boost = 15000  # Contact hitters
 
         boosted_bat_speed = min(raw_power + bat_speed_boost, 100000)
+
+        # ATTACK_ANGLE_CONTROL: Calculate dynamically if not in database
+        # Generic teams: power hitters 72k-88k, balanced 58k-75k, contact 45k-60k
+        # DB teams often have NULL values (added before column existed)
+        stored_aac = record.get('attack_angle_control')
+        if stored_aac is None or stored_aac == 0:
+            # Derive from power level to match generic team behavior
+            if raw_power >= 70000:
+                attack_angle_control = 80000  # Power hitters - high launch angle
+            elif raw_power >= 50000:
+                attack_angle_control = 70000  # Balanced hitters
+            else:
+                attack_angle_control = 55000  # Contact hitters - lower launch angle
+        else:
+            attack_angle_control = stored_aac
 
         hitter_attrs = HitterAttributes(
             BAT_SPEED=boosted_bat_speed,  # Power + boost for realistic exit velo
@@ -236,7 +251,7 @@ class TeamLoader:
             VISION=record.get('vision', 50000),  # Contact frequency, default to average if missing
             # ATTACK_ANGLE_CONTROL is CRITICAL for HR generation (Phase 2C fix)
             # Without this, DB teams default to 50k which is much lower than generic teams (72k-88k for power)
-            ATTACK_ANGLE_CONTROL=record.get('attack_angle_control', 60000),  # Launch angle tendency
+            ATTACK_ANGLE_CONTROL=attack_angle_control,  # Launch angle tendency (dynamic fallback)
         )
 
         # Create Hitter with speed for baserunning
