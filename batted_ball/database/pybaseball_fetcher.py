@@ -22,6 +22,8 @@ try:
         team_pitching,
         team_batting,
         statcast_sprint_speed,
+        statcast_fielding,         # v2: For OAA and arm strength
+        fielding_stats,             # v2: For DRS and traditional fielding metrics
     )
     PYBASEBALL_AVAILABLE = True
 except ImportError:
@@ -269,7 +271,147 @@ class PybaseballFetcher:
         pitchers = self.get_team_pitchers(team_abbr, min_pitcher_innings)
         hitters = self.get_team_hitters(team_abbr, min_hitter_at_bats)
 
+        # Add defensive metrics to hitters (v2 addition for BABIP tuning)
+        hitters = self._add_defensive_metrics(hitters, team_abbr)
+
         return pitchers, hitters
+
+    def _add_defensive_metrics(
+        self,
+        hitters_df: pd.DataFrame,
+        team_abbr: str
+    ) -> pd.DataFrame:
+        """
+        Add defensive metrics to hitter DataFrame (v2 addition).
+
+        Fetches OAA, DRS, arm strength, and fielding % from Statcast and FanGraphs.
+
+        Parameters
+        ----------
+        hitters_df : pd.DataFrame
+            Hitter statistics DataFrame
+        team_abbr : str
+            Team abbreviation
+
+        Returns
+        -------
+        pd.DataFrame
+            Hitter DataFrame with defensive metrics added
+        """
+        if len(hitters_df) == 0:
+            return hitters_df
+
+        print(f"  Fetching defensive metrics...")
+
+        # Initialize defensive columns
+        hitters_df['oaa'] = None
+        hitters_df['drs'] = None
+        hitters_df['arm_strength_mph'] = None
+        hitters_df['fielding_pct'] = None
+        hitters_df['jump'] = None
+        hitters_df['primary_position'] = None
+
+        try:
+            # 1. Fetch Statcast fielding data (OAA, arm strength, jump)
+            # Note: statcast_fielding only available 2016+
+            if self.season >= 2016:
+                try:
+                    print(f"    Fetching Statcast fielding data (OAA)...")
+                    statcast_defense = statcast_fielding(self.season, min_att=10)
+
+                    if statcast_defense is not None and len(statcast_defense) > 0:
+                        # Match players by name
+                        for idx, row in hitters_df.iterrows():
+                            player_name = row['player_name']
+
+                            # Try exact match first
+                            match = statcast_defense[
+                                statcast_defense['last_name, first_name'] == player_name
+                            ]
+
+                            if len(match) == 0:
+                                # Try partial match (last name)
+                                last_name = player_name.split()[-1] if ' ' in player_name else player_name
+                                match = statcast_defense[
+                                    statcast_defense['last_name, first_name'].str.contains(
+                                        last_name, case=False, na=False
+                                    )
+                                ]
+
+                            if len(match) > 0:
+                                player_defense = match.iloc[0]
+
+                                # OAA (Outs Above Average)
+                                if 'outs_above_average' in player_defense.index:
+                                    hitters_df.at[idx, 'oaa'] = player_defense['outs_above_average']
+
+                                # Arm strength (mph)
+                                if 'arm_strength' in player_defense.index:
+                                    hitters_df.at[idx, 'arm_strength_mph'] = player_defense['arm_strength']
+
+                                # Jump (outfielders first step efficiency)
+                                if 'jump' in player_defense.index:
+                                    hitters_df.at[idx, 'jump'] = player_defense['jump']
+
+                        oaa_count = hitters_df['oaa'].notna().sum()
+                        print(f"    Added OAA for {oaa_count} players")
+
+                except Exception as e:
+                    print(f"    Could not fetch Statcast fielding data: {e}")
+
+            # 2. Fetch FanGraphs fielding data (DRS, fielding %, position)
+            try:
+                print(f"    Fetching FanGraphs fielding data (DRS)...")
+                fg_defense = fielding_stats(self.season, qual=0)
+
+                if fg_defense is not None and len(fg_defense) > 0:
+                    # Filter by team
+                    team_defense = fg_defense[fg_defense['Team'] == team_abbr].copy()
+
+                    # Match players by name
+                    for idx, row in hitters_df.iterrows():
+                        player_name = row['player_name']
+
+                        # Try exact match
+                        match = team_defense[team_defense['Name'] == player_name]
+
+                        if len(match) == 0:
+                            # Try partial match
+                            last_name = player_name.split()[-1] if ' ' in player_name else player_name
+                            match = team_defense[
+                                team_defense['Name'].str.contains(last_name, case=False, na=False)
+                            ]
+
+                        if len(match) > 0:
+                            player_defense = match.iloc[0]
+
+                            # DRS (Defensive Runs Saved)
+                            if 'DRS' in player_defense.index:
+                                hitters_df.at[idx, 'drs'] = player_defense['DRS']
+
+                            # Fielding percentage
+                            if 'Fld%' in player_defense.index:
+                                hitters_df.at[idx, 'fielding_pct'] = player_defense['Fld%']
+
+                            # Primary position
+                            if 'Pos' in player_defense.index:
+                                pos = player_defense['Pos']
+                                # Clean up position (remove multi-position designations)
+                                if isinstance(pos, str) and len(pos) > 0:
+                                    # Take first position if multiple listed
+                                    primary_pos = pos.split('/')[0].strip()
+                                    hitters_df.at[idx, 'primary_position'] = primary_pos
+
+                    drs_count = hitters_df['drs'].notna().sum()
+                    print(f"    Added DRS for {drs_count} players")
+
+            except Exception as e:
+                print(f"    Could not fetch FanGraphs fielding data: {e}")
+
+        except Exception as e:
+            print(f"  Error fetching defensive metrics: {e}")
+
+        return hitters_df
 
     def get_pitcher_statcast_metrics(
         self,

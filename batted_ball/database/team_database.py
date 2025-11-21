@@ -189,9 +189,9 @@ class TeamDatabase:
         return num_pitchers, num_hitters
 
     def _store_pitcher(self, stats: pd.Series, season: int) -> Optional[int]:
-        """Store a pitcher in the database."""
-        # Convert stats to attributes
-        attrs = self.converter.mlb_stats_to_pitcher_attributes(
+        """Store a pitcher in the database (v2: includes PUTAWAY_SKILL, NIBBLING_TENDENCY)."""
+        # Convert stats to attributes using v2 method
+        attrs = self.converter.mlb_stats_to_pitcher_attributes_v2(
             era=clean_value(stats.get('era')),
             whip=clean_value(stats.get('whip')),
             k_per_9=clean_value(stats.get('k_per_9')),
@@ -216,6 +216,7 @@ class TeamDatabase:
             cursor.execute("""
                 UPDATE pitchers SET
                     velocity = ?, command = ?, stamina = ?, movement = ?, repertoire = ?,
+                    putaway_skill = ?, nibbling_tendency = ?,
                     era = ?, whip = ?, strikeouts = ?, walks = ?,
                     innings_pitched = ?, avg_fastball_velo = ?, k_per_9 = ?, bb_per_9 = ?,
                     games_pitched = ?, updated_at = CURRENT_TIMESTAMP
@@ -223,6 +224,7 @@ class TeamDatabase:
             """, (
                 attrs['velocity'], attrs['command'], attrs['stamina'],
                 attrs['movement'], attrs['repertoire'],
+                attrs.get('putaway_skill'), attrs.get('nibbling_tendency'),  # v2 attributes
                 clean_value(stats.get('era')), clean_value(stats.get('whip')),
                 clean_value(stats.get('strikeouts')), clean_value(stats.get('walks')),
                 clean_value(stats.get('innings_pitched')),
@@ -235,12 +237,14 @@ class TeamDatabase:
             cursor.execute("""
                 INSERT INTO pitchers (
                     player_name, velocity, command, stamina, movement, repertoire,
+                    putaway_skill, nibbling_tendency,
                     era, whip, strikeouts, walks, innings_pitched,
                     avg_fastball_velo, k_per_9, bb_per_9, season, games_pitched
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stats.get('player_name'), attrs['velocity'], attrs['command'],
                 attrs['stamina'], attrs['movement'], attrs['repertoire'],
+                attrs.get('putaway_skill'), attrs.get('nibbling_tendency'),  # v2 attributes
                 clean_value(stats.get('era')), clean_value(stats.get('whip')),
                 clean_value(stats.get('strikeouts')), clean_value(stats.get('walks')),
                 clean_value(stats.get('innings_pitched')),
@@ -252,9 +256,9 @@ class TeamDatabase:
         return pitcher_id
 
     def _store_hitter(self, stats: pd.Series, season: int) -> Optional[int]:
-        """Store a hitter in the database."""
-        # Convert stats to attributes
-        attrs = self.converter.mlb_stats_to_hitter_attributes(
+        """Store a hitter in the database (v2: includes VISION + defensive attributes)."""
+        # Convert offensive stats to attributes using v2 method (includes VISION)
+        attrs = self.converter.mlb_stats_to_hitter_attributes_v2(
             batting_avg=clean_value(stats.get('batting_avg')),
             on_base_pct=clean_value(stats.get('on_base_pct')),
             slugging_pct=clean_value(stats.get('slugging_pct')),
@@ -268,6 +272,21 @@ class TeamDatabase:
             barrel_pct=clean_value(stats.get('barrel_pct')),
             sprint_speed=clean_value(stats.get('sprint_speed')),
             stolen_bases=clean_value(stats.get('stolen_bases')),
+        )
+
+        # Convert defensive metrics to attributes (v2: CRITICAL for BABIP tuning)
+        position = clean_value(stats.get('primary_position', 'LF'))  # Default to LF if missing
+        if position is None or position == '':
+            position = 'LF'  # Fallback default
+
+        defensive_attrs = self.converter.mlb_stats_to_defensive_attributes(
+            position=position,
+            oaa=clean_value(stats.get('oaa')),
+            sprint_speed=clean_value(stats.get('sprint_speed')),
+            arm_strength_mph=clean_value(stats.get('arm_strength_mph')),
+            drs=clean_value(stats.get('drs')),
+            jump=clean_value(stats.get('jump')),
+            fielding_pct=clean_value(stats.get('fielding_pct')),
         )
 
         cursor = self.conn.cursor()
@@ -285,14 +304,24 @@ class TeamDatabase:
             cursor.execute("""
                 UPDATE hitters SET
                     contact = ?, power = ?, discipline = ?, speed = ?,
+                    vision = ?,
+                    reaction_time = ?, top_sprint_speed = ?, route_efficiency = ?,
+                    arm_strength = ?, arm_accuracy = ?, fielding_secure = ?,
+                    primary_position = ?,
                     batting_avg = ?, on_base_pct = ?, slugging_pct = ?, ops = ?,
                     home_runs = ?, stolen_bases = ?, strikeouts = ?, walks = ?,
                     avg_exit_velo = ?, max_exit_velo = ?, barrel_pct = ?,
                     sprint_speed = ?, games_played = ?, at_bats = ?,
+                    oaa = ?, drs = ?, arm_strength_mph = ?, fielding_pct = ?, jump = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE hitter_id = ?
             """, (
                 attrs['contact'], attrs['power'], attrs['discipline'], attrs['speed'],
+                attrs.get('vision'),  # v2 offensive attribute
+                defensive_attrs.get('reaction_time'), defensive_attrs.get('top_sprint_speed'),  # v2 defensive
+                defensive_attrs.get('route_efficiency'), defensive_attrs.get('arm_strength'),
+                defensive_attrs.get('arm_accuracy'), defensive_attrs.get('fielding_secure'),
+                position,  # primary_position
                 clean_value(stats.get('batting_avg')), clean_value(stats.get('on_base_pct')),
                 clean_value(stats.get('slugging_pct')), clean_value(stats.get('ops')),
                 clean_value(stats.get('home_runs')), clean_value(stats.get('stolen_bases')),
@@ -300,6 +329,9 @@ class TeamDatabase:
                 clean_value(stats.get('avg_exit_velo')), clean_value(stats.get('max_exit_velo')),
                 clean_value(stats.get('barrel_pct')), clean_value(stats.get('sprint_speed')),
                 clean_value(stats.get('games_played')), clean_value(stats.get('at_bats')),
+                clean_value(stats.get('oaa')), clean_value(stats.get('drs')),  # defensive source data
+                clean_value(stats.get('arm_strength_mph')), clean_value(stats.get('fielding_pct')),
+                clean_value(stats.get('jump')),
                 hitter_id
             ))
         else:
@@ -307,21 +339,34 @@ class TeamDatabase:
             cursor.execute("""
                 INSERT INTO hitters (
                     player_name, contact, power, discipline, speed,
+                    vision,
+                    reaction_time, top_sprint_speed, route_efficiency,
+                    arm_strength, arm_accuracy, fielding_secure,
+                    primary_position,
                     batting_avg, on_base_pct, slugging_pct, ops,
                     home_runs, stolen_bases, strikeouts, walks,
                     avg_exit_velo, max_exit_velo, barrel_pct, sprint_speed,
-                    season, games_played, at_bats
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    season, games_played, at_bats,
+                    oaa, drs, arm_strength_mph, fielding_pct, jump
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stats.get('player_name'), attrs['contact'], attrs['power'],
                 attrs['discipline'], attrs['speed'],
+                attrs.get('vision'),  # v2 offensive attribute
+                defensive_attrs.get('reaction_time'), defensive_attrs.get('top_sprint_speed'),  # v2 defensive
+                defensive_attrs.get('route_efficiency'), defensive_attrs.get('arm_strength'),
+                defensive_attrs.get('arm_accuracy'), defensive_attrs.get('fielding_secure'),
+                position,  # primary_position
                 clean_value(stats.get('batting_avg')), clean_value(stats.get('on_base_pct')),
                 clean_value(stats.get('slugging_pct')), clean_value(stats.get('ops')),
                 clean_value(stats.get('home_runs')), clean_value(stats.get('stolen_bases')),
                 clean_value(stats.get('strikeouts')), clean_value(stats.get('walks')),
                 clean_value(stats.get('avg_exit_velo')), clean_value(stats.get('max_exit_velo')),
                 clean_value(stats.get('barrel_pct')), clean_value(stats.get('sprint_speed')),
-                season, clean_value(stats.get('games_played')), clean_value(stats.get('at_bats'))
+                season, clean_value(stats.get('games_played')), clean_value(stats.get('at_bats')),
+                clean_value(stats.get('oaa')), clean_value(stats.get('drs')),  # defensive source data
+                clean_value(stats.get('arm_strength_mph')), clean_value(stats.get('fielding_pct')),
+                clean_value(stats.get('jump'))
             ))
             hitter_id = cursor.lastrowid
 

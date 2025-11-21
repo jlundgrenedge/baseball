@@ -79,6 +79,19 @@ class StatsConverter:
     HITTER_K_PCT_AVG = 23.0
     HITTER_K_PCT_POOR = 28.0
 
+    # Defensive metric ranges (v2 addition for BABIP tuning)
+    # OAA (Outs Above Average) - Statcast metric
+    FIELDER_OAA_ELITE = 8.0     # +8 OAA = elite defender
+    FIELDER_OAA_GOOD = 3.0
+    FIELDER_OAA_AVG = 0.0
+    FIELDER_OAA_POOR = -5.0
+
+    # DRS (Defensive Runs Saved) - FanGraphs metric
+    FIELDER_DRS_ELITE = 10.0    # +10 DRS = elite
+    FIELDER_DRS_GOOD = 5.0
+    FIELDER_DRS_AVG = 0.0
+    FIELDER_DRS_POOR = -5.0
+
     @staticmethod
     def percentile_to_rating(
         value: float,
@@ -495,6 +508,301 @@ class StatsConverter:
             attributes['speed'] = 50000  # Default average
 
         return attributes
+
+    @classmethod
+    def mlb_stats_to_pitcher_attributes_v2(
+        cls,
+        era: Optional[float] = None,
+        whip: Optional[float] = None,
+        k_per_9: Optional[float] = None,
+        bb_per_9: Optional[float] = None,
+        avg_fastball_velo: Optional[float] = None,
+        innings_pitched: Optional[float] = None,
+        games_pitched: Optional[int] = None,
+    ) -> Dict[str, any]:
+        """
+        Convert MLB pitcher statistics to v2 game attributes (Phase 2A/2B).
+
+        Includes all v1 attributes PLUS v2 additions:
+        - PUTAWAY_SKILL: Finishing ability with 2 strikes (from K/9)
+        - NIBBLING_TENDENCY: Control strategy by count (from BB/9)
+
+        Parameters
+        ----------
+        Same as mlb_stats_to_pitcher_attributes
+
+        Returns
+        -------
+        dict
+            Dictionary with v1 keys (velocity, command, stamina, movement, repertoire)
+            PLUS v2 keys (putaway_skill, nibbling_tendency)
+        """
+        # Get v1 attributes using existing method
+        attrs = cls.mlb_stats_to_pitcher_attributes(
+            era, whip, k_per_9, bb_per_9, avg_fastball_velo, innings_pitched, games_pitched
+        )
+
+        # Add v2 attributes
+
+        # PUTAWAY_SKILL: Finishing ability with 2 strikes (0-100k)
+        # High K/9 = high finishing ability
+        if k_per_9 is not None:
+            attrs['putaway_skill'] = cls.percentile_to_rating(
+                k_per_9,
+                cls.PITCHER_K9_ELITE,   # 11.0 K/9 = elite (95k-100k)
+                cls.PITCHER_K9_GOOD,    # 9.5 K/9 = good (70k-90k)
+                cls.PITCHER_K9_AVG,     # 8.5 K/9 = average (50k-70k)
+                cls.PITCHER_K9_POOR,    # 6.5 K/9 = poor (30k-50k)
+                inverse=False
+            )
+        else:
+            attrs['putaway_skill'] = 50000  # Default average
+
+        # NIBBLING_TENDENCY: Control strategy (0.0-1.0, NOT 0-100k!)
+        # High BB/9 = high nibbling (pitches around zone)
+        # Low BB/9 = low nibbling (attacks zone)
+        if bb_per_9 is not None:
+            if bb_per_9 < 2.0:
+                attrs['nibbling_tendency'] = 0.20  # Aggressive (Gerrit Cole)
+            elif bb_per_9 < 2.5:
+                attrs['nibbling_tendency'] = 0.35
+            elif bb_per_9 < 3.5:
+                attrs['nibbling_tendency'] = 0.50  # Average
+            elif bb_per_9 < 4.5:
+                attrs['nibbling_tendency'] = 0.65
+            else:
+                attrs['nibbling_tendency'] = 0.80  # Very careful
+        else:
+            attrs['nibbling_tendency'] = 0.50  # Default average
+
+        return attrs
+
+    @classmethod
+    def mlb_stats_to_hitter_attributes_v2(
+        cls,
+        batting_avg: Optional[float] = None,
+        on_base_pct: Optional[float] = None,
+        slugging_pct: Optional[float] = None,
+        ops: Optional[float] = None,
+        home_runs: Optional[int] = None,
+        strikeouts: Optional[int] = None,
+        walks: Optional[int] = None,
+        at_bats: Optional[int] = None,
+        avg_exit_velo: Optional[float] = None,
+        max_exit_velo: Optional[float] = None,
+        barrel_pct: Optional[float] = None,
+        sprint_speed: Optional[float] = None,
+        stolen_bases: Optional[int] = None,
+    ) -> Dict[str, int]:
+        """
+        Convert MLB hitter statistics to v2 game attributes (Phase 2A).
+
+        Includes all v1 attributes PLUS v2 additions:
+        - VISION: Contact frequency independent of power (from K%)
+
+        Parameters
+        ----------
+        Same as mlb_stats_to_hitter_attributes
+
+        Returns
+        -------
+        dict
+            Dictionary with v1 keys (contact, power, discipline, speed)
+            PLUS v2 key (vision)
+        """
+        # Get v1 attributes using existing method
+        attrs = cls.mlb_stats_to_hitter_attributes(
+            batting_avg, on_base_pct, slugging_pct, ops, home_runs,
+            strikeouts, walks, at_bats, avg_exit_velo, max_exit_velo,
+            barrel_pct, sprint_speed, stolen_bases
+        )
+
+        # Add v2 attribute: VISION
+        # Controls whiff probability independently from contact quality
+        # Low K% = high VISION = fewer whiffs
+        if strikeouts is not None and at_bats is not None and at_bats > 0:
+            k_pct = (strikeouts / at_bats) * 100
+            attrs['vision'] = cls.percentile_to_rating(
+                k_pct,
+                cls.HITTER_K_PCT_ELITE,    # 15% K = elite vision (95k-100k)
+                cls.HITTER_K_PCT_GOOD,     # 20% K = good vision (70k-90k)
+                cls.HITTER_K_PCT_AVG,      # 23% K = average vision (50k-70k)
+                cls.HITTER_K_PCT_POOR,     # 28% K = poor vision (30k-50k)
+                inverse=True  # Lower K% is better
+            )
+        else:
+            attrs['vision'] = 50000  # Default average
+
+        return attrs
+
+    @classmethod
+    def mlb_stats_to_defensive_attributes(
+        cls,
+        position: str,
+        oaa: Optional[float] = None,
+        sprint_speed: Optional[float] = None,
+        arm_strength_mph: Optional[float] = None,
+        drs: Optional[float] = None,
+        jump: Optional[float] = None,
+        fielding_pct: Optional[float] = None
+    ) -> Dict[str, int]:
+        """
+        Convert MLB defensive metrics to v2 game attributes (CRITICAL for BABIP tuning).
+
+        Maps Statcast and FanGraphs defensive metrics to FielderAttributes (0-100k).
+
+        Strategy:
+        - Sprint speed → TOP_SPRINT_SPEED (direct mapping)
+        - OAA + Jump → REACTION_TIME (better OAA/jump = faster reaction)
+        - OAA + DRS → ROUTE_EFFICIENCY (better overall defense = better routes)
+        - Arm strength → ARM_STRENGTH (direct mapping by position)
+        - Fielding % → FIELDING_SECURE (fewer errors = more secure)
+        - OAA residual → ARM_ACCURACY (defense not explained by speed/range)
+
+        Parameters
+        ----------
+        position : str
+            Primary position (C, 1B, 2B, SS, 3B, LF, CF, RF)
+        oaa : float, optional
+            Outs Above Average (Statcast)
+        sprint_speed : float, optional
+            Sprint speed in ft/s (Statcast)
+        arm_strength_mph : float, optional
+            Throw velocity in mph (Statcast, position-specific)
+        drs : float, optional
+            Defensive Runs Saved (FanGraphs)
+        jump : float, optional
+            Outfielder first step efficiency (Statcast)
+        fielding_pct : float, optional
+            Traditional fielding percentage
+
+        Returns
+        -------
+        dict
+            Dictionary with defensive attribute keys (all 0-100k scale):
+            - reaction_time, top_sprint_speed, route_efficiency,
+              arm_strength, arm_accuracy, fielding_secure
+        """
+        attrs = {}
+
+        # 1. TOP_SPRINT_SPEED - Direct from Statcast sprint speed
+        if sprint_speed is not None:
+            attrs['top_sprint_speed'] = cls.percentile_to_rating(
+                sprint_speed,
+                cls.HITTER_SPEED_ELITE,   # 29.5 ft/s = elite
+                cls.HITTER_SPEED_GOOD,    # 28.5 ft/s = good
+                cls.HITTER_SPEED_AVG,     # 27.5 ft/s = average
+                cls.HITTER_SPEED_POOR,    # 26.0 ft/s = poor
+                inverse=False
+            )
+        else:
+            attrs['top_sprint_speed'] = 50000  # Default average
+
+        # 2. REACTION_TIME - From OAA + Jump (inverse: better OAA = faster reaction)
+        # Combine OAA and jump into composite reaction score
+        reaction_score = 0.0
+        has_reaction_data = False
+
+        if oaa is not None:
+            reaction_score += oaa * 0.6  # OAA primary indicator
+            has_reaction_data = True
+
+        if jump is not None and position in ['LF', 'CF', 'RF']:
+            reaction_score += jump * 0.4  # Jump for outfielders
+            has_reaction_data = True
+
+        if has_reaction_data:
+            attrs['reaction_time'] = cls.percentile_to_rating(
+                reaction_score,
+                cls.FIELDER_OAA_ELITE,    # +8 OAA = elite reaction
+                cls.FIELDER_OAA_GOOD,     # +3 OAA = good
+                cls.FIELDER_OAA_AVG,      # 0 OAA = average
+                cls.FIELDER_OAA_POOR,     # -5 OAA = poor
+                inverse=True  # Higher OAA = LOWER reaction time (faster)
+            )
+        else:
+            attrs['reaction_time'] = 50000
+
+        # 3. ROUTE_EFFICIENCY - From OAA + DRS composite
+        route_score = 0.0
+        has_route_data = False
+
+        if oaa is not None:
+            route_score += oaa * 0.5
+            has_route_data = True
+
+        if drs is not None:
+            route_score += drs * 0.5
+            has_route_data = True
+
+        if has_route_data:
+            # Use average of OAA and DRS thresholds
+            attrs['route_efficiency'] = cls.percentile_to_rating(
+                route_score,
+                (cls.FIELDER_OAA_ELITE + cls.FIELDER_DRS_ELITE) / 2,  # ~9.0
+                (cls.FIELDER_OAA_GOOD + cls.FIELDER_DRS_GOOD) / 2,    # ~4.0
+                (cls.FIELDER_OAA_AVG + cls.FIELDER_DRS_AVG) / 2,      # 0.0
+                (cls.FIELDER_OAA_POOR + cls.FIELDER_DRS_POOR) / 2,    # ~-5.0
+                inverse=False
+            )
+        else:
+            attrs['route_efficiency'] = 50000
+
+        # 4. ARM_STRENGTH - Position-specific from Statcast arm data
+        if arm_strength_mph is not None:
+            # Position-specific thresholds (in mph)
+            position_thresholds = {
+                'C': {'elite': 83, 'good': 80, 'avg': 77, 'poor': 74},  # Catcher
+                'SS': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Shortstop
+                '3B': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Third base
+                '2B': {'elite': 85, 'good': 82, 'avg': 79, 'poor': 76},  # Second base
+                '1B': {'elite': 85, 'good': 82, 'avg': 79, 'poor': 76},  # First base
+                'RF': {'elite': 92, 'good': 88, 'avg': 85, 'poor': 82},  # Right field (strongest)
+                'CF': {'elite': 90, 'good': 87, 'avg': 84, 'poor': 81},  # Center field
+                'LF': {'elite': 88, 'good': 85, 'avg': 82, 'poor': 79},  # Left field
+            }
+
+            thresh = position_thresholds.get(position, position_thresholds.get('CF', position_thresholds['CF']))
+            attrs['arm_strength'] = cls.percentile_to_rating(
+                arm_strength_mph,
+                thresh['elite'],
+                thresh['good'],
+                thresh['avg'],
+                thresh['poor'],
+                inverse=False
+            )
+        else:
+            attrs['arm_strength'] = 50000
+
+        # 5. FIELDING_SECURE - From fielding % (higher % = more secure)
+        if fielding_pct is not None:
+            attrs['fielding_secure'] = cls.percentile_to_rating(
+                fielding_pct,
+                0.995,  # Elite fielding %
+                0.985,  # Good
+                0.975,  # Average
+                0.960,  # Poor
+                inverse=False
+            )
+        else:
+            attrs['fielding_secure'] = 50000
+
+        # 6. ARM_ACCURACY - Residual from defensive metrics
+        # Use DRS that isn't explained by range (proxy for throwing accuracy)
+        if drs is not None and oaa is not None:
+            accuracy_score = drs - (oaa * 0.5)  # DRS beyond range
+            attrs['arm_accuracy'] = cls.percentile_to_rating(
+                accuracy_score,
+                5.0,   # Elite accuracy
+                2.0,   # Good
+                0.0,   # Average
+                -3.0,  # Poor
+                inverse=False
+            )
+        else:
+            attrs['arm_accuracy'] = 50000
+
+        return attrs
 
     @staticmethod
     def pitch_effectiveness_to_attributes(

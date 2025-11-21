@@ -17,7 +17,10 @@ class DatabaseSchema:
     """Manages database schema creation and migrations."""
 
     # Schema version for future migrations
-    SCHEMA_VERSION = 1
+    # v1: Initial schema with v1 attributes
+    # v2: Added v2 offensive attributes (VISION, PUTAWAY_SKILL, NIBBLING_TENDENCY)
+    #     and defensive attributes (REACTION_TIME, TOP_SPRINT_SPEED, ROUTE_EFFICIENCY, etc.)
+    SCHEMA_VERSION = 2
 
     @staticmethod
     def create_tables(conn: sqlite3.Connection) -> None:
@@ -45,12 +48,16 @@ class DatabaseSchema:
                 player_name TEXT NOT NULL,
                 mlb_id INTEGER UNIQUE,
 
-                -- Game attributes (0-100,000 scale)
+                -- Game attributes v1 (0-100,000 scale)
                 velocity INTEGER NOT NULL,
                 command INTEGER NOT NULL,
                 stamina INTEGER NOT NULL,
                 movement INTEGER,
                 repertoire INTEGER,
+
+                -- Game attributes v2 (Phase 2A/2B additions)
+                putaway_skill INTEGER,        -- v2: Finishing ability (0-100k) from K/9
+                nibbling_tendency REAL,       -- v2: Control strategy (0.0-1.0) from BB/9
 
                 -- MLB statistics (source data)
                 era REAL,
@@ -78,11 +85,25 @@ class DatabaseSchema:
                 player_name TEXT NOT NULL,
                 mlb_id INTEGER UNIQUE,
 
-                -- Game attributes (0-100,000 scale)
+                -- Game attributes v1 (0-100,000 scale)
                 contact INTEGER NOT NULL,
                 power INTEGER NOT NULL,
                 discipline INTEGER NOT NULL,
                 speed INTEGER NOT NULL,
+
+                -- Game attributes v2 offensive (Phase 2A addition)
+                vision INTEGER,                    -- v2: Contact frequency (0-100k) from K%
+
+                -- Game attributes v2 defensive (0-100,000 scale) - CRITICAL for BABIP tuning
+                reaction_time INTEGER,             -- First movement delay from OAA/jump
+                top_sprint_speed INTEGER,          -- Running speed from sprint speed
+                route_efficiency INTEGER,          -- Path optimization from OAA/DRS
+                arm_strength INTEGER,              -- Throw velocity from Statcast
+                arm_accuracy INTEGER,              -- Throw precision from residual DRS
+                fielding_secure INTEGER,           -- Catch success from fielding %
+
+                -- Position and defensive role
+                primary_position TEXT,             -- C, 1B, 2B, SS, 3B, LF, CF, RF
 
                 -- MLB statistics (source data)
                 batting_avg REAL,
@@ -98,11 +119,18 @@ class DatabaseSchema:
                 barrel_pct REAL,
                 sprint_speed REAL,
 
+                -- MLB defensive metrics (source data for attributes)
+                oaa REAL,                          -- Outs Above Average (Statcast)
+                drs REAL,                          -- Defensive Runs Saved (FanGraphs)
+                arm_strength_mph REAL,             -- Throw velocity (Statcast)
+                fielding_pct REAL,                 -- Traditional fielding percentage
+                jump REAL,                         -- Outfielder first step (Statcast)
+
                 -- Metadata
                 season INTEGER NOT NULL,
                 games_played INTEGER,
                 at_bats INTEGER,
-                position TEXT,
+                position TEXT,                     -- Keep for backwards compatibility
                 hand TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
