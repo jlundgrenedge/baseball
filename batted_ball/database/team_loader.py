@@ -214,8 +214,11 @@ class TeamLoader:
             BAT_SPEED=record['power'],  # Power maps to bat speed
             BARREL_ACCURACY=record['contact'],  # Contact maps to barrel accuracy
             ZONE_DISCERNMENT=record['discipline'],  # Discipline maps to pitch recognition
-            # v2 attribute (Phase 2A addition)
+            # v2 attributes (Phase 2A/2C additions)
             VISION=record.get('vision', 50000),  # Contact frequency, default to average if missing
+            # ATTACK_ANGLE_CONTROL is CRITICAL for HR generation (Phase 2C fix)
+            # Without this, DB teams default to 50k which is much lower than generic teams (72k-88k for power)
+            ATTACK_ANGLE_CONTROL=record.get('attack_angle_control', 60000),  # Launch angle tendency
         )
 
         # Create Hitter with speed for baserunning
