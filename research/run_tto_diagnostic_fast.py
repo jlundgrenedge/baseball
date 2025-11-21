@@ -50,18 +50,25 @@ def is_home_run_simple(batted_ball_result, spray_angle_deg, ballpark_name="gener
     if distance_ft < fence_distance:
         return False
 
-    # Check if ball cleared fence height
-    # Get height at fence distance if available
-    try:
-        height_at_fence = batted_ball_result.get_height_at_distance(fence_distance)
-        if height_at_fence > fence_height:
-            return True
-    except:
-        # Fallback: if distance is well past fence and peak is high enough
-        if distance_ft >= fence_distance + 15 and peak_height_ft >= fence_height:
-            return True
+    # Check if ball cleared fence
+    # MATCH LOGIC FROM play_simulation.py (after fence fix)
+    is_home_run = False
+    if distance_ft >= fence_distance:
+        # Get the ball's height when it crosses the fence distance
+        height_at_fence = None
+        try:
+            height_at_fence = batted_ball_result.get_height_at_distance(fence_distance)
+        except:
+            pass
 
-    return False
+        if height_at_fence is not None and height_at_fence > fence_height:
+            # Ball was above fence height when it crossed the fence distance
+            is_home_run = True
+        elif distance_ft >= fence_distance + 30:  # 30+ ft past fence = definite HR
+            # Ball landed well beyond fence (even if low trajectory)
+            is_home_run = True
+
+    return is_home_run
 
 
 def run_tto_diagnostic_fast(num_games=20, verbose=False):
