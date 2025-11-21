@@ -208,20 +208,11 @@ class PlaySimulator:
 
             # Not infield fly - check for home run FIRST before attempting catch
 
-            # Determine fence distance and height based on spray angle
-            abs_angle = abs(spray_angle)
-            if abs_angle < 10:  # Dead center
-                fence_distance = 400.0
-                fence_height = 10.0
-            elif abs_angle < 25:  # Center-left/right gaps
-                fence_distance = 380.0
-                fence_height = 10.0
-            elif abs_angle < 40:  # Deeper alleys
-                fence_distance = 360.0
-                fence_height = 10.0
-            else:  # Down the lines
-                fence_distance = 330.0
-                fence_height = 10.0
+            # FIX: Use ballpark system for fence dimensions (not hardcoded values!)
+            # Get actual fence distance and height at this spray angle using ballpark
+            from .ballpark import get_ballpark
+            ballpark_obj = get_ballpark(self.ballpark)
+            fence_distance, fence_height = ballpark_obj.get_fence_at_angle(spray_angle)
 
             # Check if ball cleared fence
             # CRITICAL: Must check height AT THE FENCE, not peak height!
