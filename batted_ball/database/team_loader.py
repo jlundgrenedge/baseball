@@ -210,36 +210,37 @@ class TeamLoader:
         Hitter or None
         """
         # Create HitterAttributes from stored ratings (v1 + v2)
-        # NOTE: Generic teams apply large boosts to BAT_SPEED to produce realistic exit velocities.
+        # NOTE: Generic teams apply boosts to BAT_SPEED to produce realistic exit velocities.
         # Generic power hitters: 88k-98k BAT_SPEED → 85-93 mph bat speed → 95-105 mph EV
         # Without boost, DB teams were getting ~85-90 mph EV (not enough for HRs)
         #
-        # Variable boost based on power level (INCREASED v2 - still not enough HRs):
-        # - Low power (<50k): +15k (contact hitters still need reasonable EV)
-        # - Medium power (50k-70k): +20k (balanced hitters)
-        # - High power (>70k): +25k (power hitters need 90k+ for HR capability)
+        # Variable boost based on power level (v3 - reduced from v2 which had too many HRs):
+        # - Low power (<50k): +12k (contact hitters still need reasonable EV)
+        # - Medium power (50k-70k): +15k (balanced hitters)
+        # - High power (>70k): +18k (power hitters - reduced from +25k)
         raw_power = record['power']
         if raw_power >= 70000:
-            bat_speed_boost = 25000  # Power hitters need to reach 90k+ for HRs
+            bat_speed_boost = 18000  # Power hitters (was 25k - too many HRs)
         elif raw_power >= 50000:
-            bat_speed_boost = 20000  # Balanced hitters
+            bat_speed_boost = 15000  # Balanced hitters (was 20k)
         else:
-            bat_speed_boost = 15000  # Contact hitters
+            bat_speed_boost = 12000  # Contact hitters (was 15k)
 
         boosted_bat_speed = min(raw_power + bat_speed_boost, 100000)
 
         # ATTACK_ANGLE_CONTROL: Calculate dynamically if not in database
-        # Generic teams: power hitters 72k-88k, balanced 58k-75k, contact 45k-60k
-        # DB teams often have NULL values (added before column existed)
+        # MLB avg HR/FB ~12.5%, need to balance launch angle tendency
+        # Too high → too many HRs; too low → not enough
+        # Calibrated values (v4 - further reduced, v3 still had too many HRs):
         stored_aac = record.get('attack_angle_control')
         if stored_aac is None or stored_aac == 0:
-            # Derive from power level to match generic team behavior
+            # Derive from power level - values tuned for ~2.2 HR/game combined
             if raw_power >= 70000:
-                attack_angle_control = 80000  # Power hitters - high launch angle
+                attack_angle_control = 58000  # Power hitters (v3: 68k, v2: 80k)
             elif raw_power >= 50000:
-                attack_angle_control = 70000  # Balanced hitters
+                attack_angle_control = 52000  # Balanced hitters (v3: 58k)
             else:
-                attack_angle_control = 55000  # Contact hitters - lower launch angle
+                attack_angle_control = 45000  # Contact hitters (v3: 48k)
         else:
             attack_angle_control = stored_aac
 
