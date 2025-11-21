@@ -210,10 +210,23 @@ class TeamLoader:
         Hitter or None
         """
         # Create HitterAttributes from stored ratings (v1 + v2)
-        # NOTE: Generic teams apply a +8k to +13k boost to BAT_SPEED beyond base attributes
-        # to produce realistic exit velocities (~88 mph MLB average). We apply similar boost here.
-        bat_speed_boost = 10000  # Match generic team behavior
-        boosted_bat_speed = min(record['power'] + bat_speed_boost, 100000)
+        # NOTE: Generic teams apply large boosts to BAT_SPEED to produce realistic exit velocities.
+        # Generic power hitters: 88k-98k BAT_SPEED → 85-93 mph bat speed → 95-105 mph EV
+        # Without boost, DB teams were getting ~85-90 mph EV (not enough for HRs)
+        #
+        # Variable boost based on power level:
+        # - Low power (<50k): +10k (contact hitters still need reasonable EV)
+        # - Medium power (50k-70k): +15k (balanced hitters)
+        # - High power (>70k): +20k (power hitters need 85k+ for HR capability)
+        raw_power = record['power']
+        if raw_power >= 70000:
+            bat_speed_boost = 20000  # Power hitters need to reach 85k+ for HRs
+        elif raw_power >= 50000:
+            bat_speed_boost = 15000  # Balanced hitters
+        else:
+            bat_speed_boost = 10000  # Contact hitters
+
+        boosted_bat_speed = min(raw_power + bat_speed_boost, 100000)
 
         hitter_attrs = HitterAttributes(
             BAT_SPEED=boosted_bat_speed,  # Power + boost for realistic exit velo
