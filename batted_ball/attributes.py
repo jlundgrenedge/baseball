@@ -711,8 +711,9 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
     # - Target: 3-4% HR rate of PA (10-13% of hits)
     # Previous attempts: 42k-58k → 0.6% HR, 52k-70k → 0.4% HR (still too low!)
     # v2: Boost ALL hitters, not just power (broad-based HR increase)
-    attack_angle_min = max(62000, min_r + 17000)  # BOOSTED: +10k from v1 (52k)
-    attack_angle_max = min(80000, attack_angle_min + 18000)  # BOOSTED: +10k from v1 (70k)
+    # v3: One more aggressive boost to push HR rate from 1.8-2.6% → 3.0-3.5%
+    attack_angle_min = max(72000, min_r + 27000)  # v3: +10k from v2 (62k) = mean ~18-24°
+    attack_angle_max = min(88000, attack_angle_min + 18000)  # v3: +8k from v2 (80k)
     
     # Ensure valid ranges (min < max)
     if bat_speed_min >= bat_speed_max:
@@ -762,8 +763,9 @@ def create_balanced_hitter(quality: str = "average") -> HitterAttributes:
     # BOOSTED from 38k-52k to enable more home runs across the lineup
     # Combined with 15° variance, creates realistic distribution with more HR potential
     # Even balanced hitters hit occasional HRs in modern MLB
-    attack_angle_min = max(48000, min_r + 3000)  # BOOSTED: +10k from 38k
-    attack_angle_max = min(65000, attack_angle_min + 17000)  # BOOSTED: +13k from 52k
+    # v3: One more aggressive boost to push HR rate from 1.8-2.6% → 3.0-3.5%
+    attack_angle_min = max(58000, min_r + 13000)  # v3: +10k from v2 (48k) = mean ~13-19°
+    attack_angle_max = min(75000, attack_angle_min + 17000)  # v3: +10k from v2 (65k)
     
     # Ensure valid range
     if attack_angle_min >= attack_angle_max:
@@ -821,9 +823,10 @@ def create_groundball_hitter(quality: str = "average") -> HitterAttributes:
     # RECALIBRATED (2025-11-20 Phase 2C v2): Boosted from 10k-30k to 35k-48k for more HRs
     # Even groundball hitters need occasional fly balls to hit HRs (MLB reality)
     # 35k-48k → 4-10° mean, with 15° variance creates some balls in HR zone (25-35°)
+    # v3: One more aggressive boost to push HR rate from 1.8-2.6% → 3.0-3.5%
     return HitterAttributes(
         BAT_SPEED=np.random.randint(min_r + 8000, max_r + 8000),  # +8k boost for realistic EV
-        ATTACK_ANGLE_CONTROL=np.random.randint(35000, 48000),  # BOOSTED for HR rate
+        ATTACK_ANGLE_CONTROL=np.random.randint(45000, 60000),  # v3: +10-12k from v2 (35k-48k) = mean ~9-15°
         ATTACK_ANGLE_VARIANCE=np.random.randint(min_r, max_r),
         BARREL_ACCURACY=np.random.randint(min_r, max_r),
         TIMING_PRECISION=np.random.randint(min_r + 5000, max_r + 5000),
