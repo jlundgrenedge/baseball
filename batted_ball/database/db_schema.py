@@ -20,7 +20,8 @@ class DatabaseSchema:
     # v1: Initial schema with v1 attributes
     # v2: Added v2 offensive attributes (VISION, PUTAWAY_SKILL, NIBBLING_TENDENCY)
     #     and defensive attributes (REACTION_TIME, TOP_SPRINT_SPEED, ROUTE_EFFICIENCY, etc.)
-    SCHEMA_VERSION = 2
+    # v3: Added bat tracking metrics (bat_speed, swing_length, squared_up_rate)
+    SCHEMA_VERSION = 3
 
     @staticmethod
     def create_tables(conn: sqlite3.Connection) -> None:
@@ -127,6 +128,12 @@ class DatabaseSchema:
                 fielding_pct REAL,                 -- Traditional fielding percentage
                 jump REAL,                         -- Outfielder first step (Statcast)
 
+                -- MLB bat tracking metrics (Statcast - for contact quality modeling)
+                bat_speed REAL,                    -- Average bat speed in mph (62-79 range)
+                swing_length REAL,                 -- Swing length in feet (5.8-8.4 range)
+                squared_up_rate REAL,              -- % of swings that square up ball
+                hard_swing_rate REAL,              -- % of swings that are hard swings
+
                 -- Metadata
                 season INTEGER NOT NULL,
                 games_played INTEGER,
@@ -223,6 +230,16 @@ class DatabaseSchema:
                 ALTER TABLE hitters
                 ADD COLUMN attack_angle_control INTEGER
             """)
+            conn.commit()
+            print("  Migration complete.")
+
+        # v3 migration: Add bat tracking columns
+        if 'bat_speed' not in columns:
+            print("Migrating database: Adding bat tracking columns to hitters...")
+            cursor.execute("ALTER TABLE hitters ADD COLUMN bat_speed REAL")
+            cursor.execute("ALTER TABLE hitters ADD COLUMN swing_length REAL")
+            cursor.execute("ALTER TABLE hitters ADD COLUMN squared_up_rate REAL")
+            cursor.execute("ALTER TABLE hitters ADD COLUMN hard_swing_rate REAL")
             conn.commit()
             print("  Migration complete.")
 

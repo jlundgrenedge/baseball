@@ -638,7 +638,9 @@ class Fielder:
             route_eff_variance = np.random.normal(0, 0.02)  # ±2% noise
             route_efficiency = np.clip(route_efficiency + route_eff_variance + jump_modifier, 0.85, 0.99)
 
-            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.3  # Reduced penalty
+            # REBALANCED 2025-01-XX: Increased penalty from 0.3 to 0.5
+            # This makes route efficiency more impactful on medium-range plays
+            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.5  # Increased penalty
         else:
             # Long range: 98-100% of max speed
             normalized_dist = min((distance - 60.0) / 60.0, 1.0)  # 0 to 1, capped
@@ -652,7 +654,9 @@ class Fielder:
             route_eff_variance = np.random.normal(0, 0.02)  # ±2% noise
             route_efficiency = np.clip(route_efficiency + route_eff_variance + jump_modifier, 0.85, 0.99)
 
-            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.15  # Much reduced penalty
+            # REBALANCED 2025-01-XX: Increased penalty from 0.15 to 0.35
+            # This makes route efficiency more impactful on long-range plays
+            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.35  # Increased penalty
 
         # Calculate movement time
         effective_distance = distance * route_penalty
@@ -776,23 +780,27 @@ class Fielder:
         # Best case (short distance, moving in): 0.92 = 0.92x multiplier
         # Target: ~9 runs/9 innings and ~15-18 hits/9 innings (not 57 hits!)
         # NERFED 2025-11-19: Adjusted time margins to reduce "vacuum cleaner" catches
+        # REBALANCED 2025-01-XX: Further adjusted to increase BABIP from 0.248 to ~0.300
+        # Problem: Too many plays had 0.95+ catch probability (45.6% of plays)
+        # Solution: Lower base probabilities and add intermediate tier at 0.5s
         if time_margin >= 1.0:
             # Fielder arrives well ahead (1.0+s early) - very routine play
-            # FIX FOR BUTTERFINGERS BUG: When fielder arrives 1.0s+ early, they're
-            # standing and waiting. This should be caught 98-99% of the time.
-            # Only a rare error (1-2%) should cause a drop.
-            # Return immediately to skip all penalties (distance, hands, etc.)
-            # A fielder standing still waiting has no movement-based penalties.
-            return 0.99  # 99% success rate, 1% rare error (was time_margin >= 0.5)
+            # Standing and waiting, minimal chance of error
+            # Reduced from 0.99 to 0.95 - even routine plays have ~5% variance
+            return 0.95  # 95% success rate (was 0.99)
+        elif time_margin >= 0.5:
+            # Fielder arrives comfortably (0.5-1.0s early) - routine play
+            # NEW TIER: Bridge between "waiting" and "running catch"
+            probability = 0.92  # After worst penalties: 0.92 * 0.727 = 0.67 (67%)
         elif time_margin >= 0.2:
-            # Fielder arrives comfortably (0.2-1.0s early) - routine play
-            # Should be caught ~85-90% of the time after penalties
-            probability = 0.98  # After worst penalties: 0.98 * 0.727 = 0.712 (71%)
+            # Fielder arrives with time (0.2-0.5s early) - solid play
+            # Reduced from 0.98 to 0.88 for more realistic variance
+            probability = 0.88  # After worst penalties: 0.88 * 0.727 = 0.64 (64%)
         elif time_margin >= 0.0:
             # Fielder arrives on time (0-0.2s early) - difficult running catch
             # In reality, arriving exactly on time is challenging, not routine
-            # Should be caught ~75-80% of the time after penalties
-            probability = 0.85  # After worst penalties: 0.85 * 0.727 = 0.618 (62%) - was 0.95
+            # Reduced from 0.85 to 0.78 for more misses on close plays
+            probability = 0.78  # After worst penalties: 0.78 * 0.727 = 0.567 (57%)
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)

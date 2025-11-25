@@ -325,8 +325,11 @@ class ContactModel:
             trampoline_benefit = self.energy_storage_ratio * TRAMPOLINE_ENERGY_RECOVERY * 0.1
             q += trampoline_benefit
 
-        # Ensure reasonable bounds - raised minimum from 0.05 to 0.08
-        return max(q, 0.08)  # Minimum efficiency for any contact (even terrible mis-hits)
+        # Ensure reasonable bounds
+        # CRITICAL FIX: Floor must be LOWER than base (0.03) to create proper penalty gradient
+        # Previous 0.08 floor was HIGHER than base, inverting the penalty system!
+        # With 0.01 floor: perfect contact (q=0.03) → 87 mph, bad contact (q=0.01) → 84 mph
+        return max(q, 0.01)  # Minimum efficiency for terrible mis-hits
 
     def calculate_vibration_energy_loss(self, distance_from_sweet_spot_inches):
         """

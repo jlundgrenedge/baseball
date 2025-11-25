@@ -673,10 +673,13 @@ class StatsConverter:
         - Barrel % (optimal EV+LA combo frequency)
         - Exit velocity (power indicator)
 
+        FIX 2025-11-25: Boosted output ranges to match generic team creation.
+        Previous scaling was too conservative, producing 50-68k instead of 58-88k.
+
         Target ranges to match generic team creation:
-        - Power hitters: 72k-88k (HR rate > 5%, SLG > 0.500)
-        - Balanced hitters: 58k-75k (HR rate 2-5%, SLG 0.400-0.500)
-        - Contact/GB hitters: 45k-60k (HR rate < 2%, SLG < 0.400)
+        - Power hitters: 75k-92k (HR rate > 5%, SLG > 0.500) - for ~18-24° mean LA
+        - Balanced hitters: 62k-78k (HR rate 2-5%, SLG 0.400-0.500) - for ~14-18° mean LA
+        - Contact/GB hitters: 50k-65k (HR rate < 2%, SLG < 0.400) - for ~10-14° mean LA
 
         Returns
         -------
@@ -750,32 +753,32 @@ class StatsConverter:
                 total_weight += w
             raw_score = weighted_sum / total_weight
 
-            # Scale to target ranges:
-            # - Raw score 90k+ → 80k-88k (power hitter)
-            # - Raw score 70k-90k → 65k-80k (balanced)
-            # - Raw score 50k-70k → 55k-65k (contact)
-            # - Raw score <50k → 45k-55k (groundball)
+            # FIX 2025-11-25: BOOSTED scaling to match generic team creation
+            # Generic teams produce: power=72-88k, balanced=58-75k, GB=45-60k
+            # Previous scaling was too conservative, clipping at 88k max
             #
-            # Apply boost to ensure adequate HR generation (Phase 2C calibration)
-            # The generic teams use 72k-88k for power, 58k-75k for balanced
-            # We need to match these ranges
-            if raw_score >= 90000:
-                # Elite power hitter → max attack angle
-                attack_angle = 80000 + int((raw_score - 90000) / 10000 * 8000)
-            elif raw_score >= 70000:
-                # Good power hitter
-                attack_angle = 65000 + int((raw_score - 70000) / 20000 * 15000)
-            elif raw_score >= 50000:
-                # Balanced hitter
-                attack_angle = 55000 + int((raw_score - 50000) / 20000 * 10000)
+            # New mapping: more aggressive boost to match generic teams
+            # - Raw 85k+ → 80k-95k (elite power, fly ball hitters)
+            # - Raw 65k-85k → 68k-80k (good power, balanced hitters)
+            # - Raw 45k-65k → 58k-68k (average hitters)
+            # - Raw <45k → 50k-58k (groundball hitters)
+            if raw_score >= 85000:
+                # Elite power hitter → high attack angle (80-95k)
+                attack_angle = 80000 + int((raw_score - 85000) / 15000 * 15000)
+            elif raw_score >= 65000:
+                # Good power/balanced hitter (68-80k)
+                attack_angle = 68000 + int((raw_score - 65000) / 20000 * 12000)
+            elif raw_score >= 45000:
+                # Average hitter (58-68k)
+                attack_angle = 58000 + int((raw_score - 45000) / 20000 * 10000)
             else:
-                # Contact/groundball hitter
-                attack_angle = 45000 + int(raw_score / 50000 * 10000)
+                # Contact/groundball hitter (50-58k)
+                attack_angle = 50000 + int(raw_score / 45000 * 8000)
 
-            return int(np.clip(attack_angle, 45000, 88000))
+            return int(np.clip(attack_angle, 50000, 95000))
         else:
             # No data - use balanced default that matches generic teams
-            return 60000  # Moderate attack angle (higher than previous 50k default)
+            return 65000  # Moderate-high attack angle for MLB average
 
     @classmethod
     def mlb_stats_to_defensive_attributes(
@@ -840,30 +843,39 @@ class StatsConverter:
         else:
             attrs['top_sprint_speed'] = 50000  # Default average
 
-        # 2. REACTION_TIME - From OAA + Jump (inverse: better OAA = faster reaction)
-        # Combine OAA and jump into composite reaction score
-        reaction_score = 0.0
-        has_reaction_data = False
-
+        # 2. REACTION_TIME - From OAA (higher OAA = better fielder = faster reaction)
+        # 
+        # FIX 2025-11-25: Was using inverse=True which caused ALL players to get 100k.
+        # The bug: inverse=True means "lower values are better" (like ERA), but for OAA
+        # higher values are better. Also was scaling OAA by 0.6 but comparing against
+        # unscaled thresholds.
+        #
+        # REACTION_TIME attribute: higher = faster reaction (100k = 0.00s, 0 = 0.30s)
+        # OAA metric: higher = better defender
+        # Therefore: inverse=False (higher OAA → higher attribute → faster reaction)
         if oaa is not None:
-            reaction_score += oaa * 0.6  # OAA primary indicator
-            has_reaction_data = True
-
-        if jump is not None and position in ['LF', 'CF', 'RF']:
-            reaction_score += jump * 0.4  # Jump for outfielders
-            has_reaction_data = True
-
-        if has_reaction_data:
             attrs['reaction_time'] = cls.percentile_to_rating(
-                reaction_score,
-                cls.FIELDER_OAA_ELITE,    # +8 OAA = elite reaction
-                cls.FIELDER_OAA_GOOD,     # +3 OAA = good
-                cls.FIELDER_OAA_AVG,      # 0 OAA = average
-                cls.FIELDER_OAA_POOR,     # -5 OAA = poor
-                inverse=True  # Higher OAA = LOWER reaction time (faster)
+                oaa,  # Use OAA directly, not scaled
+                cls.FIELDER_OAA_ELITE,    # +8 OAA = elite reaction (90k-100k)
+                cls.FIELDER_OAA_GOOD,     # +3 OAA = good (70k-90k)
+                cls.FIELDER_OAA_AVG,      # 0 OAA = average (50k-70k)
+                cls.FIELDER_OAA_POOR,     # -5 OAA = poor (30k-50k)
+                inverse=False  # Higher OAA = higher rating = faster reaction
+            )
+        elif jump is not None and position in ['LF', 'CF', 'RF']:
+            # Outfielders: use jump metric if OAA not available
+            # Jump is typically 0-5 ft range, scale to match OAA thresholds
+            jump_as_oaa = jump * 2.0  # Rough conversion: 4 ft jump ≈ +8 OAA equivalent
+            attrs['reaction_time'] = cls.percentile_to_rating(
+                jump_as_oaa,
+                cls.FIELDER_OAA_ELITE,
+                cls.FIELDER_OAA_GOOD,
+                cls.FIELDER_OAA_AVG,
+                cls.FIELDER_OAA_POOR,
+                inverse=False
             )
         else:
-            attrs['reaction_time'] = 50000
+            attrs['reaction_time'] = 50000  # Default average
 
         # 3. ROUTE_EFFICIENCY - From OAA + DRS composite
         route_score = 0.0
@@ -915,26 +927,31 @@ class StatsConverter:
                 inverse=False
             )
         else:
-            # Estimate from DRS/OAA if arm strength not available
-            # Better defenders tend to have better arms
-            if (drs is not None and drs > 5) or (oaa is not None and oaa > 5):
-                # Elite defender - likely above average arm
-                estimated_arm = thresh['good']
-            elif (drs is not None and drs < -5) or (oaa is not None and oaa < -5):
-                # Poor defender - likely below average arm
-                estimated_arm = thresh['poor']
+            # FIX 2025-11-25: When arm_strength_mph is not available, derive from OAA
+            # using a continuous scale instead of just 3 buckets (which gave everyone 50k or 70k).
+            #
+            # Use OAA to estimate arm strength on the 0-100k scale directly.
+            # OAA correlates somewhat with arm (good fielders often have good arms),
+            # but add some variance since arm and range are somewhat independent.
+            #
+            # Mapping: OAA -> arm_strength attribute
+            # +10 OAA -> ~80k (very good arm)
+            # +5 OAA -> ~65k (above average)
+            # 0 OAA -> ~50k (average)
+            # -5 OAA -> ~35k (below average)
+            # -10 OAA -> ~20k (poor arm)
+            if oaa is not None:
+                # Scale OAA to arm strength: 50k base + 3k per OAA point
+                # Capped at 20k-80k range (leave room for actual arm data to exceed)
+                arm_from_oaa = 50000 + int(oaa * 3000)
+                attrs['arm_strength'] = int(np.clip(arm_from_oaa, 20000, 80000))
+            elif drs is not None:
+                # DRS as fallback (similar scale)
+                arm_from_drs = 50000 + int(drs * 2500)
+                attrs['arm_strength'] = int(np.clip(arm_from_drs, 20000, 80000))
             else:
-                # Average defender - average arm
-                estimated_arm = thresh['avg']
-
-            attrs['arm_strength'] = cls.percentile_to_rating(
-                estimated_arm,
-                thresh['elite'],
-                thresh['good'],
-                thresh['avg'],
-                thresh['poor'],
-                inverse=False
-            )
+                # No defensive data - use average
+                attrs['arm_strength'] = 50000
 
         # 5. FIELDING_SECURE - From fielding % (higher % = more secure)
         if fielding_pct is not None:

@@ -270,8 +270,8 @@ class RouteEfficiencyAnalyzer:
         """
         Calculate expected catch probability based on time margin.
 
-        This uses simplified thresholds. The actual catch probability in the
-        simulation is more complex and includes fielder skill modifiers.
+        This uses simplified thresholds matching fielding.py. The actual catch 
+        probability in the simulation includes additional fielder skill modifiers.
 
         Parameters
         ----------
@@ -286,22 +286,32 @@ class RouteEfficiencyAnalyzer:
         # Note: margin in FieldingResult is ball_time - fielder_time
         # So POSITIVE margin means fielder arrived EARLY (good!)
         # NEGATIVE margin means fielder arrived LATE (bad!)
-
-        if margin_sec >= 1.2:
-            # Fielder 1.2+ seconds early - very routine
+        
+        # SYNCED with fielding.py 2025-11-25 (rebalanced for BABIP ~0.300)
+        if margin_sec >= 1.0:
+            # Fielder 1.0+ seconds early - very routine
             return 0.95
         elif margin_sec >= 0.5:
-            # Fielder 0.5-1.2s early - routine
-            return 0.70
+            # Fielder 0.5-1.0s early - routine
+            return 0.92
+        elif margin_sec >= 0.2:
+            # Fielder 0.2-0.5s early - solid play
+            return 0.88
         elif margin_sec >= 0.0:
-            # Fielder arrived on time (0-0.5s early) - challenging
-            return 0.50
-        elif margin_sec >= -0.4:
-            # Fielder slightly late (0-0.4s late) - difficult/diving
-            return 0.15
+            # Fielder arrived on time (0-0.2s early) - challenging
+            return 0.78
+        elif margin_sec >= -0.15:
+            # Fielder slightly late - diving range
+            return 0.42
+        elif margin_sec >= -0.35:
+            # Fielder late - difficult diving
+            return 0.10
+        elif margin_sec >= -0.60:
+            # Fielder very late - nearly impossible
+            return 0.03
         else:
-            # Fielder very late (>0.4s) - nearly impossible
-            return 0.02
+            # Fielder impossibly late
+            return 0.01
 
     def _determine_outcome(self, fielding_result: FieldingResult) -> str:
         """

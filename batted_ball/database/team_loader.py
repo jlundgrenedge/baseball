@@ -199,6 +199,11 @@ class TeamLoader:
     def _create_hitter_from_record(self, record: Dict) -> Optional[Hitter]:
         """
         Create a Hitter object from database record (v2: includes VISION + defensive attributes).
+        
+        v3 UPDATE (2025-11-25): Uses real bat tracking data when available:
+        - bat_speed (mph) → BAT_SPEED attribute (direct mapping)
+        - squared_up_rate → BARREL_ACCURACY adjustment
+        - swing_length/hard_swing_rate → informational
 
         Parameters
         ----------
@@ -209,44 +214,188 @@ class TeamLoader:
         -------
         Hitter or None
         """
-        # Create HitterAttributes from stored ratings (v1 + v2)
-        # NOTE: Generic teams apply boosts to BAT_SPEED to produce realistic exit velocities.
-        # Generic power hitters: 88k-98k BAT_SPEED → 85-93 mph bat speed → 95-105 mph EV
-        # Without boost, DB teams were getting ~85-90 mph EV (not enough for HRs)
-        #
-        # Variable boost based on power level (v3 - reduced from v2 which had too many HRs):
-        # - Low power (<50k): +12k (contact hitters still need reasonable EV)
-        # - Medium power (50k-70k): +15k (balanced hitters)
-        # - High power (>70k): +18k (power hitters - reduced from +25k)
+        # Get power rating (needed for AAC calculation regardless of bat tracking availability)
         raw_power = record['power']
-        if raw_power >= 70000:
-            bat_speed_boost = 18000  # Power hitters (was 25k - too many HRs)
-        elif raw_power >= 50000:
-            bat_speed_boost = 15000  # Balanced hitters (was 20k)
-        else:
-            bat_speed_boost = 12000  # Contact hitters (was 15k)
-
-        boosted_bat_speed = min(raw_power + bat_speed_boost, 100000)
-
-        # ATTACK_ANGLE_CONTROL: Calculate dynamically if not in database
-        # MLB avg HR/FB ~12.5%, need to balance launch angle tendency
-        # Too high → too many HRs; too low → not enough
-        # Calibrated values (v4 - further reduced, v3 still had too many HRs):
-        stored_aac = record.get('attack_angle_control')
-        if stored_aac is None or stored_aac == 0:
-            # Derive from power level - values tuned for ~2.2 HR/game combined
-            if raw_power >= 70000:
-                attack_angle_control = 58000  # Power hitters (v3: 68k, v2: 80k)
-            elif raw_power >= 50000:
-                attack_angle_control = 52000  # Balanced hitters (v3: 58k)
+        
+        # ============================================================
+        # BAT_SPEED: Use real bat tracking data if available (SCALED to simulation range)
+        # ============================================================
+        # Bat tracking data provides actual swing speed in mph from Baseball Savant
+        # 
+        # CRITICAL: Real MLB bat speeds (63-79 mph) are LOWER than what the simulation expects!
+        # The simulation was calibrated expecting ~75-90 mph bat speeds (old power-based method).
+        # 
+        # Solution: Scale real bat speeds to simulation-expected range:
+        # - Real MLB range: 63-79 mph (16 mph spread)
+        # - Simulation expected range: 75-91 mph (16 mph spread)  
+        # - Offset: +12 mph
+        #
+        # This preserves relative differences (Oneil Cruz is still fastest) while
+        # ensuring bat speeds produce realistic exit velocities for HR generation.
+        actual_bat_speed_mph = record.get('bat_speed')
+        
+        if actual_bat_speed_mph is not None and actual_bat_speed_mph > 0:
+            # Scale real bat speed to simulation range
+            # Real: 63-79 mph → Sim: 75-91 mph (add 12 mph)
+            bat_speed_mph = float(actual_bat_speed_mph) + 12.0
+            
+            # Convert simulation bat speed (mph) to attribute rating (0-100k)
+            # Using inverse of piecewise_logistic_map with same parameters as get_bat_speed_mph()
+            # human_min=60, human_cap=85, super_cap=95, H=85000
+            
+            # Inverse mapping: mph → rating
+            # For the human range (60-85 mph → 0-85k):
+            if bat_speed_mph <= 85.0:
+                # Normalize to 0-1 in the human range
+                normalized = (bat_speed_mph - 60.0) / (85.0 - 60.0)
+                # Clamp to valid range
+                normalized = max(0.0, min(1.0, normalized))
+                # Apply inverse sigmoid scaling (k=8) and scale to 0-85k
+                # sigmoid(x) = normalized → x = ln(normalized / (1-normalized))
+                if normalized <= 0.01:
+                    bat_speed_rating = 0
+                elif normalized >= 0.99:
+                    bat_speed_rating = 85000
+                else:
+                    import math
+                    x = math.log(normalized / (1 - normalized))
+                    # x was scaled by k=8 and shifted by -k/2, so: rating = (x + k/2) / k * H
+                    bat_speed_rating = int(((x + 4) / 8) * 85000)
+                    bat_speed_rating = max(0, min(85000, bat_speed_rating))
             else:
-                attack_angle_control = 45000  # Contact hitters (v3: 48k)
+                # Superhuman range (85-95 mph → 85k-100k)
+                normalized = (bat_speed_mph - 85.0) / (95.0 - 85.0)
+                normalized = max(0.0, min(1.0, normalized))
+                if normalized <= 0.01:
+                    bat_speed_rating = 85000
+                elif normalized >= 0.99:
+                    bat_speed_rating = 100000
+                else:
+                    import math
+                    x = math.log(normalized / (1 - normalized))
+                    bat_speed_rating = int(85000 + ((x + 2.5) / 5) * 15000)
+                    bat_speed_rating = max(85000, min(100000, bat_speed_rating))
+            
+            boosted_bat_speed = bat_speed_rating
         else:
-            attack_angle_control = stored_aac
+            # Fallback: Use power-based estimation (legacy method)
+            # FIX 2025-11-25: Boosted BAT_SPEED to match generic teams
+            raw_power = record['power']
+            if raw_power >= 70000:
+                bat_speed_boost = 25000  # Power hitters
+            elif raw_power >= 50000:
+                bat_speed_boost = 22000  # Balanced hitters
+            else:
+                bat_speed_boost = 18000  # Contact hitters
+
+            boosted_bat_speed = min(raw_power + bat_speed_boost, 100000)
+
+        # ATTACK_ANGLE_CONTROL: Use stored value if available, otherwise boost based on power
+        # FIX 2025-11-25 v3: ALWAYS apply boost to match generic team creation
+        # Generic teams use: power=72-88k (18-24° LA), balanced=58-75k (13-18° LA)
+        # 
+        # The problem is that stored AAC values from stats_converter (50-70k) are too 
+        # conservative compared to generic teams. Even elite power hitters like Michael Busch
+        # (34 HR, .523 SLG) only get ~68k AAC, but need 75-85k for realistic HR production.
+        #
+        # Solution: Apply aggressive boost based on power level + home run rate indicators
+        #
+        # AAC → Launch Angle mapping:
+        #   AAC=78k → LA=16.2° (too low for HRs)
+        #   AAC=85k → LA=16.6°
+        #   AAC=90k → LA=20.3°
+        #   AAC=95k → LA=24.7° (good for HRs)
+        #   AAC=100k → LA=27.2° (optimal HR zone)
+        #
+        # To get home runs, we need 20-28° launch angles, which requires AAC in 90-100k range!
+        stored_aac = record.get('attack_angle_control')
+        
+        # Get HR rate indicators from the record
+        hr_count = record.get('home_runs', 0) or 0
+        ab_count = record.get('at_bats', 1) or 1  # Avoid division by zero
+        slg = record.get('slugging_pct', 0.400) or 0.400
+        hr_per_ab = hr_count / ab_count if ab_count > 0 else 0
+        
+        # Determine hitter archetype based on ACTUAL production, not power rating
+        # The key insight: We were setting almost EVERYONE to 90k+ AAC, which produces
+        # 20°+ mean launch angles. That's WAY too high for realistic batted ball distribution.
+        #
+        # MLB batted ball splits: 43% GB, 21% LD, 36% FB
+        # To achieve this, we need MOST hitters around 8-12° mean launch angle (AAC ~55-65k)
+        # with variance (15°) creating the natural GB/LD/FB distribution.
+        #
+        # Only true elite power hitters (30+ HR) should have elevated attack angles (16-20°).
+        #
+        # AAC → Launch Angle mapping (from attributes.py):
+        #   AAC=50k → LA=7° (MLB average - produces correct GB% with 15° variance)
+        #   AAC=60k → LA=10.4°
+        #   AAC=70k → LA=13.8°
+        #   AAC=80k → LA=15.8°
+        #   AAC=85k → LA=16.5°
+        #   AAC=90k → LA=20.3° (power hitter territory)
+        #   AAC=95k → LA=24.7° (elite fly ball hitter)
+        #
+        is_elite_power = (hr_count >= 35) or (slg >= 0.550)  # Top ~10-15 hitters in MLB
+        is_good_power = (hr_count >= 25) or (slg >= 0.480)   # Top 30-40 power hitters
+        is_moderate_power = (hr_count >= 15) or (slg >= 0.420)
+        
+        # Calculate AAC based on actual production - MUCH more conservative than before
+        # Goal: Average AAC around 55k for realistic GB% (~43%)
+        if is_elite_power:
+            min_aac = 80000  # Elite power: 80k for ~15.8° mean LA (still produces HRs with variance)
+        elif is_good_power:
+            min_aac = 70000  # Good power: 70k for ~13.8° mean LA
+        elif is_moderate_power:
+            min_aac = 60000  # Moderate power: 60k for ~10.4° mean LA
+        elif raw_power >= 40000:
+            min_aac = 50000  # Average hitter: 50k for ~7° mean LA (MLB average)
+        else:
+            min_aac = 45000  # Contact/speed hitter: 45k for ~5° mean LA (more GBs)
+        
+        if stored_aac is None or stored_aac == 0:
+            # No stored value - use production-based calculation
+            attack_angle_control = min_aac
+        else:
+            # ALWAYS ensure at least minimum AAC for power level
+            # This is the key fix: stored values are too low, boost them up
+            attack_angle_control = max(stored_aac, min_aac)
+
+        # ============================================================
+        # BARREL_ACCURACY: Adjust based on squared-up rate if available
+        # ============================================================
+        # squared_up_rate from bat tracking tells us how often hitter squares up the ball
+        # Range: ~16% to ~43% (MLB 2024 data)
+        # 
+        # This should influence BARREL_ACCURACY which controls contact quality
+        # Higher squared_up_rate → better barrel accuracy → more solid contact
+        base_barrel_accuracy = record['contact']  # Start with contact attribute
+        
+        squared_up_rate = record.get('squared_up_rate')
+        if squared_up_rate is not None and squared_up_rate > 0:
+            # MLB average squared_up_rate is ~26%
+            # Range is approximately 16% to 43%
+            # Map this to a modifier for barrel accuracy
+            # +10k for elite (>35%), +5k for good (>30%), 0 for average, -5k for poor (<20%)
+            squared_up_pct = squared_up_rate * 100 if squared_up_rate < 1 else squared_up_rate
+            
+            if squared_up_pct >= 35:
+                barrel_accuracy_mod = 10000  # Elite contact quality
+            elif squared_up_pct >= 30:
+                barrel_accuracy_mod = 5000   # Good contact quality
+            elif squared_up_pct >= 24:
+                barrel_accuracy_mod = 0      # Average
+            elif squared_up_pct >= 20:
+                barrel_accuracy_mod = -3000  # Below average
+            else:
+                barrel_accuracy_mod = -5000  # Poor contact quality
+            
+            adjusted_barrel_accuracy = min(100000, max(0, base_barrel_accuracy + barrel_accuracy_mod))
+        else:
+            adjusted_barrel_accuracy = base_barrel_accuracy
 
         hitter_attrs = HitterAttributes(
-            BAT_SPEED=boosted_bat_speed,  # Power + boost for realistic exit velo
-            BARREL_ACCURACY=record['contact'],  # Contact maps to barrel accuracy
+            BAT_SPEED=boosted_bat_speed,  # Real bat speed or power-based estimate
+            BARREL_ACCURACY=adjusted_barrel_accuracy,  # Contact + squared-up adjustment
             ZONE_DISCERNMENT=record['discipline'],  # Discipline maps to pitch recognition
             # v2 attributes (Phase 2A/2C additions)
             VISION=record.get('vision', 50000),  # Contact frequency, default to average if missing

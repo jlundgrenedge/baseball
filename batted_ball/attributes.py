@@ -435,19 +435,26 @@ class FielderAttributes:
         First movement delay (seconds).
 
         Anchors:
-        - 0: 0.30 s (very slow)
-        - 50k: 0.10 s (average MLB)
-        - 85k: 0.05 s (elite)
-        - 100k: 0.00 s (perfect anticipation)
+        - 0: 0.35 s (very slow)
+        - 50k: 0.18 s (average MLB)
+        - 85k: 0.10 s (elite)
+        - 100k: 0.05 s (perfect anticipation)
 
-        Note: Previous values (0.23s average) were too slow, causing fielders
-        to react 0.13s late on every play, contributing to excessive hits.
+        Note: MLB fielders typically take 0.15-0.25s to react and begin movement.
+        Elite outfielders with good jumps get down to 0.10-0.12s.
+        Previous values (0.10s average, 0.05s elite) were too fast, causing
+        fielders to arrive too early on most plays, contributing to low BABIP.
+        
+        REBALANCED 2025-01-XX: Increased reaction times to more realistic values.
+        - Average: 0.10s -> 0.18s (more realistic MLB timing)
+        - Elite: 0.05s -> 0.10s (still very good, but achievable)
+        - Slow: 0.30s -> 0.35s (allows more aging/DH-type fielders)
         """
         return piecewise_logistic_map_inverse(
             self.REACTION_TIME,
-            human_min=0.05,
-            human_cap=0.30,
-            super_cap=0.00
+            human_min=0.10,
+            human_cap=0.35,
+            super_cap=0.05
         )
 
     def get_acceleration_fps2(self) -> float:

@@ -26,7 +26,7 @@ try:
     )
     # Try to import Statcast fielding functions (may not be available in all versions)
     try:
-        from pybaseball import statcast_outs_above_average
+        from pybaseball import statcast_outs_above_average, statcast_outfielder_jump
         STATCAST_FIELDING_AVAILABLE = True
     except ImportError:
         STATCAST_FIELDING_AVAILABLE = False
@@ -36,6 +36,10 @@ except ImportError:
     PYBASEBALL_AVAILABLE = False
     STATCAST_FIELDING_AVAILABLE = False
     print("Warning: pybaseball not installed. Run: pip install pybaseball")
+
+# For arm strength data - need to fetch directly from Baseball Savant
+import requests
+from io import StringIO
 
 
 class PybaseballFetcher:
@@ -317,6 +321,12 @@ class PybaseballFetcher:
         hitters_df['fielding_pct'] = None
         hitters_df['jump'] = None
         hitters_df['primary_position'] = None
+        
+        # Initialize bat tracking columns
+        hitters_df['bat_speed'] = None
+        hitters_df['swing_length'] = None
+        hitters_df['squared_up_rate'] = None
+        hitters_df['hard_swing_rate'] = None
 
         try:
             # 1. Fetch Statcast fielding data (OAA, arm strength, jump)
@@ -385,6 +395,108 @@ class PybaseballFetcher:
                 else:
                     print(f"    Statcast fielding functions not available in this pybaseball version")
                 print(f"    Will derive defensive metrics from DRS")
+
+            # 1b. Fetch arm strength data from Baseball Savant (direct scrape)
+            # This data is not available via pybaseball functions
+            if self.season >= 2020:  # Arm strength data reliable from 2020+
+                try:
+                    print(f"    Fetching Baseball Savant arm strength data...")
+                    arm_data = self._fetch_arm_strength_leaderboard()
+                    
+                    if arm_data is not None and len(arm_data) > 0:
+                        arm_count = 0
+                        for idx, row in hitters_df.iterrows():
+                            player_name = row['player_name']
+                            
+                            # Try to match by name (format: "Last, First" in savant data)
+                            if ' ' in player_name:
+                                parts = player_name.split()
+                                # Try "Last, First" format
+                                last_first = f"{parts[-1]}, {parts[0]}"
+                                match = arm_data[
+                                    arm_data['fielder_name'].str.contains(last_first, case=False, na=False)
+                                ]
+                                
+                                if len(match) == 0:
+                                    # Try just last name
+                                    match = arm_data[
+                                        arm_data['fielder_name'].str.contains(parts[-1], case=False, na=False)
+                                    ]
+                            else:
+                                match = arm_data[
+                                    arm_data['fielder_name'].str.contains(player_name, case=False, na=False)
+                                ]
+                            
+                            if len(match) > 0:
+                                arm_mph = match.iloc[0]['arm_overall']
+                                if pd.notna(arm_mph) and arm_mph > 0:
+                                    hitters_df.at[idx, 'arm_strength_mph'] = float(arm_mph)
+                                    arm_count += 1
+                        
+                        print(f"    Added arm strength for {arm_count} players")
+                    
+                except Exception as e:
+                    print(f"    Could not fetch arm strength data: {e}")
+
+            # 1c. Fetch bat tracking data from Baseball Savant (direct scrape)
+            # Bat tracking metrics: bat speed, swing length, squared-up rate
+            if self.season >= 2024:  # Bat tracking data available from 2024
+                try:
+                    print(f"    Fetching Baseball Savant bat tracking data...")
+                    bat_data = self._fetch_bat_tracking_leaderboard()
+                    
+                    # Fallback: If season > 2024, also fetch 2024 data for players not in current season
+                    # This helps when 2025+ data isn't fully populated yet
+                    bat_data_fallback = None
+                    if self.season > 2024:
+                        bat_data_fallback = self._fetch_bat_tracking_leaderboard(season_override=2024)
+                        if bat_data_fallback is not None:
+                            print(f"    Also loaded 2024 bat tracking as fallback ({len(bat_data_fallback)} players)")
+                    
+                    if bat_data is not None and len(bat_data) > 0:
+                        bat_count = 0
+                        fallback_count = 0
+                        
+                        for idx, row in hitters_df.iterrows():
+                            player_name = row['player_name']
+                            
+                            # Try to match by name (format: "Last, First" in savant data)
+                            match = self._match_player_in_bat_tracking(player_name, bat_data)
+                            
+                            # If no match in current season, try fallback data
+                            if match is None and bat_data_fallback is not None:
+                                match = self._match_player_in_bat_tracking(player_name, bat_data_fallback)
+                                if match is not None:
+                                    fallback_count += 1
+                            
+                            if match is not None:
+                                bat_row = match
+                                
+                                # Bat speed (mph) - e.g., 72.5 mph
+                                if 'avg_bat_speed' in bat_row.index and pd.notna(bat_row['avg_bat_speed']):
+                                    hitters_df.at[idx, 'bat_speed'] = float(bat_row['avg_bat_speed'])
+                                
+                                # Swing length (feet) - e.g., 7.2 ft
+                                if 'swing_length' in bat_row.index and pd.notna(bat_row['swing_length']):
+                                    hitters_df.at[idx, 'swing_length'] = float(bat_row['swing_length'])
+                                
+                                # Squared up rate (percentage) - e.g., 0.285 (28.5%)
+                                if 'squared_up_per_swing' in bat_row.index and pd.notna(bat_row['squared_up_per_swing']):
+                                    hitters_df.at[idx, 'squared_up_rate'] = float(bat_row['squared_up_per_swing'])
+                                
+                                # Hard swing rate (percentage) - swings 75+ mph
+                                if 'hard_swing_rate' in bat_row.index and pd.notna(bat_row['hard_swing_rate']):
+                                    hitters_df.at[idx, 'hard_swing_rate'] = float(bat_row['hard_swing_rate'])
+                                
+                                bat_count += 1
+                        
+                        if fallback_count > 0:
+                            print(f"    Added bat tracking for {bat_count} players ({fallback_count} from 2024 fallback)")
+                        else:
+                            print(f"    Added bat tracking for {bat_count} players")
+                    
+                except Exception as e:
+                    print(f"    Could not fetch bat tracking data: {e}")
 
             # 2. Fetch FanGraphs fielding data (DRS, fielding %, position)
             try:
@@ -461,6 +573,122 @@ class PybaseballFetcher:
             print(f"  Error fetching defensive metrics: {e}")
 
         return hitters_df
+
+    def _fetch_arm_strength_leaderboard(self) -> Optional[pd.DataFrame]:
+        """
+        Fetch arm strength leaderboard directly from Baseball Savant.
+        
+        This data is not available via pybaseball functions, so we scrape
+        the Baseball Savant CSV export directly.
+        
+        Returns
+        -------
+        pd.DataFrame or None
+            DataFrame with arm strength data:
+            - fielder_name: Player name (format: "Last, First")
+            - player_id: MLBAM player ID
+            - primary_position: Position number
+            - arm_overall: Overall arm strength in MPH
+            - max_arm_strength: Maximum arm strength in MPH
+            - arm_rf, arm_cf, arm_lf, etc.: Position-specific arm strength
+        """
+        try:
+            url = f'https://baseballsavant.mlb.com/leaderboard/arm-strength?year={self.season}&pos=&team=&min=5&csv=true'
+            response = requests.get(url, timeout=15)
+            
+            if response.status_code == 200:
+                df = pd.read_csv(StringIO(response.text))
+                return df
+            else:
+                print(f"    Baseball Savant returned status {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"    Error fetching arm strength: {e}")
+            return None
+
+    def _match_player_in_bat_tracking(self, player_name: str, bat_data: pd.DataFrame) -> Optional[pd.Series]:
+        """
+        Match a player name to bat tracking data.
+        
+        Parameters
+        ----------
+        player_name : str
+            Player name in "First Last" format
+        bat_data : pd.DataFrame
+            Bat tracking data with 'name' column in "Last, First" format
+            
+        Returns
+        -------
+        pd.Series or None
+            Matched row from bat_data, or None if no match
+        """
+        if ' ' in player_name:
+            parts = player_name.split()
+            # Try "Last, First" format
+            last_first = f"{parts[-1]}, {parts[0]}"
+            match = bat_data[
+                bat_data['name'].str.contains(last_first, case=False, na=False)
+            ]
+            
+            if len(match) == 0:
+                # Try just last name (for unique last names)
+                last_matches = bat_data[
+                    bat_data['name'].str.contains(parts[-1], case=False, na=False)
+                ]
+                # Only use if it's a unique match
+                if len(last_matches) == 1:
+                    match = last_matches
+        else:
+            match = bat_data[
+                bat_data['name'].str.contains(player_name, case=False, na=False)
+            ]
+        
+        if len(match) > 0:
+            return match.iloc[0]
+        return None
+
+    def _fetch_bat_tracking_leaderboard(self, min_swings: int = 100, season_override: int = None) -> Optional[pd.DataFrame]:
+        """
+        Fetch bat tracking leaderboard directly from Baseball Savant.
+        
+        This data includes bat speed, swing length, and contact quality metrics
+        from Statcast's bat tracking system (available from 2024+).
+        
+        Parameters
+        ----------
+        min_swings : int
+            Minimum competitive swings to qualify (default 100)
+        season_override : int, optional
+            Override season to fetch (used for fallback to 2024 data)
+        
+        Returns
+        -------
+        pd.DataFrame or None
+            DataFrame with bat tracking data:
+            - id: MLBAM player ID
+            - name: Player name (format: "Last, First")
+            - avg_bat_speed: Average bat speed in mph
+            - swing_length: Swing length in feet
+            - squared_up_per_swing: % of swings that square up the ball
+            - hard_swing_rate: % of swings that are hard swings
+            - blast_per_swing: % of swings with "blast" contact (elite contact)
+        """
+        try:
+            season = season_override if season_override is not None else self.season
+            url = f'https://baseballsavant.mlb.com/leaderboard/bat-tracking?year={season}&min={min_swings}&csv=true'
+            response = requests.get(url, timeout=15)
+            
+            if response.status_code == 200 and len(response.text) > 100:
+                df = pd.read_csv(StringIO(response.text))
+                return df
+            else:
+                print(f"    Baseball Savant bat tracking returned status {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"    Error fetching bat tracking: {e}")
+            return None
 
     def get_pitcher_statcast_metrics(
         self,

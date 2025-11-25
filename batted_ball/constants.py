@@ -260,9 +260,14 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # - Walk Rate: 17.2% vs 8.5% target (need to reduce intentional ball rates)
 # - BABIP: 0.248 vs 0.260 (slightly low, related to HR/FB)
 # - Exit Velo: 94 mph vs 88 mph (6 mph high, but acceptable for average)
-COLLISION_EFFICIENCY_WOOD = 0.03        # Wood bats (best: 5/10 passing, hard-hit 40%, BA 0.232)
-COLLISION_EFFICIENCY_ALUMINUM = 0.028   # Aluminum bats (slightly lower)
-COLLISION_EFFICIENCY_COMPOSITE = 0.029  # Composite bats (between aluminum and wood)
+#
+# RECALIBRATED 2024-01: Raised q from 0.03 to 0.09 for realistic power hitting.
+# With q=0.05, max EV was ~91 mph (no EVs over 95 mph) - too low for HRs.
+# With q=0.09: perfect contact → ~100 mph, typical contact (q~0.05) → ~90 mph
+# This enables HR production while keeping average EV reasonable (~88 mph).
+COLLISION_EFFICIENCY_WOOD = 0.09        # Wood bats - raised for HR production
+COLLISION_EFFICIENCY_ALUMINUM = 0.088   # Aluminum bats (slightly lower)
+COLLISION_EFFICIENCY_COMPOSITE = 0.089  # Composite bats (between aluminum and wood)
 
 # Sweet Spot Physics
 SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone
