@@ -540,6 +540,10 @@ class Hitter:
         mean_angle = self.attributes.get_attack_angle_mean_deg()
         base_variance = self.attributes.get_attack_angle_variance_deg()
         
+        # CALIBRATION: Shift mean down by 5° to match MLB research target (10-12°)
+        # The attribute model produces mean ~20° but empirical MLB data shows 10-12°
+        mean_angle = mean_angle - 5.0
+        
         # =========================================================================
         # CONTACT-QUALITY-DEPENDENT VARIANCE MODEL
         # Based on research: "batter swings are essentially two distributions merged"
@@ -547,52 +551,26 @@ class Hitter:
         # - Non-competitive/weak contact: wider distribution with extreme outcomes
         # =========================================================================
         
-        # Base natural variance (for "fair" contact)
-        base_natural_variance = 15.0  # Reduced from 19.5 - will be modulated
-        
-        # Adjust variance based on contact quality
+        # Use fixed variance to achieve 15-20° std dev target
         if contact_quality == 'solid':
-            # Squared-up contact has MUCH tighter distribution
-            # These are the "barrels" - optimal launch angles
-            variance_multiplier = 0.6  # 60% of base variance
+            # Solid contact: tighter distribution (solid barrels)
+            natural_variance = 19.0
         elif contact_quality == 'weak':
-            # Poor contact has MUCH wider distribution
-            # These swings produce extreme angles (pop-ups, topped grounders)
-            variance_multiplier = 1.8  # 180% of base variance
+            # Weak contact: wider distribution  
+            natural_variance = 22.0
         else:
-            # Fair/normal contact
-            variance_multiplier = 1.0
-            
-        natural_variance = base_natural_variance * variance_multiplier
-        
-        # =========================================================================
+            # Fair contact: medium variance
+            natural_variance = 20.5        # =========================================================================
         # EXTREME MISHIT OVERRIDE
         # For large vertical offsets, directly force extreme launch angles
-        # This captures topped grounders and pop-ups more realistically
+        # DISABLED: Natural variance model handles this better
         # =========================================================================
         
-        # Threshold for "extreme" vertical offset (in inches)
-        extreme_offset_threshold = 0.8  # ~20mm - significant mishit
+        # Natural variance model on its own generates realistic distribution
+        # of topped balls, under-cuts, and pop-ups without needing manual overrides
         
-        if abs(vertical_contact_offset) > extreme_offset_threshold:
-            if vertical_contact_offset > extreme_offset_threshold:
-                # TOPPED BALL: bat hit above ball center
-                # Results in low launch angle (ground ball or low liner)
-                # More extreme offset = more negative angle
-                topped_severity = min((vertical_contact_offset - extreme_offset_threshold) / 0.5, 1.0)
-                # Mean angle for topped ball: -5° to 5° depending on severity
-                extreme_mean = 0.0 - (topped_severity * 8.0)  # Range: 0° to -8°
-                extreme_variance = 5.0  # Tight variance for extreme mishits
-                return np.clip(np.random.normal(extreme_mean, extreme_variance), -25.0, 10.0)
-                
-            elif vertical_contact_offset < -extreme_offset_threshold:
-                # UNDER-CUT BALL: bat hit below ball center
-                # Results in high launch angle (pop-up or high fly)
-                undercut_severity = min((abs(vertical_contact_offset) - extreme_offset_threshold) / 0.5, 1.0)
-                # Mean angle for under-cut: 45° to 65° depending on severity
-                extreme_mean = 45.0 + (undercut_severity * 20.0)  # Range: 45° to 65°
-                extreme_variance = 8.0  # Slightly wider for pop-ups
-                return np.clip(np.random.normal(extreme_mean, extreme_variance), 35.0, 80.0)
+        # if abs(vertical_contact_offset) > extreme_offset_threshold:
+        #     ... override logic disabled ...
         
         # =========================================================================
         # STANDARD LAUNCH ANGLE CALCULATION (for non-extreme contacts)
@@ -622,11 +600,9 @@ class Hitter:
         # Combine all factors
         adjusted_mean = mean_angle + location_adjustment + pitch_adjustment
         
-        # Sample from distribution with contact-quality-dependent variance
-        # Use player's base_variance to modulate slightly
-        # (more consistent hitters have slightly less extreme outcomes)
-        consistency_factor = np.clip(base_variance / 3.0, 0.7, 1.3)
-        total_variance = natural_variance * consistency_factor
+        # Sample from distribution with natural variance
+        # (no consistency factor - variance is fixed per contact quality)
+        total_variance = natural_variance
         
         # Sample from normal distribution
         launch_angle = np.random.normal(adjusted_mean, total_variance)
