@@ -540,9 +540,9 @@ class Hitter:
         mean_angle = self.attributes.get_attack_angle_mean_deg()
         base_variance = self.attributes.get_attack_angle_variance_deg()
         
-        # CALIBRATION: Shift mean down by 5° to match MLB research target (10-12°)
-        # The attribute model produces mean ~20° but empirical MLB data shows 10-12°
-        mean_angle = mean_angle - 5.0
+        # CALIBRATION: Shift mean down by 3° to match MLB research targets
+        # Empirical testing shows this achieves target variance while maintaining playability
+        mean_angle = mean_angle - 3.0
         
         # =========================================================================
         # CONTACT-QUALITY-DEPENDENT VARIANCE MODEL
