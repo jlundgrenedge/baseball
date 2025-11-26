@@ -499,16 +499,19 @@ class Hitter:
         return self.attributes.get_bat_speed_mph()
 
     def get_swing_path_angle_deg(self, pitch_location: Optional[Tuple[float, float]] = None,
-                                  pitch_type: Optional[str] = None) -> float:
+                                  pitch_type: Optional[str] = None,
+                                  vertical_contact_offset: float = 0.0,
+                                  contact_quality: Optional[str] = None) -> float:
         """
-        Get swing path angle (attack angle) in degrees with realistic variance.
+        Get swing path angle (attack angle) with contact-quality-dependent variance.
 
-        In reality, even "fly ball hitters" hit ground balls 40-45% of the time.
-        Launch angle is influenced by:
-        - Player tendency (mean)
-        - Pitch location (high/low)
-        - Pitch type (fastball/breaking ball)
-        - Random variation from contact point
+        The launch angle distribution is modeled as a mixture of:
+        - Solid contact: Narrower variance around optimal angle
+        - Fair contact: Normal variance
+        - Weak/mishit contact: Wide variance OR explicit extreme angles
+
+        This follows research showing MLB swings are "two distributions merged" -
+        competitive (squared-up) vs non-competitive (poor) contact.
         
         MLB Launch Angle Distribution:
         - Ground balls: < 10°
@@ -522,6 +525,11 @@ class Hitter:
             (horizontal_inches, vertical_inches) at plate
         pitch_type : str, optional
             Type of pitch ('fastball', 'curveball', etc.)
+        vertical_contact_offset : float
+            Vertical offset from bat center (inches). Positive = above center (topped),
+            Negative = below center (under-cut/pop-up)
+        contact_quality : str, optional
+            'solid', 'fair', or 'weak' - affects variance
 
         Returns
         -------
@@ -532,11 +540,63 @@ class Hitter:
         mean_angle = self.attributes.get_attack_angle_mean_deg()
         base_variance = self.attributes.get_attack_angle_variance_deg()
         
-        # CRITICAL: Add much larger natural variance to create realistic outcome distribution
-        # Even the best hitters have huge variance in launch angle (15-20° std dev)
-        # This is what creates the ground ball / line drive / fly ball distribution
-        # 19.5° balances FB rate improvement while maintaining reasonable HR/FB rate
-        natural_variance = 19.5  # Standard deviation in degrees
+        # =========================================================================
+        # CONTACT-QUALITY-DEPENDENT VARIANCE MODEL
+        # Based on research: "batter swings are essentially two distributions merged"
+        # - Competitive/solid contact: tighter distribution
+        # - Non-competitive/weak contact: wider distribution with extreme outcomes
+        # =========================================================================
+        
+        # Base natural variance (for "fair" contact)
+        base_natural_variance = 15.0  # Reduced from 19.5 - will be modulated
+        
+        # Adjust variance based on contact quality
+        if contact_quality == 'solid':
+            # Squared-up contact has MUCH tighter distribution
+            # These are the "barrels" - optimal launch angles
+            variance_multiplier = 0.6  # 60% of base variance
+        elif contact_quality == 'weak':
+            # Poor contact has MUCH wider distribution
+            # These swings produce extreme angles (pop-ups, topped grounders)
+            variance_multiplier = 1.8  # 180% of base variance
+        else:
+            # Fair/normal contact
+            variance_multiplier = 1.0
+            
+        natural_variance = base_natural_variance * variance_multiplier
+        
+        # =========================================================================
+        # EXTREME MISHIT OVERRIDE
+        # For large vertical offsets, directly force extreme launch angles
+        # This captures topped grounders and pop-ups more realistically
+        # =========================================================================
+        
+        # Threshold for "extreme" vertical offset (in inches)
+        extreme_offset_threshold = 0.8  # ~20mm - significant mishit
+        
+        if abs(vertical_contact_offset) > extreme_offset_threshold:
+            if vertical_contact_offset > extreme_offset_threshold:
+                # TOPPED BALL: bat hit above ball center
+                # Results in low launch angle (ground ball or low liner)
+                # More extreme offset = more negative angle
+                topped_severity = min((vertical_contact_offset - extreme_offset_threshold) / 0.5, 1.0)
+                # Mean angle for topped ball: -5° to 5° depending on severity
+                extreme_mean = 0.0 - (topped_severity * 8.0)  # Range: 0° to -8°
+                extreme_variance = 5.0  # Tight variance for extreme mishits
+                return np.clip(np.random.normal(extreme_mean, extreme_variance), -25.0, 10.0)
+                
+            elif vertical_contact_offset < -extreme_offset_threshold:
+                # UNDER-CUT BALL: bat hit below ball center
+                # Results in high launch angle (pop-up or high fly)
+                undercut_severity = min((abs(vertical_contact_offset) - extreme_offset_threshold) / 0.5, 1.0)
+                # Mean angle for under-cut: 45° to 65° depending on severity
+                extreme_mean = 45.0 + (undercut_severity * 20.0)  # Range: 45° to 65°
+                extreme_variance = 8.0  # Slightly wider for pop-ups
+                return np.clip(np.random.normal(extreme_mean, extreme_variance), 35.0, 80.0)
+        
+        # =========================================================================
+        # STANDARD LAUNCH ANGLE CALCULATION (for non-extreme contacts)
+        # =========================================================================
         
         # Adjust mean based on pitch location (if provided)
         location_adjustment = 0.0
@@ -554,16 +614,16 @@ class Hitter:
         if pitch_type is not None:
             # Breaking balls (downward movement) tend to be topped more often
             if pitch_type in ['curveball', 'slider', 'slurve']:
-                pitch_adjustment = -2.0  # Slightly more ground balls (was -5.0)
+                pitch_adjustment = -2.0  # Slightly more ground balls
             # Rising fastballs tend to be lifted more
             elif pitch_type in ['four_seam', 'two_seam']:
-                pitch_adjustment = 1.0  # Slightly more fly balls (was +2.0)
+                pitch_adjustment = 1.0  # Slightly more fly balls
         
         # Combine all factors
         adjusted_mean = mean_angle + location_adjustment + pitch_adjustment
         
-        # Sample from distribution with large natural variance
-        # Use player's base_variance to modulate the natural variance slightly
+        # Sample from distribution with contact-quality-dependent variance
+        # Use player's base_variance to modulate slightly
         # (more consistent hitters have slightly less extreme outcomes)
         consistency_factor = np.clip(base_variance / 3.0, 0.7, 1.3)
         total_variance = natural_variance * consistency_factor
