@@ -4,17 +4,26 @@ echo Baseball Game Simulation
 echo ========================================
 echo.
 echo Choose simulation type:
-echo   1. Single Game Demo (quick, interactive)
-echo   2. Quick League Season (Thu/Sun league, 14 games each)
-echo   3. Full League Season (8 teams, 60 games each)
-echo   4. Performance Test Suite
-echo   5. MLB Teams: Yankees vs Dodgers (Real rosters)
-echo   6. MLB Players: Individual Demo (Ohtani vs Judge)
-echo   7. MLB Quick Demo (Players only)
-echo   8. Database Teams: Select teams and simulate (Interactive)
 echo.
-set /p choice="Enter your choice (1-8): "
+echo   ** RECOMMENDED FOR TESTING **
+echo   8. MLB Database Teams (Real rosters, 5-10 games)
+echo.
+echo   Other options:
+echo   1. Single Game Demo (synthetic teams)
+echo   5. Add MLB Teams to Database (Yankees vs Dodgers)
+echo   9. Quick MLB Test (5 games, command-line)
+echo   0. Physics Validation (7 benchmark tests)
+echo.
+echo   Legacy/Archive:
+echo   2. Quick League Season [ARCHIVED - uses fake teams]
+echo   3. Full League Season [ARCHIVED - uses fake teams]
+echo   4. Performance Test Suite
+echo   6. MLB Players: Individual Demo
+echo   7. MLB Quick Demo (Players only)
+echo.
+set /p choice="Enter your choice (0-9): "
 
+if "%choice%"=="0" goto validation
 if "%choice%"=="1" goto single_game
 if "%choice%"=="2" goto quick_league
 if "%choice%"=="3" goto full_league
@@ -23,7 +32,31 @@ if "%choice%"=="5" goto mlb_yankees_dodgers
 if "%choice%"=="6" goto mlb_player_demo
 if "%choice%"=="7" goto mlb_quick_demo
 if "%choice%"=="8" goto db_teams
+if "%choice%"=="9" goto quick_mlb
 goto invalid
+
+:validation
+echo.
+echo ========================================
+echo Physics Validation (7 Tests)
+echo ========================================
+echo.
+echo This runs the physics validation suite.
+echo All 7 tests must pass before committing physics changes.
+echo.
+python -m batted_ball.validation
+pause
+goto end
+
+:quick_mlb
+echo.
+echo ========================================
+echo Quick MLB Test (5 games)
+echo ========================================
+echo.
+python examples\quick_mlb_test.py 5
+pause
+goto end
 
 :single_game
 echo.
@@ -48,36 +81,29 @@ goto end
 :quick_league
 echo.
 echo ========================================
-echo Running Quick League Simulation
+echo [ARCHIVED] Quick League Simulation
 echo ========================================
 echo.
-echo This simulates a quick 8-team league season:
-echo - Thursday/Sunday league format
-echo - 8 teams with varying skill levels
-echo - 14 games per team (2 complete rounds)
-echo - 4 games per day simulated in parallel
-echo - Optimized for quick testing (2-5 minutes)
+echo NOTE: This test uses synthetic teams and has been archived.
+echo For testing, use Option 8 (MLB Database Teams) instead.
+echo.
+echo Files moved to: tests\archive\
 echo.
 pause
-echo.
-python tests\test_league_simulation_quick.py
 goto end
 
 :full_league
 echo.
 echo ========================================
-echo Running Full League Simulation
+echo [ARCHIVED] Full League Simulation
 echo ========================================
 echo.
-echo This simulates a complete 8-team league season:
-echo - 8 teams with varying skill levels
-echo - 60 games per team (240 total games)
-echo - Complete season statistics
-echo - Realistic baseball season (~10-20 minutes)
+echo NOTE: This test uses synthetic teams and has been archived.
+echo For testing, use Option 8 (MLB Database Teams) instead.
+echo.
+echo Files moved to: tests\archive\
 echo.
 pause
-echo.
-python tests\test_league_simulation.py
 goto end
 
 :performance
@@ -182,7 +208,7 @@ python examples\simulate_db_teams.py
 goto end
 
 :invalid
-echo Invalid choice. Please run the script again and select 1-8.
+echo Invalid choice. Please run the script again and select 0-9.
 pause
 exit /b
 
@@ -190,40 +216,14 @@ exit /b
 
 echo.
 echo ========================================
-echo Game Simulation Complete!
+echo Simulation Complete!
 echo ========================================
 echo.
-echo The baseball physics simulator can now simulate complete games
-echo with realistic outcomes based on player attributes and physics.
+echo RECOMMENDED TESTING WORKFLOW:
+echo   1. Option 8 - Run 5-10 games with MLB teams
+echo   2. Check game_logs/ for detailed output
+echo   3. For physics changes, also run Option 0
 echo.
-echo Key features demonstrated:
-echo - Full game flow from first pitch to final out
-echo - Play-by-play action with physics details
-echo - Realistic hit distributions and distances
-echo - Fielding success based on hang time vs range
-echo - Baserunning advancement based on timing
-echo - Team quality differences affecting outcomes
-echo - REAL MLB player integration (options 5-7)
-echo - Database team selection and simulation (option 8)
-echo.
-echo You can modify team attributes in the code to test different
-echo scenarios or use this as a foundation for more complex
-echo baseball simulations and analysis.
-echo.
-echo ========================================
-echo NEXT STEPS:
-echo ========================================
-echo.
-echo For MLB team simulations:
-echo   - Options 5-7 use real MLB player data
-echo   - Requires: pip install pybaseball pandas
-echo   - Edit examples\simulate_mlb_teams.py for custom matchups
-echo.
-echo For high-performance simulations, run:
-echo   performance_test_suite.bat
-echo.
-echo For documentation, see:
-echo   docs\PERFORMANCE_GUIDE.md
-echo   docs\PYBASEBALL_INTEGRATION.md
+echo See TESTING_STRATEGY.md for full testing guide.
 echo.
 pause

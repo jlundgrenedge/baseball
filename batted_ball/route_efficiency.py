@@ -287,12 +287,12 @@ class RouteEfficiencyAnalyzer:
         # So POSITIVE margin means fielder arrived EARLY (good!)
         # NEGATIVE margin means fielder arrived LATE (bad!)
         
-        # SYNCED with fielding.py 2025-11-25 (rebalanced for BABIP ~0.300)
+        # Probability based on time margin (synced with fielding.py)
         if margin_sec >= 1.0:
-            # Fielder 1.0+ seconds early - very routine
+            # Fielder 1.0+ seconds early - routine
             return 0.95
         elif margin_sec >= 0.5:
-            # Fielder 0.5-1.0s early - routine
+            # Fielder 0.5-1.0s early - routine play
             return 0.92
         elif margin_sec >= 0.2:
             # Fielder 0.2-0.5s early - solid play

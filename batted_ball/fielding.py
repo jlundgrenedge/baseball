@@ -849,7 +849,7 @@ class Fielder:
             if misplay_roll < 0.015:  # 1.5% chance
                 # Misplay occurred - reduce probability significantly (to ~50-70%)
                 probability *= np.random.uniform(0.50, 0.70)
-
+        
         return probability
 
     def calculate_fielding_error_probability(self, ball_position: FieldPosition,

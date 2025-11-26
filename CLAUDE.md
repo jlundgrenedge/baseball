@@ -603,76 +603,59 @@ The `stats_converter.py` module maps MLB statistics to game attributes:
 
 ## Testing Conventions
 
-### Test Organization
+> **⚠️ IMPORTANT**: See `TESTING_STRATEGY.md` for the current testing philosophy.
+> The simulation is designed to model real MLB baseball - test with real teams.
 
-**Unit/Physics Tests** (`tests/test_*.py`):
-- Direct physics validation (trajectories, contact, pitching)
-- Pattern: Import module → run simulation → assert expected range
-- Example: `test_physics.py`, `test_contact_stats.py`
-
-**Game Tests**:
-- Full game simulations with stat verification
-- Pattern: Create teams → simulate games → check stat distributions
-- Example: `test_league_simulation.py` (8 teams, 60 games each = 240 games)
-
-**Performance Tests**:
-- Speed benchmarking and accuracy validation
-- Pattern: Run with different modes → measure time → check accuracy delta
-- Example: `test_performance_benchmarks.py` (16,566 lines!)
-
-### Running Tests
+### Primary Testing Method: MLB Database Games
 
 ```bash
-# Physics validation (MUST pass 7/7 before committing)
-python -m batted_ball.validation
+game_simulation.bat → Option 8 → Select teams → 5-10 games
+```
 
-# Unit tests
-pytest tests/
+**This is your main testing workflow.** Uses real MLB teams from the database.
 
-# Quick game test
+- **Recommended**: 5-10 games (fast, still statistically meaningful)
+- **Time**: 5-10 games ≈ 1-3 minutes
+- **Output**: Game logs saved to `game_logs/` folder
+- **Never run more than 10 games** - it's slow and unnecessary
+
+### Physics Validation (Required for physics changes)
+
+```bash
+python -m batted_ball.validation  # Must pass 7/7 tests
+```
+
+Only run this when modifying physics code (`constants.py`, `aerodynamics.py`, etc.)
+
+### Quick Smoke Test (optional)
+
+```bash
 python examples/quick_game_test.py
-
-# Performance benchmarking
-python performance_test_suite.py
-
-# League simulation (slower, ~5-10 minutes)
-python tests/test_league_simulation_quick.py
 ```
 
-### Test Patterns
+Basic sanity check that game flow works (~10 seconds).
 
-**Physics Test Pattern**:
-```python
-from batted_ball import BattedBallSimulator
+### Tests to AVOID
 
-def test_exit_velocity_effect():
-    sim = BattedBallSimulator()
+These tests use synthetic `create_test_team()` and don't reflect real MLB gameplay:
 
-    # Test at 95 mph
-    r1 = sim.simulate(exit_velocity=95, launch_angle=28, ...)
+| Test | Problem |
+|------|---------|
+| `test_league_simulation.py` | 240 games with fake teams |
+| `test_league_simulation_quick.py` | 112 games with fake teams |
+| `test_parallel_*.py` | Performance only, fake teams |
+| `test_*_tuning.py` | Outdated calibration, fake teams |
 
-    # Test at 100 mph (+5 mph)
-    r2 = sim.simulate(exit_velocity=100, launch_angle=28, ...)
+### Expected Game Stats (per 9 innings, 2-team combined)
 
-    # Expect ~25 ft increase (5 mph × 5 ft/mph)
-    assert 23 < (r2.distance - r1.distance) < 27
-```
-
-**Game Test Pattern**:
-```python
-from batted_ball import create_test_team, GameSimulator
-
-def test_game_simulation():
-    home = create_test_team("Home", quality="good")
-    away = create_test_team("Away", quality="average")
-
-    sim = GameSimulator(away, home, verbose=False)
-    final = sim.simulate_game(num_innings=9)
-
-    # Verify reasonable scores (0-15 runs typical)
-    assert 0 <= final.home_score <= 20
-    assert 0 <= final.away_score <= 20
-```
+| Metric | Expected Range | Red Flag |
+|--------|----------------|----------|
+| Runs | 8-10 | < 4 or > 16 |
+| Hits | 15-20 | < 10 or > 28 |
+| K% | 20-28% | < 15% or > 35% |
+| BB% | 8-12% | < 4% or > 18% |
+| HR | 2-4 | 0 in 5 games or > 8 |
+| BABIP | .280-.320 | < .200 or > .400 |
 
 ---
 

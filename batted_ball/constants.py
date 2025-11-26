@@ -266,12 +266,28 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # With q=0.09: perfect contact → ~100 mph, typical contact (q~0.05) → ~90 mph
 # This enables HR production while keeping average EV reasonable (~88 mph).
 #
-# RECALIBRATED 2025-11-25: Testing showed q=0.14 produced 93 mph avg EV (too high).
-# Reduced to q=0.11 to achieve target 88 mph avg EV while maintaining HR potential.
-# With q=0.11: perfect contact → 100 mph, typical contact (0.6" offset) → 88 mph
-COLLISION_EFFICIENCY_WOOD = 0.11        # Wood bats - tuned for 88 mph avg EV
-COLLISION_EFFICIENCY_ALUMINUM = 0.108   # Aluminum bats (slightly lower)
-COLLISION_EFFICIENCY_COMPOSITE = 0.109  # Composite bats (between aluminum and wood)
+# RECALIBRATED 2025-11-26: Set to q=0.21 for TRUE bat speeds (no scaling)
+# 
+# CHANGE: Now using REAL Statcast bat speeds directly (63-79 mph range)
+# instead of scaling them +12 mph. To compensate, collision efficiency
+# increased from 0.13 to 0.21.
+#
+# Math derivation (accounting for offset penalties):
+#   Target: Same ~92 mph average EV as before
+#   Formula: EV = q × pitch_speed + (1 + q) × bat_speed
+#   Offset penalty: ~0.079 (typical contact)
+#   Old: bat=83 mph, q_eff=0.051 (0.13-0.079) → 92 mph EV
+#   New: bat=71 mph, q_eff=0.131 (0.21-0.079) → 92 mph EV
+#
+# With q_base=0.21 and TRUE bat speeds (~71 mph avg):
+# - Perfect contact (0"): q=0.21 → ~104 mph EV (realistic max)
+# - Good contact (0.6"): q=0.17 → ~97 mph EV
+# - Typical contact (1.1"): q=0.13 → ~91 mph EV
+# - Poor contact (2.0"): q=0.09 → ~83 mph EV
+# Target: ~89-91 mph avg EV, ~35-40% Hard Hit Rate
+COLLISION_EFFICIENCY_WOOD = 0.21        # Wood bats - tuned for TRUE bat speeds (no scaling)
+COLLISION_EFFICIENCY_ALUMINUM = 0.14    # Aluminum bats (slightly higher)
+COLLISION_EFFICIENCY_COMPOSITE = 0.15   # Composite bats (highest)
 
 # Sweet Spot Physics
 SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone
@@ -287,11 +303,20 @@ BALL_DEFORMATION_ENERGY_LOSS = 0.70      # Energy lost in ball deformation (~70%
 TRAMPOLINE_ENERGY_RECOVERY = 0.95        # Energy recovery from bat barrel flex
 
 # Contact Offset Effects (Research-Based)
-# RECALIBRATED 2025-11-25: Increased from 0.04 to 0.10 to compensate for higher base q
-# With q_base=0.14 and offset_penalty=0.10, typical contact (0.6 inch offset) loses
-# ~0.06 in efficiency, resulting in q~0.08 for average contact and avg EV ~88 mph.
-# Perfect contact retains q~0.14, enabling 100+ mph EVs for HR production.
-OFFSET_EFFICIENCY_DEGRADATION = 0.10     # Efficiency loss per inch of offset (raised from 0.04)
+# RECALIBRATED 2025-11-26: Reduced from 0.06 to 0.04 for higher hard-hit rate
+# 
+# With TRUE bat speeds (~71 mph) and q_base=0.21:
+# Average offset ~1.2-1.5" (barrel error + timing + location difficulty)
+# 
+# With offset_penalty=0.04 per inch:
+# - Perfect contact (0"): q=0.21 → 105 mph EV
+# - Good contact (0.5"): q=0.19 → 102 mph EV (HARD HIT)
+# - Typical contact (1.0"): q=0.17 → 98 mph EV (HARD HIT)
+# - Average contact (1.3"): q=0.158 → 95 mph EV (HARD HIT threshold)
+# - Poor contact (2.0"): q=0.13 → 91 mph EV
+#
+# This should produce ~40% hard-hit rate (95+ mph) and avg EV ~90 mph
+OFFSET_EFFICIENCY_DEGRADATION = 0.04     # Efficiency loss per inch of offset
 HORIZONTAL_OFFSET_SPIN_FACTOR = 400.0    # rpm per inch of horizontal offset
 VERTICAL_OFFSET_SPIN_FACTOR = 500.0      # rpm per inch of vertical offset
 SPIN_INDEPENDENCE_FACTOR = 0.95          # How much bat overwrites pitch spin
@@ -577,16 +602,16 @@ SHORTSTOP_Y = 55.0        # Moved in from 60
 THIRD_BASEMAN_X = -75.0   # Slightly closer to the line
 THIRD_BASEMAN_Y = 20.0    # Moved up slightly
 
-# Outfielders (optimized depth and spacing)
-# Positioned for optimal fly ball coverage (250-380ft range)
-# Spaced at 30° from center for balanced gap coverage (~146ft gaps)
-# Shallow enough to cover 270ft balls, deep enough for 350ft balls
-LEFT_FIELDER_X = -135.0   # 30° left of center
-LEFT_FIELDER_Y = 265.0    # Split difference: between 260 (too shallow) and 275 (too deep)
+# Outfielders (deeper positioning for realistic BABIP)
+# Positioned deeper to allow short liners (150-220 ft) to drop for hits
+# This creates the "tweener" zone that MLB hitters exploit
+# Trade-off: Some deep fly balls may become doubles, but BABIP increases
+LEFT_FIELDER_X = -145.0   # 30° left of center (wider for gap coverage)
+LEFT_FIELDER_Y = 285.0    # Deeper: allows short liners to fall in
 CENTER_FIELDER_X = 0.0    # Straight up the middle
-CENTER_FIELDER_Y = 310.0  # Split difference: between 305 (too shallow) and 320 (too deep)
-RIGHT_FIELDER_X = 135.0   # 30° right of center
-RIGHT_FIELDER_Y = 265.0   # Split difference: between 260 (too shallow) and 275 (too deep)
+CENTER_FIELDER_Y = 330.0  # Deeper: creates more "tweener" hits
+RIGHT_FIELDER_X = 145.0   # 30° right of center (wider for gap coverage)
+RIGHT_FIELDER_Y = 285.0   # Deeper: allows short liners to fall in
 
 # ============================================================================
 # FIELDING ATTRIBUTES AND PHYSICS

@@ -120,7 +120,9 @@ class HitterAttributes:
         SWING_DECISION_LATENCY: float = 50000,
         ZONE_DISCERNMENT: float = 50000,
         VISION: float = 50000,  # PHASE 2A: Pitch tracking ability (contact frequency)
-        SPRAY_TENDENCY: float = 50000
+        SPRAY_TENDENCY: float = 50000,
+        actual_bat_speed_mph: float = None,  # PHASE 3: Direct Statcast bat speed
+        actual_barrel_accuracy_mm: float = None,  # PHASE 3: Derived from squared-up rate
     ):
         """Initialize hitter attributes (default: league average = 50,000)
 
@@ -130,6 +132,10 @@ class HitterAttributes:
         - BARREL_ACCURACY affects exit velo/launch angle (contact quality)
         - Power hitters can have low VISION (high K%) and high power (high HR)
         - Contact hitters can have high VISION (low K%) and low power (low HR)
+        
+        PHASE 3 NEW: Direct Statcast data
+        - actual_bat_speed_mph: If provided, use this instead of deriving from BAT_SPEED rating
+        - actual_barrel_accuracy_mm: If provided, use this instead of deriving from BARREL_ACCURACY rating
         """
         self.BAT_SPEED = np.clip(BAT_SPEED, 0, 100000)
         self.ATTACK_ANGLE_CONTROL = np.clip(ATTACK_ANGLE_CONTROL, 0, 100000)
@@ -143,10 +149,17 @@ class HitterAttributes:
         self.ZONE_DISCERNMENT = np.clip(ZONE_DISCERNMENT, 0, 100000)
         self.VISION = np.clip(VISION, 0, 100000)  # PHASE 2A: NEW
         self.SPRAY_TENDENCY = np.clip(SPRAY_TENDENCY, 0, 100000)
+        
+        # PHASE 3: Direct Statcast measurements (override derived values when available)
+        self._actual_bat_speed_mph = actual_bat_speed_mph
+        self._actual_barrel_accuracy_mm = actual_barrel_accuracy_mm
 
     def get_bat_speed_mph(self) -> float:
         """
         Convert BAT_SPEED rating to barrel speed (mph).
+        
+        PHASE 3 UPDATE: If actual_bat_speed_mph was provided (from Statcast bat tracking),
+        use that directly instead of deriving from rating. This uses real measured data.
 
         Anchors (recalibrated 2025-11-19 to fix low exit velocities):
         - 0: 60 mph (minimum MLB capability - raised from 52 mph)
@@ -158,6 +171,11 @@ class HitterAttributes:
         far below MLB average of 88 mph. New mapping produces 85-95 mph exit velocities
         with same collision efficiencies, enabling realistic power hitting and home runs.
         """
+        # PHASE 3: Use actual Statcast bat speed if available
+        if self._actual_bat_speed_mph is not None:
+            return self._actual_bat_speed_mph
+        
+        # Fallback: derive from BAT_SPEED rating
         return piecewise_logistic_map(
             self.BAT_SPEED,
             human_min=60.0,  # Raised from 52.0
@@ -210,6 +228,9 @@ class HitterAttributes:
     def get_barrel_accuracy_mm(self) -> float:
         """
         Convert BARREL_ACCURACY to radial contact-point error (mm RMS).
+        
+        PHASE 3 UPDATE: If actual_barrel_accuracy_mm was provided (derived from
+        Statcast squared_up_rate), use that directly instead of deriving from rating.
 
         Lower = closer to sweet spot consistently
 
@@ -222,6 +243,11 @@ class HitterAttributes:
         Previous mapping (5mm at 85k = 0.2") was too accurate, producing 100+ mph
         avg EV for elite hitters. Real MLB elite hitters average ~95 mph.
         """
+        # PHASE 3: Use actual barrel accuracy if available (from squared_up_rate)
+        if self._actual_barrel_accuracy_mm is not None:
+            return self._actual_barrel_accuracy_mm
+        
+        # Fallback: derive from BARREL_ACCURACY rating
         return piecewise_logistic_map_inverse(
             self.BARREL_ACCURACY,
             human_min=10.0,  # Elite: 0.4" offset → ~95 mph avg EV

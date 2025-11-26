@@ -1,20 +1,32 @@
 # Baseball Physics Simulator - AI Developer Guide
 
 > **⚠️ PHYSICS-FIRST**: All gameplay emerges from physical parameters (exit velocity, sprint speed, throw times), NOT statistical probabilities. Changes must preserve 7/7 validation tests against MLB data.
+>
+> **⚠️ TEST WITH MLB DATA**: Use real MLB teams from the database, NOT synthetic `create_test_team()`. The simulation's purpose is modeling real baseball.
 
 ## Quick Start
 
-```python
-# Simulate a full game
-from batted_ball.game_simulation import create_test_team, GameSimulator
-home = create_test_team("Home", quality="good")
-away = create_test_team("Away", quality="average")
-sim = GameSimulator(away, home, verbose=True)
-result = sim.simulate_game(num_innings=9)
+```bash
+# PRIMARY TESTING METHOD - Real MLB teams from database
+game_simulation.bat → Option 8 → Select teams → 5-10 games
 
-# Validate physics changes (REQUIRED after any physics modification)
+# Physics validation (REQUIRED for physics changes only)
 python -m batted_ball.validation  # Must pass 7/7 tests
 ```
+
+**Never run more than 10 games for testing** - it's slow and unnecessary. 5-10 games provides sufficient statistical signal.
+
+## Testing Strategy (IMPORTANT)
+
+See `TESTING_STRATEGY.md` for full details. Summary:
+
+| Test Type | Command | When |
+|-----------|---------|------|
+| **Physics validation** | `python -m batted_ball.validation` | Physics changes (7/7 required) |
+| **MLB games** | `game_simulation.bat` → Option 8 → 5-10 games | **ALL other testing** |
+| Quick smoke test | `python examples/quick_game_test.py` | Sanity check only |
+
+**DO NOT** use `create_test_team()` for testing. It creates synthetic teams that don't reflect real MLB gameplay.
 
 ## Architecture
 
@@ -23,13 +35,13 @@ python -m batted_ball.validation  # Must pass 7/7 tests
 2. **Contact/Pitch**: `contact.py`, `pitch.py` (8 pitch types with spin)
 3. **Actions**: `at_bat.py`, `fielding.py`, `baserunning.py`
 4. **Play/Game**: `play_simulation.py` → `game_simulation.py`
-5. **Optional**: `database/` (MLB data via pybaseball), `series_metrics.py`, `ballpark.py`
+5. **Database**: `database/` (MLB data via pybaseball) - **PRIMARY data source**
 
 **Key Files**:
 - `constants.py`: ALL empirical coefficients (MLB Statcast-calibrated) - modify here for physics tuning
 - `attributes.py`: 0-100,000 scale → physics via `piecewise_logistic_map()` (85k = elite human cap)
 - `validation.py`: 7 benchmark tests - exit velocity, launch angle, altitude, backspin, temperature effects
-- `fielding.py`: Largest file (1,479 lines) - fielder movement, catching, throwing physics
+- `database/`: Real MLB player data - **use this for testing**
 
 ## Critical Conventions
 
@@ -47,18 +59,6 @@ python -m batted_ball.validation  # Must pass 7/7 tests
 - **External API**: Baseball units (ft, mph, degrees) for all user-facing code
 - Conversions via `MPH_TO_MS`, `FEET_TO_METERS` in constants.py - handled automatically
 
-### Correct Imports (Common Mistakes)
-```python
-# ✓ CORRECT
-from batted_ball.game_simulation import create_test_team, GameSimulator, Team
-from batted_ball.play_simulation import PlaySimulator, create_standard_defense
-from batted_ball.at_bat import AtBatSimulator
-
-# ✗ WRONG - these don't exist in these modules
-# from batted_ball.player import create_test_team
-# from batted_ball.fielding import create_standard_defense
-```
-
 ### API Patterns
 ```python
 # Team access: use plural + index
@@ -72,76 +72,61 @@ if play_result.outcome == PlayOutcome.SINGLE:  # ✓ Enum comparison
 result = simulator.simulate_at_bat()  # ✓ NOT .simulate()
 ```
 
-## Testing & Validation
+## Expected Game Stats (per 9 innings, 2-team combined)
 
-```bash
-python -m batted_ball.validation          # 7 physics benchmarks (MUST pass)
-python examples/game_simulation_demo.py   # Full game demo
-python test_full_game.py                  # Quick 9-inning test
-```
-
-**Expected Game Stats** (per 9 innings): Runs ~9.0, Hits ~17.0, HR ~2.2, BABIP ~.300, K% ~20-25%
+| Metric | Expected Range | Red Flag |
+|--------|----------------|----------|
+| Runs | 8-10 | < 4 or > 16 |
+| Hits | 15-20 | < 10 or > 28 |
+| K% | 20-28% | < 15% or > 35% |
+| BB% | 8-12% | < 4% or > 18% |
+| HR | 2-4 | 0 in 5 games or > 8 |
+| BABIP | .280-.320 | < .200 or > .400 |
 
 ## Common Bugs & Fixes
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| Import errors for `create_test_team` | Wrong module | Use `batted_ball.game_simulation` |
 | `'Team' has no attribute 'pitcher'` | Wrong attribute | Use `team.pitchers[0]` |
 | Runners not advancing | Margin calc from wrong base | Use `decide_runner_advancement()` |
 | 0 runs with many hits | Runner placement order | Get existing runners BEFORE placing batter |
 | Fielders running wrong way | Velocity coord mismatch | Use `convert_velocity_trajectory_to_field()` |
 
-## Performance Modes
+## Development Workflow
 
-```python
-# Standard: DT=0.001s (accurate, 30-60s per game)
-sim = AtBatSimulator(pitcher, hitter)
+### For Physics Changes
+1. Make change in `constants.py`, `aerodynamics.py`, etc.
+2. Run: `python -m batted_ball.validation` (must pass 7/7)
+3. Run: `game_simulation.bat` → Option 8 → 5 games with MLB teams
+4. Check game log in `game_logs/` for realistic stats
 
-# Fast: DT=0.002s (2x speedup, <1% accuracy loss)
-sim = AtBatSimulator(pitcher, hitter, fast_mode=True)
+### For Game Logic Changes
+1. Make change in `game_simulation.py`, `at_bat.py`, etc.
+2. Run: `game_simulation.bat` → Option 8 → 5-10 games
+3. Review log output for expected behavior
 
-# UltraFast: 10x speedup for bulk sims
-from batted_ball.performance import UltraFastMode
-with UltraFastMode():
-    sim.simulate_game(num_innings=9)
-```
-
-## Adding Features
-
-1. Add physics to appropriate layer module
-2. Add coefficients to `constants.py` with MLB data source
-3. Run `python -m batted_ball.validation` (7/7 required)
-4. Add factory function if needed
-5. Document in `docs/` folder
+### For Bug Fixes
+1. Reproduce with MLB teams (5 games)
+2. Fix the bug
+3. Verify with MLB teams (5 games)
 
 ## Git Workflow
 
-**Work directly on `master`** - no feature branches needed. Validate before pushing:
+**Work directly on `master`** - no feature branches needed.
 
 ```bash
-# Before committing any physics changes:
+# Before committing physics changes:
 python -m batted_ball.validation   # Must pass 7/7
-python test_full_game.py           # Verify realistic game stats
 
 # Standard commit flow:
 git add <files>
-git commit -m "Brief description of change"
+git commit -m "Brief description"
 git push origin master
-```
-
-**Commit message format**: Include validation status for physics changes:
-```
-Adjusted drag coefficient for line drives
-
-- Modified CD_BASE in constants.py
-- Validation: 7/7 tests passing
-- Source: MLB Statcast 2024 data
 ```
 
 ## Key Resources
 
-- **Full AI guide**: `CLAUDE.md` (comprehensive 1500+ line reference)
-- **Physics research**: `research/` folder (empirical basis for coefficients)
-- **Examples**: `examples/game_simulation_demo.py`, `examples/basic_simulation.py`
-- **Recent docs**: Check `docs/` file dates - newer = current implementation
+- **Testing strategy**: `TESTING_STRATEGY.md` - How to test properly
+- **Full AI guide**: `CLAUDE.md` - Comprehensive reference
+- **Physics research**: `research/` - Empirical basis for coefficients
+- **Game logs**: `game_logs/` - Output from test runs
