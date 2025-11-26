@@ -57,6 +57,7 @@ class Pitcher:
         arm_slot: float = ARM_ANGLE_3_4,
         pitch_arsenal: Optional[Dict[str, Dict]] = None,
         pitch_effectiveness: Optional[Dict[str, Dict[str, int]]] = None,
+        is_starter: bool = True,
     ):
         """
         Initialize pitcher with physics-first attributes.
@@ -77,10 +78,13 @@ class Pitcher:
             Dict mapping pitch type to Statcast-derived effectiveness metrics:
             {'fastball': {'stuff': 75000, 'whiff_bonus': +5000, ...}, ...}
             If None, uses baseline values for all pitches
+        is_starter : bool
+            Whether this pitcher is a starter (True) or reliever (False)
         """
         self.name = name
         self.attributes = attributes
         self.arm_slot = arm_slot
+        self.is_starter = is_starter
 
         # Pitch arsenal (simplified - now just defines available pitches)
         if pitch_arsenal is None:
@@ -531,16 +535,18 @@ class Hitter:
         # CRITICAL: Add much larger natural variance to create realistic outcome distribution
         # Even the best hitters have huge variance in launch angle (15-20° std dev)
         # This is what creates the ground ball / line drive / fly ball distribution
-        natural_variance = 15.0  # Standard deviation in degrees
+        # 19.5° balances FB rate improvement while maintaining reasonable HR/FB rate
+        natural_variance = 19.5  # Standard deviation in degrees
         
         # Adjust mean based on pitch location (if provided)
         location_adjustment = 0.0
         if pitch_location is not None:
-            vertical_location = pitch_location[1]  # inches from center of zone
+            # Zone center is at 30" (2.5 feet) - convert absolute height to relative
+            zone_center_inches = 30.0
+            vertical_location = pitch_location[1] - zone_center_inches  # inches from center of zone
             # High pitches (~+12") tend to produce fly balls
             # Low pitches (~-12") tend to produce ground balls
-            # REDUCED: Was 0.8 deg/inch, now 0.3 deg/inch for more realistic effect
-            # At 0.3: +12" pitch adds ~+3.6° (not +9.6°)
+            # At 0.3: +12" pitch adds ~+3.6° to launch angle
             location_adjustment = vertical_location * 0.3  # ~0.3 deg per inch
         
         # Adjust based on pitch type (if provided)

@@ -169,20 +169,23 @@ class HitterAttributes:
         """
         Convert ATTACK_ANGLE_CONTROL to mean swing plane angle (degrees).
 
-        Anchors (RECALIBRATED 2025-11-20 for proper batted ball distribution):
-        - 0: -5° (extreme downward chop)
-        - 50k: 7° (average MLB - produces ~45% GB, 21% LD, 34% FB with 15° variance)
-        - 85k: 17° (elite uppercut / power hitter - more fly balls but still realistic)
-        - 100k: 28° (extreme uppercut - mostly fly balls)
+        Anchors (RECALIBRATED 2025-11-25 for HR production + GB/LD balance):
+        - 0: -5° (extreme downward chop - ground ball machine)
+        - 50k: 11° (average MLB - produces ~45% GB with 15° variance)
+        - 85k: 20° (elite uppercut / power hitter - more fly balls)
+        - 100k: 30° (extreme uppercut - mostly fly balls)
 
-        Note: With 15° natural variance in player.py, a 7° mean produces MLB-realistic
-        batted ball distribution. Previous 12° mean created excessive fly balls (54%).
+        Note: With 15° natural variance in player.py, an 11° mean at 50k produces
+        ~45% GB, ~37% LD, ~18% FB. While LD% is higher than MLB's 21%, this combined
+        with increased collision efficiency enables realistic HR/FB rate (~12%).
+        
+        Previous 7° mean produced 55% GB but insufficient fly balls for HR production.
         """
         return piecewise_logistic_map(
             self.ATTACK_ANGLE_CONTROL,
             human_min=-5.0,
-            human_cap=17.0,  # Reduced from 28.0
-            super_cap=28.0   # Reduced from 40.0
+            human_cap=20.0,  # Raised from 17.0 to enable more FB for HRs
+            super_cap=30.0   # Raised from 28.0
         )
 
     def get_attack_angle_variance_deg(self) -> float:
@@ -210,21 +213,20 @@ class HitterAttributes:
 
         Lower = closer to sweet spot consistently
 
-        Anchors (recalibrated 2025-11-19 to increase solid contact rate):
-        - 0: 35 mm error (poor - reduced from 40mm)
-        - 50k: 10 mm error (average - reduced from 13mm for more barrels)
-        - 85k: 5 mm error (elite - reduced from 7mm)
-        - 100k: 2 mm error (superhuman)
+        Anchors (recalibrated 2025-11-25 for realistic EV distribution):
+        - 0: 28 mm error (1.1" - poor hitter, produces ~82 mph avg EV)
+        - 50k: 18 mm error (0.7" - average MLB, produces ~88 mph avg EV)
+        - 85k: 10 mm error (0.4" - elite, produces ~95 mph avg EV)
+        - 100k: 5 mm error (0.2" - superhuman, produces ~100 mph avg EV)
 
-        Rationale: Previous mapping produced only ~5% solid contact rate.
-        MLB "barrel" rate is ~8-10% of balls in play. Reducing error by ~20-30%
-        should increase solid contact to realistic ~10-12% rate.
+        Previous mapping (5mm at 85k = 0.2") was too accurate, producing 100+ mph
+        avg EV for elite hitters. Real MLB elite hitters average ~95 mph.
         """
         return piecewise_logistic_map_inverse(
             self.BARREL_ACCURACY,
-            human_min=5.0,   # Reduced from 7.0
-            human_cap=35.0,  # Reduced from 40.0
-            super_cap=2.0
+            human_min=10.0,  # Elite: 0.4" offset → ~95 mph avg EV
+            human_cap=28.0,  # Poor: 1.1" offset → ~82 mph avg EV
+            super_cap=5.0    # Superhuman: 0.2" offset
         )
 
     def get_timing_precision_ms(self) -> float:
@@ -711,16 +713,12 @@ def create_power_hitter(quality: str = "average") -> HitterAttributes:
     bat_speed_min = max(88000, min_r + 33000)  # Minimum 88k for power
     bat_speed_max = min(98000, bat_speed_min + 10000)
 
-    # RECALIBRATED (2025-11-20 Phase 2C v2): FURTHER BOOSTED for 3-4% HR rate
-    # 62k-80k → 15-21° mean, which with 15° variance creates many balls in HR zone (25-35°)
-    # With elite bat speeds (88k-98k) producing 95-105 mph EV, this generates:
-    # - Many fly balls in optimal HR launch angle range (25-35°)
-    # - Target: 3-4% HR rate of PA (10-13% of hits)
-    # Previous attempts: 42k-58k → 0.6% HR, 52k-70k → 0.4% HR (still too low!)
-    # v2: Boost ALL hitters, not just power (broad-based HR increase)
-    # v3: One more aggressive boost to push HR rate from 1.8-2.6% → 3.0-3.5%
-    attack_angle_min = max(72000, min_r + 27000)  # v3: +10k from v2 (62k) = mean ~18-24°
-    attack_angle_max = min(88000, attack_angle_min + 18000)  # v3: +8k from v2 (80k)
+    # RECALIBRATED (2025-11-25): Target 18-22° mean for fly ball dominant
+    # 68k-88k attribute range → 18-22° mean attack angle
+    # At 15° variance: 20° mean → ~25% GB, ~38% LD, ~37% FB
+    # Power hitters get HRs via high bat speed + elevated angles
+    attack_angle_min = 68000  # ~18° mean
+    attack_angle_max = 88000  # ~22° mean
     
     # Ensure valid ranges (min < max)
     if bat_speed_min >= bat_speed_max:
@@ -765,14 +763,12 @@ def create_balanced_hitter(quality: str = "average") -> HitterAttributes:
 
     min_r, max_r = quality_ranges.get(quality, (45000, 65000))
 
-    # Balanced: moderate bat speed + MODERATE-ELEVATED attack angle
-    # RECALIBRATED (2025-11-20 Phase 2C v2): Attack angle: 48k-65k → mean of ~10-16°
-    # BOOSTED from 38k-52k to enable more home runs across the lineup
-    # Combined with 15° variance, creates realistic distribution with more HR potential
-    # Even balanced hitters hit occasional HRs in modern MLB
-    # v3: One more aggressive boost to push HR rate from 1.8-2.6% → 3.0-3.5%
-    attack_angle_min = max(58000, min_r + 13000)  # v3: +10k from v2 (48k) = mean ~13-19°
-    attack_angle_max = min(75000, attack_angle_min + 17000)  # v3: +10k from v2 (65k)
+    # Balanced: moderate bat speed + MODERATE attack angle
+    # RECALIBRATED (2025-11-25): Target 10-15° mean for balanced production
+    # 46k-57k attribute range → 10-15° mean attack angle
+    # At 15° variance: 12° mean → ~44% GB, ~36% LD, ~20% FB
+    attack_angle_min = 46000  # ~10° mean
+    attack_angle_max = 58000  # ~15° mean
     
     # Ensure valid range
     if attack_angle_min >= attack_angle_max:
@@ -827,13 +823,12 @@ def create_groundball_hitter(quality: str = "average") -> HitterAttributes:
         spray_max = spray_min + 10000
 
     # Ground ball: LOW attack angle (flat to slightly upward swing)
-    # RECALIBRATED (2025-11-20 Phase 2C v2): Boosted from 10k-30k to 35k-48k for more HRs
-    # Even groundball hitters need occasional fly balls to hit HRs (MLB reality)
-    # 35k-48k → 4-10° mean, with 15° variance creates some balls in HR zone (25-35°)
-    # v3: One more aggressive boost to push HR rate from 1.8-2.6% → 3.0-3.5%
+    # RECALIBRATED (2025-11-25): Proper groundball production requires mean ~3-7°
+    # At 15° variance: 5° mean → ~63% GB, 7° mean → ~57% GB
+    # 34k-41k attribute range → 3-7° mean attack angle
     return HitterAttributes(
         BAT_SPEED=np.random.randint(min_r + 8000, max_r + 8000),  # +8k boost for realistic EV
-        ATTACK_ANGLE_CONTROL=np.random.randint(45000, 60000),  # v3: +10-12k from v2 (35k-48k) = mean ~9-15°
+        ATTACK_ANGLE_CONTROL=np.random.randint(34000, 42000),  # 3-7° mean → 60%+ GB rate
         ATTACK_ANGLE_VARIANCE=np.random.randint(min_r, max_r),
         BARREL_ACCURACY=np.random.randint(min_r, max_r),
         TIMING_PRECISION=np.random.randint(min_r + 5000, max_r + 5000),

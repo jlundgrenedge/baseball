@@ -52,7 +52,9 @@ class TeamLoader:
         team_name: str,
         season: int = 2024,
         max_pitchers: int = 9,
-        max_hitters: int = 9
+        max_hitters: int = 9,
+        num_starters: int = 5,
+        num_relievers: int = 4
     ) -> Optional[Team]:
         """
         Load a team from the database for simulation.
@@ -64,9 +66,13 @@ class TeamLoader:
         season : int
             Season year
         max_pitchers : int
-            Maximum number of pitchers to include (top N by innings)
+            Maximum number of pitchers to include (total)
         max_hitters : int
             Maximum number of hitters to include (by batting order)
+        num_starters : int
+            Number of starting pitchers to include (default 5)
+        num_relievers : int
+            Number of relief pitchers to include (default 4)
 
         Returns
         -------
@@ -80,8 +86,19 @@ class TeamLoader:
             return None
 
         team_info = team_data['team_info']
-        pitcher_records = team_data['pitchers'][:max_pitchers]
+        all_pitcher_records = team_data['pitchers']
         hitter_records = team_data['hitters'][:max_hitters]
+
+        # Split pitchers into starters and relievers based on is_starter flag
+        starter_records = [p for p in all_pitcher_records if p.get('is_starter', 0)]
+        reliever_records = [p for p in all_pitcher_records if not p.get('is_starter', 0)]
+        
+        # Take the requested number of each, sorted by innings pitched
+        starter_records = sorted(starter_records, key=lambda p: p.get('innings_pitched', 0) or 0, reverse=True)[:num_starters]
+        reliever_records = sorted(reliever_records, key=lambda p: p.get('innings_pitched', 0) or 0, reverse=True)[:num_relievers]
+        
+        # Combine: starters first, then relievers
+        pitcher_records = starter_records + reliever_records
 
         # Convert pitchers
         pitchers = []
@@ -181,17 +198,24 @@ class TeamLoader:
             NIBBLING_TENDENCY=nibbling_attr,  # Converted from 0.0-1.0 to 0-100k
         )
 
+        # Determine if starter based on is_starter flag from team_rosters
+        # Fallback: use games_pitched heuristic if flag not available
+        is_starter = record.get('is_starter', 0)
+        if is_starter is None:
+            is_starter = record.get('games_pitched', 0) > 15
+
         # Generate realistic pitch arsenal based on velocity/movement
         arsenal = generate_pitch_arsenal(
             attrs,
-            role="starter" if record.get('games_pitched', 0) > 15 else "reliever"
+            role="starter" if is_starter else "reliever"
         )
 
-        # Create Pitcher
+        # Create Pitcher with is_starter flag
         pitcher = Pitcher(
             name=record['player_name'],
             attributes=attrs,
-            pitch_arsenal=arsenal
+            pitch_arsenal=arsenal,
+            is_starter=bool(is_starter)
         )
 
         return pitcher

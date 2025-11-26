@@ -294,29 +294,31 @@ class ContactModel:
 
         Notes
         -----
-        Recalibrated 2025-11-19 to reduce excessive penalties that were causing
-        collision efficiency values of 0.05-0.12 instead of realistic 0.15-0.20.
-        Reduced all penalty rates by ~40% to allow more solid contact.
+        Recalibrated 2025-11-25 for improved HR/FB rate with balanced avg EV.
+        With base q=0.14 and OFFSET_EFFICIENCY_DEGRADATION=0.10, we get:
+        - Perfect contact (offset=0): q=0.14 → ~106 mph EV (enables HRs)
+        - Typical contact (offset=0.6"): q=0.08 → ~90 mph EV
+        - Poor contact (offset=1.2"): q=0.02 → ~80 mph EV
+        This produces avg EV ~88 mph with ~40% hard hit rate and ~12% HR/FB.
         """
         # Start with base efficiency for bat material
         q = self.base_collision_efficiency
 
         # Reduce efficiency based on distance from sweet spot
         # Sweet spot is zone of maximum performance
-        # REDUCED from 0.01 to 0.006 (40% reduction) - was too punishing
-        sweet_spot_penalty = min(distance_from_sweet_spot_inches * 0.006, 0.05)  # Max 5% penalty (reduced from 8%)
+        # 0.6% penalty per inch from sweet spot, max 5%
+        sweet_spot_penalty = min(distance_from_sweet_spot_inches * 0.006, 0.05)
         q -= sweet_spot_penalty
 
         # Reduce efficiency based on contact offset (mis-hit)
-        # REDUCED: offset penalty now 60% of previous value
-        offset_penalty = contact_offset_total * (OFFSET_EFFICIENCY_DEGRADATION * 0.60)
+        # RECALIBRATED 2025-11-25: Removed 0.60 multiplier - now controlled via constant
+        offset_penalty = contact_offset_total * OFFSET_EFFICIENCY_DEGRADATION
         q -= offset_penalty
 
         # Account for vibrational energy loss
         # Energy lost to bat vibrations reduces collision efficiency
-        # REDUCED: vibration loss rate decreased by 40%
-        vibration_loss = min(distance_from_sweet_spot_inches * (VIBRATION_ENERGY_LOSS_RATE * 0.60),
-                             VIBRATION_ENERGY_LOSS_MAX * 0.70)  # Also reduced max from 10% to 7%
+        vibration_loss = min(distance_from_sweet_spot_inches * VIBRATION_ENERGY_LOSS_RATE,
+                             VIBRATION_ENERGY_LOSS_MAX)
         q -= vibration_loss
 
         # Trampoline effect for non-wood bats

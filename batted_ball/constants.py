@@ -265,9 +265,13 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # With q=0.05, max EV was ~91 mph (no EVs over 95 mph) - too low for HRs.
 # With q=0.09: perfect contact → ~100 mph, typical contact (q~0.05) → ~90 mph
 # This enables HR production while keeping average EV reasonable (~88 mph).
-COLLISION_EFFICIENCY_WOOD = 0.09        # Wood bats - raised for HR production
-COLLISION_EFFICIENCY_ALUMINUM = 0.088   # Aluminum bats (slightly lower)
-COLLISION_EFFICIENCY_COMPOSITE = 0.089  # Composite bats (between aluminum and wood)
+#
+# RECALIBRATED 2025-11-25: Testing showed q=0.14 produced 93 mph avg EV (too high).
+# Reduced to q=0.11 to achieve target 88 mph avg EV while maintaining HR potential.
+# With q=0.11: perfect contact → 100 mph, typical contact (0.6" offset) → 88 mph
+COLLISION_EFFICIENCY_WOOD = 0.11        # Wood bats - tuned for 88 mph avg EV
+COLLISION_EFFICIENCY_ALUMINUM = 0.108   # Aluminum bats (slightly lower)
+COLLISION_EFFICIENCY_COMPOSITE = 0.109  # Composite bats (between aluminum and wood)
 
 # Sweet Spot Physics
 SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone
@@ -283,7 +287,11 @@ BALL_DEFORMATION_ENERGY_LOSS = 0.70      # Energy lost in ball deformation (~70%
 TRAMPOLINE_ENERGY_RECOVERY = 0.95        # Energy recovery from bat barrel flex
 
 # Contact Offset Effects (Research-Based)
-OFFSET_EFFICIENCY_DEGRADATION = 0.04     # Efficiency loss per inch of offset (reduced from 0.08)
+# RECALIBRATED 2025-11-25: Increased from 0.04 to 0.10 to compensate for higher base q
+# With q_base=0.14 and offset_penalty=0.10, typical contact (0.6 inch offset) loses
+# ~0.06 in efficiency, resulting in q~0.08 for average contact and avg EV ~88 mph.
+# Perfect contact retains q~0.14, enabling 100+ mph EVs for HR production.
+OFFSET_EFFICIENCY_DEGRADATION = 0.10     # Efficiency loss per inch of offset (raised from 0.04)
 HORIZONTAL_OFFSET_SPIN_FACTOR = 400.0    # rpm per inch of horizontal offset
 VERTICAL_OFFSET_SPIN_FACTOR = 500.0      # rpm per inch of vertical offset
 SPIN_INDEPENDENCE_FACTOR = 0.95          # How much bat overwrites pitch spin

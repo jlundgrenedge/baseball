@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from batted_ball.database.team_loader import TeamLoader
-from batted_ball.game_simulation import GameSimulator
+from batted_ball.game_simulation import GameSimulator, PitcherRotation
 from batted_ball.series_metrics import SeriesMetrics
 
 
@@ -254,6 +254,20 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
     print(f"  Ballpark: {home_ballpark.title()} (home field)")
     print(f"  Games: {num_games}")
     print(f"  Wind: Enabled (randomized per game)")
+    
+    # Show pitcher rotation info
+    away_starters = away_team.get_starters()[:5]
+    home_starters = home_team.get_starters()[:5]
+    away_relievers = away_team.get_relievers()
+    home_relievers = home_team.get_relievers()
+    print(f"\n  Pitcher Rotation:")
+    print(f"    {away_team.name}: {len(away_starters)} starters, {len(away_relievers)} relievers")
+    for i, p in enumerate(away_starters[:5]):
+        print(f"      SP{i+1}: {p.name}")
+    print(f"    {home_team.name}: {len(home_starters)} starters, {len(home_relievers)} relievers")
+    for i, p in enumerate(home_starters[:5]):
+        print(f"      SP{i+1}: {p.name}")
+    print(f"  Bullpen Usage: Starters go 5 innings, then relievers")
     print()
 
     # Confirm before running
@@ -301,6 +315,11 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
         log_file.write(f"{'='*80}\n\n")
         log_file.flush()
 
+        # Create pitcher rotation managers for each team
+        # Cycles through up to 5 starters across the series
+        away_rotation = PitcherRotation(away_team, num_starters=5)
+        home_rotation = PitcherRotation(home_team, num_starters=5)
+
         for i in range(num_games):
             if num_games > 1:
                 print(f"\nGame {i+1}/{num_games}:")
@@ -312,16 +331,31 @@ def simulate_games(away_team_info: tuple, home_team_info: tuple, num_games: int)
             log_file.write(f"{'#'*80}\n\n")
             log_file.flush()
 
+            # Reset pitcher states for fresh game
+            away_team.reset_pitcher_state()
+            home_team.reset_pitcher_state()
+
+            # Set the starting pitcher for this game (cycles through rotation)
+            away_starter = away_rotation.get_game_starter()
+            home_starter = home_rotation.get_game_starter()
+            away_rotation.set_game_starter(away_team, away_starter)
+            home_rotation.set_game_starter(home_team, home_starter)
+
+            if num_games > 1:
+                print(f"  Starting pitchers: {away_starter.name} vs {home_starter.name}")
+
             # Create simulator with verbose=True and EXHAUSTIVE metrics (level 3)
             # This provides maximum detail for tuning and analysis
             # Uses home team's ballpark and enables wind effects
+            # starter_innings=5 means starter goes 5 innings, then bullpen takes over
             sim = GameSimulator(
                 away_team, 
                 home_team, 
                 verbose=True, 
                 debug_metrics=3,
                 ballpark=home_ballpark,  # Home team's ballpark
-                wind_enabled=True  # Randomized wind per game
+                wind_enabled=True,  # Randomized wind per game
+                starter_innings=5   # Starters go 5 innings, then bullpen
             )
 
             # Capture stdout to write to log file

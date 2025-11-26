@@ -403,12 +403,12 @@ class TeamDatabase:
 
         team_id = team_row['team_id']
 
-        # Get pitchers
+        # Get pitchers with is_starter flag from team_rosters
         cursor.execute("""
-            SELECT p.* FROM pitchers p
+            SELECT p.*, r.is_starter FROM pitchers p
             JOIN team_rosters r ON p.pitcher_id = r.pitcher_id
             WHERE r.team_id = ?
-            ORDER BY p.innings_pitched DESC
+            ORDER BY r.is_starter DESC, p.innings_pitched DESC
         """, (team_id,))
         pitchers = [dict(row) for row in cursor.fetchall()]
 

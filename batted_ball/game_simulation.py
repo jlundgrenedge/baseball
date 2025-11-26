@@ -307,6 +307,121 @@ class Team:
         if 0 <= index < len(self.pitchers):
             self.current_pitcher_index = index
 
+    def get_starters(self) -> List[Pitcher]:
+        """Get list of starting pitchers (those with is_starter=True)"""
+        starters = [p for p in self.pitchers if getattr(p, 'is_starter', True)]
+        # If no starters found (legacy data), treat first 5 as starters
+        if not starters:
+            starters = self.pitchers[:min(5, len(self.pitchers))]
+        return starters
+
+    def get_relievers(self) -> List[Pitcher]:
+        """Get list of relief pitchers (those with is_starter=False)"""
+        relievers = [p for p in self.pitchers if not getattr(p, 'is_starter', True)]
+        # If no relievers found (legacy data), treat remaining pitchers as relievers
+        if not relievers:
+            relievers = self.pitchers[5:] if len(self.pitchers) > 5 else []
+        return relievers
+
+    def get_random_reliever(self) -> Optional[Pitcher]:
+        """Get a random reliever from the bullpen"""
+        relievers = self.get_relievers()
+        if relievers:
+            return random.choice(relievers)
+        # Fallback: if no relievers, return any non-current pitcher
+        available = [p for i, p in enumerate(self.pitchers) if i != self.current_pitcher_index]
+        return random.choice(available) if available else None
+
+    def switch_to_reliever(self) -> Optional[Pitcher]:
+        """Switch to a random reliever and return the new pitcher"""
+        reliever = self.get_random_reliever()
+        if reliever:
+            # Find index of this reliever
+            try:
+                idx = self.pitchers.index(reliever)
+                self.switch_pitcher(idx)
+                return reliever
+            except ValueError:
+                pass
+        return None
+
+    def reset_pitcher_state(self):
+        """Reset all pitchers' state (pitch count, fatigue) for a new game"""
+        for pitcher in self.pitchers:
+            pitcher.pitches_thrown = 0
+
+
+class PitcherRotation:
+    """
+    Manages pitcher rotation across a series of games.
+    
+    Cycles through starters (up to 5) for each game, and handles
+    bullpen usage within games (reliever after 5 innings).
+    """
+    
+    def __init__(self, team: Team, num_starters: int = 5):
+        """
+        Initialize pitcher rotation manager.
+        
+        Parameters
+        ----------
+        team : Team
+            The team to manage rotation for
+        num_starters : int
+            Number of starters to cycle through (default 5)
+        """
+        self.team = team
+        self.starters = team.get_starters()[:num_starters]
+        self.relievers = team.get_relievers()
+        self.current_starter_index = 0
+        
+        # Fallback if not enough starters
+        if len(self.starters) < num_starters:
+            # Add some relievers to starter rotation if needed
+            needed = num_starters - len(self.starters)
+            self.starters.extend(self.relievers[:needed])
+    
+    def get_game_starter(self) -> Pitcher:
+        """
+        Get the starting pitcher for the current game and advance rotation.
+        
+        Returns
+        -------
+        Pitcher
+            The starting pitcher for this game
+        """
+        if not self.starters:
+            return self.team.pitchers[0]  # Fallback
+        
+        starter = self.starters[self.current_starter_index]
+        self.current_starter_index = (self.current_starter_index + 1) % len(self.starters)
+        return starter
+    
+    def set_game_starter(self, team: Team, starter: Pitcher):
+        """
+        Set a specific starter for the team at the start of a game.
+        
+        Parameters
+        ----------
+        team : Team
+            The team to set the starter for
+        starter : Pitcher
+            The pitcher to start
+        """
+        try:
+            idx = team.pitchers.index(starter)
+            team.switch_pitcher(idx)
+            # Reset this pitcher's state for fresh start
+            starter.pitches_thrown = 0
+        except ValueError:
+            pass  # Pitcher not found, keep current
+    
+    def get_random_reliever(self) -> Optional[Pitcher]:
+        """Get a random reliever from the bullpen"""
+        if self.relievers:
+            return random.choice(self.relievers)
+        return None
+
 
 @dataclass
 class PlayByPlayEvent:
@@ -324,7 +439,7 @@ class PlayByPlayEvent:
 class GameSimulator:
     """Simulates a complete baseball game"""
 
-    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True, log_file: str = None, ballpark: str = 'generic', debug_metrics: int = 0, wind_enabled: bool = True):
+    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True, log_file: str = None, ballpark: str = 'generic', debug_metrics: int = 0, wind_enabled: bool = True, starter_innings: int = 0):
         """
         Initialize game simulator.
 
@@ -344,6 +459,10 @@ class GameSimulator:
             Metrics debug level: 0=OFF, 1=BASIC, 2=DETAILED, 3=EXHAUSTIVE
         wind_enabled : bool
             Enable random wind conditions (default: True for Phase 2C)
+        starter_innings : int
+            Number of innings for starting pitcher before bullpen.
+            0 = no automatic changes (default, traditional behavior)
+            5 = starter goes 5 innings, then random relievers each inning
         """
         self.away_team = away_team
         self.home_team = home_team
@@ -352,6 +471,7 @@ class GameSimulator:
         self.ballpark = ballpark
         self.game_state = GameState()
         self.play_by_play: List[PlayByPlayEvent] = []
+        self.starter_innings = starter_innings  # When to switch to bullpen
 
         # Generate random wind conditions for this game (Phase 2C)
         # Realistic MLB wind distribution:
@@ -496,6 +616,16 @@ class GameSimulator:
         """Simulate a half inning (until 3 outs)"""
         batting_team = self.away_team if self.game_state.is_top else self.home_team
         pitching_team = self.home_team if self.game_state.is_top else self.away_team
+
+        # Check for pitcher change at start of inning (bullpen management)
+        # If starter_innings is set and we're past that inning, bring in a reliever
+        if self.starter_innings > 0 and self.game_state.inning > self.starter_innings:
+            # Switch to a random reliever each inning after starter_innings
+            old_pitcher = pitching_team.get_current_pitcher()
+            new_pitcher = pitching_team.switch_to_reliever()
+            if new_pitcher and new_pitcher != old_pitcher:
+                if self.verbose:
+                    print(f"\n⚾ PITCHING CHANGE: {old_pitcher.name} → {new_pitcher.name}")
 
         if self.verbose:
             print(f"\n{'='*60}")
