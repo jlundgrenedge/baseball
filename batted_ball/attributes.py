@@ -444,9 +444,36 @@ class FielderAttributes:
         TRANSFER_TIME: float = 50000,
         ARM_STRENGTH: float = 50000,
         ARM_ACCURACY: float = 50000,
-        FRAMING: float = 50000
+        FRAMING: float = 50000,
+        JUMP: float = 50000,  # Composite: feet vs avg (sum of 3 components)
+        BURST: float = 50000,  # Statcast Burst - acceleration in 2nd 1.5s
+        RANGE_BACK: float = 50000,  # Directional OAA: going back (away from home)
+        RANGE_IN: float = 50000,  # Directional OAA: coming in (toward home)
+        CATCH_ELITE: float = 50000,  # Catch probability on 5-star plays (hardest)
+        CATCH_DIFFICULT: float = 50000  # Catch probability on 3-4 star plays
     ):
-        """Initialize fielder attributes (default: league average = 50,000)"""
+        """Initialize fielder attributes (default: league average = 50,000)
+        
+        2025-11-26: Jump/Burst attributes from Statcast
+        - JUMP: Composite metric - feet covered in right direction in first 3 seconds
+        - BURST: Acceleration component - feet covered in 2nd 1.5s vs average
+        
+        Statcast Jump has 3 components (all in feet vs average):
+        - Reaction: Feet covered in first 1.5s (mapped to REACTION_TIME attribute)
+        - Burst: Feet covered in second 1.5s (mapped to BURST attribute)
+        - Route: Feet lost/gained from direction (mapped to ROUTE_EFFICIENCY attribute)
+        
+        The composite JUMP = Reaction + Burst + Route
+        
+        2025-11-26: Directional OAA attributes from Statcast
+        - RANGE_BACK: Ability to make plays going back (away from home plate)
+        - RANGE_IN: Ability to make plays coming in (toward home plate)
+        
+        These capture player-specific directional strengths/weaknesses:
+        - Pete Crow-Armstrong: +15 back, +10 in (elite both ways)
+        - Jarren Duran: +1 back, -4 in (better going back)
+        - Juan Soto: -5 back, -7 in (struggles both ways)
+        """
         self.REACTION_TIME = np.clip(REACTION_TIME, 0, 100000)
         self.ACCELERATION = np.clip(ACCELERATION, 0, 100000)
         self.TOP_SPRINT_SPEED = np.clip(TOP_SPRINT_SPEED, 0, 100000)
@@ -457,6 +484,12 @@ class FielderAttributes:
         self.ARM_STRENGTH = np.clip(ARM_STRENGTH, 0, 100000)
         self.ARM_ACCURACY = np.clip(ARM_ACCURACY, 0, 100000)
         self.FRAMING = np.clip(FRAMING, 0, 100000)
+        self.JUMP = np.clip(JUMP, 0, 100000)
+        self.BURST = np.clip(BURST, 0, 100000)
+        self.RANGE_BACK = np.clip(RANGE_BACK, 0, 100000)
+        self.RANGE_IN = np.clip(RANGE_IN, 0, 100000)
+        self.CATCH_ELITE = np.clip(CATCH_ELITE, 0, 100000)
+        self.CATCH_DIFFICULT = np.clip(CATCH_DIFFICULT, 0, 100000)
 
     def get_reaction_time_s(self) -> float:
         """
@@ -701,6 +734,240 @@ class FielderAttributes:
         Notes: Only applies to catchers; ignored for other fielding positions
         """
         return float(self.FRAMING)
+
+    def get_jump_feet(self) -> float:
+        """
+        Convert JUMP to feet above/below average in first 3 seconds (feet).
+
+        NEW 2025-11-26: Statcast Jump metric implementation.
+
+        Jump measures "how many feet did he cover in the right direction in the
+        first three seconds after pitch release?" This captures:
+        - Reaction: Feet covered in first 1.5s (first step quality)
+        - Burst: Feet covered in second 1.5s (acceleration phase)
+        - Route: Direction correctness over the full 3 seconds
+
+        The metric is reported as feet above/below MLB average. Elite outfielders
+        might be +3 to +5 feet above average, while poor defenders might be -3 to -5.
+
+        In the simulation, this translates to an effective distance bonus/penalty:
+        - Positive jump = fielder covers more ground in early pursuit = arrives earlier
+        - Negative jump = fielder covers less ground = arrives later
+
+        Anchors:
+        - 0: -6 ft (very poor jump, bad reads, slow first step)
+        - 50k: 0 ft (MLB average)
+        - 85k: +4 ft (elite jump, great reads, explosive first step)
+        - 100k: +7 ft (superhuman anticipation)
+
+        Returns
+        -------
+        float
+            Feet above/below average in first 3 seconds.
+            Positive = covers more ground (faster effective arrival).
+            Negative = covers less ground (slower effective arrival).
+
+        Sources: Baseball Savant Jump leaderboard
+        Usage: Applied in fielding.py calculate_time_to_position() as distance credit
+        """
+        return piecewise_logistic_map(
+            self.JUMP,
+            human_min=-6.0,   # Poor jump: 6 ft behind average
+            human_cap=4.0,    # Elite jump: 4 ft ahead of average
+            super_cap=7.0     # Superhuman: 7 ft ahead
+        )
+
+    def get_burst_feet(self) -> float:
+        """
+        Convert BURST to feet above/below average in second 1.5 seconds (feet).
+
+        NEW 2025-11-26: Statcast Burst component of Jump metric.
+
+        Burst measures "feet covered in the second 1.5 seconds after pitch release."
+        This captures the acceleration phase after the initial reaction/first step.
+        
+        From Baseball Savant: Burst is reported as feet above/below MLB average.
+        - Elite: +2 to +3 ft (explosive acceleration)
+        - Good: +1 to +1.5 ft
+        - Average: 0 ft
+        - Poor: -1 to -2 ft
+
+        Anchors:
+        - 0: -3 ft (very slow acceleration phase)
+        - 50k: 0 ft (MLB average burst)
+        - 85k: +2.5 ft (elite acceleration/burst)
+        - 100k: +4 ft (superhuman burst)
+
+        Returns
+        -------
+        float
+            Feet above/below average in second 1.5 seconds.
+            Positive = accelerates faster than average.
+            Negative = accelerates slower than average.
+
+        Sources: Baseball Savant Jump leaderboard - Burst column
+        Usage: Supplements reaction time and route in early pursuit phase
+        """
+        return piecewise_logistic_map(
+            self.BURST,
+            human_min=-3.0,   # Poor burst: 3 ft behind average
+            human_cap=2.5,    # Elite burst: 2.5 ft ahead of average
+            super_cap=4.0     # Superhuman: 4 ft ahead
+        )
+
+    def get_range_back_modifier(self) -> float:
+        """
+        Convert RANGE_BACK to a speed multiplier for backward/retreating movement.
+
+        NEW 2025-11-26: Based on Baseball Savant Directional OAA - Back slices.
+
+        Directional OAA measures how well a fielder handles balls hit in specific
+        directions relative to their starting position. The "back" direction is
+        particularly important for outfielders tracking deep fly balls and infielders
+        ranging away from the plate.
+
+        From Baseball Savant Directional OAA (2025):
+        - Pete Crow-Armstrong: +15 back OAA (elite at going back)
+        - Juan Soto: -5 back OAA (struggles going back)
+        - Average player: 0 back OAA
+
+        Anchors:
+        - 0: 0.85x speed (struggles badly going back, loses ~15% speed)
+        - 50k: 1.0x speed (average ability going back)
+        - 85k: 1.10x speed (elite at going back, gains ~10% effective speed)
+        - 100k: 1.15x speed (superhuman ability going back)
+
+        Returns
+        -------
+        float
+            Speed multiplier for backward movement (0.85 to 1.15).
+            Replaces the fixed 0.93 backward penalty in fielding.py.
+
+        Sources: Baseball Savant Directional OAA leaderboard
+        Usage: Applied in fielding.py calculate_directional_speed_penalty()
+        """
+        return piecewise_logistic_map(
+            self.RANGE_BACK,
+            human_min=0.85,   # Poor: 15% speed penalty going back
+            human_cap=1.10,   # Elite: 10% speed bonus going back
+            super_cap=1.15    # Superhuman: 15% speed bonus
+        )
+
+    def get_range_in_modifier(self) -> float:
+        """
+        Convert RANGE_IN to a speed multiplier for forward/charging movement.
+
+        NEW 2025-11-26: Based on Baseball Savant Directional OAA - In slices.
+
+        Directional OAA measures how well a fielder handles balls hit in specific
+        directions relative to their starting position. The "in" direction is
+        important for charging ground balls, coming in on shallow fly balls,
+        and reading line drives.
+
+        From Baseball Savant Directional OAA (2025):
+        - Some infielders: +10 in OAA (excellent at charging)
+        - Corner outfielders: often negative (slower coming in)
+        - Average player: 0 in OAA
+
+        Anchors:
+        - 0: 0.90x speed (struggles charging in, loses ~10% speed)
+        - 50k: 1.0x speed (average ability coming in)
+        - 85k: 1.08x speed (elite at coming in, gains ~8% effective speed)
+        - 100k: 1.12x speed (superhuman ability coming in)
+
+        Returns
+        -------
+        float
+            Speed multiplier for forward movement (0.90 to 1.12).
+            Modifies forward charging mechanics in fielding.py.
+
+        Sources: Baseball Savant Directional OAA leaderboard
+        Usage: Applied in fielding.py calculate_directional_speed_penalty()
+        """
+        return piecewise_logistic_map(
+            self.RANGE_IN,
+            human_min=0.90,   # Poor: 10% speed penalty coming in
+            human_cap=1.08,   # Elite: 8% speed bonus coming in
+            super_cap=1.12    # Superhuman: 12% speed bonus
+        )
+
+    def get_catch_elite_bonus(self) -> float:
+        """
+        Convert CATCH_ELITE to catch probability bonus for 5-star plays.
+
+        NEW 2025-11-26: Based on Baseball Savant Catch Probability 5-star data.
+
+        5-star catches are the hardest plays in baseball (0-25% expected catch rate).
+        Most fielders convert only 5-20% of these opportunities, but elite fielders
+        like Pete Crow-Armstrong convert 40-60%.
+
+        From Baseball Savant Catch Probability (2025):
+        - Pete Crow-Armstrong: 59.4% (19/32) - elite
+        - Average fielder: ~15% conversion rate
+        - Poor fielder: <5% conversion rate
+
+        The bonus is ADDITIVE to the base catch probability calculated from physics.
+        When the physics model says a play is "5-star difficulty" (catch prob < 0.25),
+        elite fielders get a bonus that can push their probability higher.
+
+        Anchors:
+        - 0: -0.10 (poor at difficult catches, 10% penalty)
+        - 50k: 0.00 (average, no bonus or penalty)
+        - 85k: +0.25 (elite, adds 25% to difficult catches)
+        - 100k: +0.40 (superhuman, adds 40%)
+
+        Returns
+        -------
+        float
+            Catch probability bonus for 5-star plays (-0.10 to +0.40).
+            Added to base probability in fielding.py calculate_catch_probability().
+
+        Sources: Baseball Savant Catch Probability leaderboard - 5-star column
+        """
+        return piecewise_logistic_map(
+            self.CATCH_ELITE,
+            human_min=-0.10,   # Poor: 10% penalty on difficult catches
+            human_cap=0.25,    # Elite: +25% bonus on difficult catches
+            super_cap=0.40     # Superhuman: +40% bonus
+        )
+
+    def get_catch_difficult_bonus(self) -> float:
+        """
+        Convert CATCH_DIFFICULT to catch probability bonus for 3-4 star plays.
+
+        NEW 2025-11-26: Based on Baseball Savant Catch Probability 3-4 star data.
+
+        3-4 star catches are moderately difficult plays (25-75% expected catch rate).
+        Good fielders consistently convert these; poor fielders struggle.
+
+        From Baseball Savant Catch Probability (2025):
+        - 4-star: 25-50% expected (diving/sprinting catches)
+        - 3-star: 50-75% expected (running catches requiring athleticism)
+
+        Elite fielders convert 85-95% of these opportunities.
+        Average fielders convert 70-80%.
+        Poor fielders may only convert 50-60%.
+
+        Anchors:
+        - 0: -0.15 (poor at these plays, 15% penalty)
+        - 50k: 0.00 (average, no bonus or penalty)
+        - 85k: +0.12 (elite, adds 12% to moderate difficulty catches)
+        - 100k: +0.20 (superhuman, adds 20%)
+
+        Returns
+        -------
+        float
+            Catch probability bonus for 3-4 star plays (-0.15 to +0.20).
+            Added to base probability in fielding.py calculate_catch_probability().
+
+        Sources: Baseball Savant Catch Probability leaderboard - 3/4-star columns
+        """
+        return piecewise_logistic_map(
+            self.CATCH_DIFFICULT,
+            human_min=-0.15,   # Poor: 15% penalty on moderate difficulty
+            human_cap=0.12,    # Elite: +12% bonus
+            super_cap=0.20     # Superhuman: +20% bonus
+        )
 
 
 # =============================================================================

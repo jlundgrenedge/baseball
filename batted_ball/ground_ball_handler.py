@@ -6,6 +6,7 @@ fielding timing, throwing sequences, and ground ball roll calculations.
 """
 
 import math
+import random
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 
@@ -185,6 +186,12 @@ class GroundBallHandler:
             if self.hit_handler:
                 self.hit_handler.determine_hit_type(ball_position, distance_from_home, result)
             return
+
+        # Check for hard-hit ground ball getting through probability
+        # Even if fielder can reach the ball, hard-hit grounders can get through
+        # due to bad hops, bobbles, through the wickets, etc.
+        if self._check_hard_hit_through(batted_ball, interception, result, ball_position, distance_from_home):
+            return  # Ball got through - already handled as a hit
 
         # Ball is fielded successfully
         fielding_time = interception.interception_time
@@ -613,6 +620,103 @@ class GroundBallHandler:
             0.1, "ground_ball_interception_analysis",
             f"Interception: {fielding_pos} travels {travel_distance:.1f} ft from ({start_pos.x:.1f}, {start_pos.y:.1f}) to ({interception_pos.x:.1f}, {interception_pos.y:.1f}), margin +{time_margin:.2f}s"
         ))
+
+    def _check_hard_hit_through(self, batted_ball, interception, result, ball_position, distance_from_home) -> bool:
+        """
+        Check if a hard-hit ground ball gets through despite fielder reaching it.
+        
+        Even when a fielder can technically intercept a ground ball, very hard-hit
+        grounders have a probability of getting through due to:
+        - Bad hops
+        - Ball hit too hard to handle cleanly
+        - Through the wickets (between legs)
+        - Bobbles on the transfer
+        
+        MLB data shows ground ball BABIP of .200-.250, meaning 20-25% of ground 
+        balls become hits. This method adds that probability layer.
+        
+        Parameters
+        ----------
+        batted_ball : BattedBallResult
+            The batted ball trajectory result
+        interception : GroundBallInterceptionResult
+            The interception analysis result
+        result : PlayResult
+            The play result to update if ball gets through
+        ball_position : FieldPosition
+            Landing position of the ball
+        distance_from_home : float
+            Distance from home plate in feet
+            
+        Returns
+        -------
+        bool
+            True if ball got through (handled as hit), False if fielded normally
+        """
+        # Get exit velocity in mph
+        exit_velocity_mph = batted_ball.exit_velocity * 3.6 * 0.621371  # m/s to mph
+        
+        # Calculate base probability of ball getting through
+        # Target: Ground ball BABIP of 0.200-0.250
+        # Most ground balls ARE fielded cleanly - only hard-hit balls in holes get through
+        # These probabilities are calibrated to achieve realistic BABIP
+        if exit_velocity_mph < 80:
+            # Soft/medium contact - very rarely gets through if fielder reaches it
+            base_through_prob = 0.01
+        elif exit_velocity_mph < 95:
+            # Hard contact - small chance of bad hop or bobble
+            base_through_prob = 0.03
+        elif exit_velocity_mph < 105:
+            # Very hard contact - slightly higher chance
+            base_through_prob = 0.06
+        else:
+            # Extremely hard contact (105+ mph) - noticeable but still minority
+            base_through_prob = 0.10
+        
+        # Adjust based on time margin - tight plays are more error-prone
+        margin = interception.time_margin
+        if margin < 0.3:
+            # Very tight play - increase probability
+            base_through_prob *= 1.4
+        elif margin < 0.7:
+            # Somewhat tight
+            base_through_prob *= 1.2
+        elif margin > 2.0:
+            # Lots of time - fielder can set up, reduce probability
+            base_through_prob *= 0.5
+        
+        # Adjust based on fielder travel distance - longer runs are harder
+        fielder = interception.fielding_fielder
+        start_pos = fielder.current_position
+        interception_pos = interception.ball_position_at_interception
+        travel_distance = start_pos.distance_to(interception_pos)
+        
+        if travel_distance > 30:
+            # Long run to ball - more likely to bobble on the move
+            base_through_prob *= 1.2
+        elif travel_distance > 15:
+            base_through_prob *= 1.1
+        elif travel_distance < 5:
+            # Ball hit right at fielder - easier to field
+            base_through_prob *= 0.6
+        
+        # Cap the probability at reasonable limits
+        # Max 15% even for hardest-hit balls with tight margins
+        through_prob = max(0.005, min(0.15, base_through_prob))
+        
+        # Roll the dice
+        if random.random() < through_prob:
+            # Ball gets through!
+            result.outcome = PlayOutcome.SINGLE
+            result.add_event(PlayEvent(
+                0.5, "ball_through_hard_hit",
+                f"Hard-hit ground ball ({exit_velocity_mph:.0f} mph) gets through - {interception.fielding_position} couldn't handle it cleanly"
+            ))
+            if self.hit_handler:
+                self.hit_handler.determine_hit_type(ball_position, distance_from_home, result)
+            return True
+        
+        return False
 
     def estimate_ground_ball_roll_time(self, distance_to_fielder: float,
                                        exit_velocity_fps: float,

@@ -1,149 +1,464 @@
 roster_id,team_id,pitcher_id,hitter_id,batting_order,is_starter,team_name,team_abbr,season,player_name,player_type
-1,1,1,,,1,Chicago Cubs,CHC,2025,Matthew Boyd,Pitcher
-2,1,2,,,1,Chicago Cubs,CHC,2025,Cade Horton,Pitcher
-3,1,3,,,1,Chicago Cubs,CHC,2025,Colin Rea,Pitcher
-4,1,4,,,1,Chicago Cubs,CHC,2025,Brad Keller,Pitcher
-5,1,5,,,1,Chicago Cubs,CHC,2025,Jameson Taillon,Pitcher
-6,1,6,,,1,Chicago Cubs,CHC,2025,Ben Brown,Pitcher
-7,1,7,,,0,Chicago Cubs,CHC,2025,Caleb Thielbar,Pitcher
-8,1,8,,,0,Chicago Cubs,CHC,2025,Daniel Palencia,Pitcher
-9,1,9,,,1,Chicago Cubs,CHC,2025,Shota Imanaga,Pitcher
-10,1,10,,,1,Chicago Cubs,CHC,2025,Drew Pomeranz,Pitcher
-11,1,11,,,1,Chicago Cubs,CHC,2025,Javier Assad,Pitcher
-12,1,12,,,1,Chicago Cubs,CHC,2025,Ryan Brasier,Pitcher
-13,1,13,,,1,Chicago Cubs,CHC,2025,Justin Steele,Pitcher
-14,1,14,,,1,Chicago Cubs,CHC,2025,Chris Flexen,Pitcher
-15,1,15,,,0,Chicago Cubs,CHC,2025,Ryan Pressly,Pitcher
-16,1,16,,,0,Chicago Cubs,CHC,2025,Porter Hodge,Pitcher
-17,1,,1,1,0,Chicago Cubs,CHC,2025,Pete Crow-Armstrong,Hitter
-18,1,,2,2,0,Chicago Cubs,CHC,2025,Nico Hoerner,Hitter
-19,1,,3,3,0,Chicago Cubs,CHC,2025,Kyle Tucker,Hitter
-20,1,,4,4,0,Chicago Cubs,CHC,2025,Michael Busch,Hitter
-21,1,,5,5,0,Chicago Cubs,CHC,2025,Dansby Swanson,Hitter
-22,1,,6,6,0,Chicago Cubs,CHC,2025,Ian Happ,Hitter
-23,1,,7,7,0,Chicago Cubs,CHC,2025,Seiya Suzuki,Hitter
-24,1,,8,8,0,Chicago Cubs,CHC,2025,Carson Kelly,Hitter
-25,1,,9,9,0,Chicago Cubs,CHC,2025,Matt Shaw,Hitter
-26,1,,10,10,0,Chicago Cubs,CHC,2025,Miguel Amaya,Hitter
-27,1,,11,11,0,Chicago Cubs,CHC,2025,Reese McGuire,Hitter
-28,1,,12,12,0,Chicago Cubs,CHC,2025,Moises Ballesteros,Hitter
-29,1,,13,13,0,Chicago Cubs,CHC,2025,Justin Turner,Hitter
-30,1,,14,14,0,Chicago Cubs,CHC,2025,Jon Berti,Hitter
-31,2,17,,,1,Cincinnati Reds,CIN,2025,Andrew Abbott,Pitcher
-32,2,18,,,1,Cincinnati Reds,CIN,2025,Brady Singer,Pitcher
-33,2,19,,,1,Cincinnati Reds,CIN,2025,Hunter Greene,Pitcher
-34,2,20,,,1,Cincinnati Reds,CIN,2025,Nick Lodolo,Pitcher
-35,2,21,,,1,Cincinnati Reds,CIN,2025,Nick Martinez,Pitcher
-36,2,22,,,0,Cincinnati Reds,CIN,2025,Graham Ashcraft,Pitcher
-37,2,23,,,1,Cincinnati Reds,CIN,2025,Chase Burns,Pitcher
-38,2,24,,,0,Cincinnati Reds,CIN,2025,Tony Santillan,Pitcher
-39,2,25,,,0,Cincinnati Reds,CIN,2025,Emilio Pagan,Pitcher
-40,2,26,,,0,Cincinnati Reds,CIN,2025,Connor Phillips,Pitcher
-41,2,27,,,1,Cincinnati Reds,CIN,2025,Scott Barlow,Pitcher
-42,2,28,,,1,Cincinnati Reds,CIN,2025,Brent Suter,Pitcher
-43,2,29,,,0,Cincinnati Reds,CIN,2025,Lyon Richardson,Pitcher
-44,2,30,,,0,Cincinnati Reds,CIN,2025,Ian Gibaut,Pitcher
-45,2,31,,,0,Cincinnati Reds,CIN,2025,Luis Mey,Pitcher
-46,2,,15,1,0,Cincinnati Reds,CIN,2025,Elly De La Cruz,Hitter
-47,2,,16,2,0,Cincinnati Reds,CIN,2025,TJ Friedl,Hitter
-48,2,,17,3,0,Cincinnati Reds,CIN,2025,Matt McLain,Hitter
-49,2,,18,4,0,Cincinnati Reds,CIN,2025,Austin Hays,Hitter
-50,2,,19,5,0,Cincinnati Reds,CIN,2025,Noelvi Marte,Hitter
-51,2,,20,6,0,Cincinnati Reds,CIN,2025,Tyler Stephenson,Hitter
-52,2,,21,7,0,Cincinnati Reds,CIN,2025,Spencer Steer,Hitter
-53,2,,22,8,0,Cincinnati Reds,CIN,2025,Sal Stewart,Hitter
-54,2,,23,9,0,Cincinnati Reds,CIN,2025,Gavin Lux,Hitter
-55,2,,24,10,0,Cincinnati Reds,CIN,2025,Jose Trevino,Hitter
-56,2,,25,11,0,Cincinnati Reds,CIN,2025,Blake Dunn,Hitter
-57,2,,26,12,0,Cincinnati Reds,CIN,2025,Will Benson,Hitter
-58,2,,27,13,0,Cincinnati Reds,CIN,2025,Santiago Espinal,Hitter
-59,2,,28,14,0,Cincinnati Reds,CIN,2025,Christian Encarnacion-Strand,Hitter
-60,2,,29,15,0,Cincinnati Reds,CIN,2025,Jeimer Candelario,Hitter
-61,3,32,,,1,Milwaukee Brewers,MIL,2025,Freddy Peralta,Pitcher
-62,3,33,,,1,Milwaukee Brewers,MIL,2025,Chad Patrick,Pitcher
-63,3,34,,,1,Milwaukee Brewers,MIL,2025,Quinn Priester,Pitcher
-64,3,35,,,1,Milwaukee Brewers,MIL,2025,Brandon Woodruff,Pitcher
-65,3,36,,,0,Milwaukee Brewers,MIL,2025,Abner Uribe,Pitcher
-66,3,37,,,0,Milwaukee Brewers,MIL,2025,Trevor Megill,Pitcher
-67,3,38,,,1,Milwaukee Brewers,MIL,2025,Aaron Ashby,Pitcher
-68,3,39,,,1,Milwaukee Brewers,MIL,2025,Jacob Misiorowski,Pitcher
-69,3,40,,,0,Milwaukee Brewers,MIL,2025,Jared Koenig,Pitcher
-70,3,41,,,1,Milwaukee Brewers,MIL,2025,Jose Quintana,Pitcher
-71,3,42,,,1,Milwaukee Brewers,MIL,2025,Logan Henderson,Pitcher
-72,3,43,,,0,Milwaukee Brewers,MIL,2025,Nick Mears,Pitcher
-73,3,44,,,0,Milwaukee Brewers,MIL,2025,Grant Anderson,Pitcher
-74,3,45,,,1,Milwaukee Brewers,MIL,2025,DL Hall,Pitcher
-75,3,46,,,1,Milwaukee Brewers,MIL,2025,Tobias Myers,Pitcher
-76,3,47,,,1,Milwaukee Brewers,MIL,2025,Rob Zastryzny,Pitcher
-77,3,,30,1,0,Milwaukee Brewers,MIL,2025,Brice Turang,Hitter
-78,3,,31,2,0,Milwaukee Brewers,MIL,2025,Sal Frelick,Hitter
-79,3,,32,3,0,Milwaukee Brewers,MIL,2025,William Contreras,Hitter
-80,3,,33,4,0,Milwaukee Brewers,MIL,2025,Jackson Chourio,Hitter
-81,3,,34,5,0,Milwaukee Brewers,MIL,2025,Isaac Collins,Hitter
-82,3,,35,6,0,Milwaukee Brewers,MIL,2025,Caleb Durbin,Hitter
-83,3,,36,7,0,Milwaukee Brewers,MIL,2025,Christian Yelich,Hitter
-84,3,,37,8,0,Milwaukee Brewers,MIL,2025,Joey Ortiz,Hitter
-85,3,,38,9,0,Milwaukee Brewers,MIL,2025,Rhys Hoskins,Hitter
-86,3,,39,10,0,Milwaukee Brewers,MIL,2025,Jake Bauers,Hitter
-87,3,,40,11,0,Milwaukee Brewers,MIL,2025,Andruw Monasterio,Hitter
-88,3,,41,12,0,Milwaukee Brewers,MIL,2025,Blake Perkins,Hitter
-89,3,,42,13,0,Milwaukee Brewers,MIL,2025,Garrett Mitchell,Hitter
-90,3,,43,14,0,Milwaukee Brewers,MIL,2025,Eric Haase,Hitter
-91,3,,44,15,0,Milwaukee Brewers,MIL,2025,Anthony Seigler,Hitter
-92,4,48,,,1,Pittsburgh Pirates,PIT,2025,Paul Skenes,Pitcher
-93,4,49,,,1,Pittsburgh Pirates,PIT,2025,Mitch Keller,Pitcher
-94,4,50,,,1,Pittsburgh Pirates,PIT,2025,Carmen Mlodzinski,Pitcher
-95,4,51,,,1,Pittsburgh Pirates,PIT,2025,Braxton Ashcraft,Pitcher
-96,4,52,,,1,Pittsburgh Pirates,PIT,2025,Mike Burrows,Pitcher
-97,4,53,,,0,Pittsburgh Pirates,PIT,2025,Dennis Santana,Pitcher
-98,4,54,,,1,Pittsburgh Pirates,PIT,2025,Bubba Chandler,Pitcher
-99,4,55,,,0,Pittsburgh Pirates,PIT,2025,Isaac Mattson,Pitcher
-100,4,56,,,0,Pittsburgh Pirates,PIT,2025,Yohan Ramirez,Pitcher
-101,4,57,,,1,Pittsburgh Pirates,PIT,2025,Johan Oviedo,Pitcher
-102,4,58,,,0,Pittsburgh Pirates,PIT,2025,Kyle Nicolas,Pitcher
-103,4,59,,,0,Pittsburgh Pirates,PIT,2025,Chase Shugart,Pitcher
-104,4,60,,,0,Pittsburgh Pirates,PIT,2025,Colin Holderman,Pitcher
-105,4,,45,1,0,Pittsburgh Pirates,PIT,2025,Spencer Horwitz,Hitter
-106,4,,46,2,0,Pittsburgh Pirates,PIT,2025,Oneil Cruz,Hitter
-107,4,,47,3,0,Pittsburgh Pirates,PIT,2025,Jared Triolo,Hitter
-108,4,,48,4,0,Pittsburgh Pirates,PIT,2025,Joey Bart,Hitter
-109,4,,49,5,0,Pittsburgh Pirates,PIT,2025,Bryan Reynolds,Hitter
-110,4,,50,6,0,Pittsburgh Pirates,PIT,2025,Nick Gonzales,Hitter
-111,4,,51,7,0,Pittsburgh Pirates,PIT,2025,Tommy Pham,Hitter
-112,4,,52,8,0,Pittsburgh Pirates,PIT,2025,Enmanuel Valdez,Hitter
-113,4,,53,9,0,Pittsburgh Pirates,PIT,2025,Liover Peguero,Hitter
-114,4,,54,10,0,Pittsburgh Pirates,PIT,2025,Andrew McCutchen,Hitter
-115,4,,55,11,0,Pittsburgh Pirates,PIT,2025,Nick Yorke,Hitter
-116,4,,56,12,0,Pittsburgh Pirates,PIT,2025,Henry Davis,Hitter
-117,4,,57,13,0,Pittsburgh Pirates,PIT,2025,Alexander Canario,Hitter
-118,4,,58,14,0,Pittsburgh Pirates,PIT,2025,Jack Suwinski,Hitter
-119,4,,59,15,0,Pittsburgh Pirates,PIT,2025,Endy Rodriguez,Hitter
-120,5,61,,,1,St. Louis Cardinals,STL,2025,Sonny Gray,Pitcher
-121,5,62,,,1,St. Louis Cardinals,STL,2025,Matthew Liberatore,Pitcher
-122,5,63,,,1,St. Louis Cardinals,STL,2025,Kyle Leahy,Pitcher
-123,5,64,,,0,St. Louis Cardinals,STL,2025,Matt Svanson,Pitcher
-124,5,65,,,1,St. Louis Cardinals,STL,2025,Michael McGreevy,Pitcher
-125,5,66,,,0,St. Louis Cardinals,STL,2025,JoJo Romero,Pitcher
-126,5,67,,,1,St. Louis Cardinals,STL,2025,Andre Pallante,Pitcher
-127,5,68,,,0,St. Louis Cardinals,STL,2025,Gordon Graceffo,Pitcher
-128,5,69,,,1,St. Louis Cardinals,STL,2025,Miles Mikolas,Pitcher
-129,5,70,,,0,St. Louis Cardinals,STL,2025,Riley O'Brien,Pitcher
-130,5,71,,,0,St. Louis Cardinals,STL,2025,Andre Granillo,Pitcher
-131,5,72,,,0,St. Louis Cardinals,STL,2025,Chris Roycroft,Pitcher
-132,5,73,,,0,St. Louis Cardinals,STL,2025,Ryan Fernandez,Pitcher
-133,5,74,,,0,St. Louis Cardinals,STL,2025,John King,Pitcher
-134,5,,60,1,0,St. Louis Cardinals,STL,2025,Masyn Winn,Hitter
-135,5,,61,2,0,St. Louis Cardinals,STL,2025,Brendan Donovan,Hitter
-136,5,,62,3,0,St. Louis Cardinals,STL,2025,Willson Contreras,Hitter
-137,5,,63,4,0,St. Louis Cardinals,STL,2025,Ivan Herrera,Hitter
-138,5,,64,5,0,St. Louis Cardinals,STL,2025,Alec Burleson,Hitter
-139,5,,65,6,0,St. Louis Cardinals,STL,2025,Victor Scott II,Hitter
-140,5,,66,7,0,St. Louis Cardinals,STL,2025,Pedro Pages,Hitter
-141,5,,67,8,0,St. Louis Cardinals,STL,2025,Nolan Arenado,Hitter
-142,5,,68,9,0,St. Louis Cardinals,STL,2025,Lars Nootbaar,Hitter
-143,5,,69,10,0,St. Louis Cardinals,STL,2025,Jose Fermin,Hitter
-144,5,,70,11,0,St. Louis Cardinals,STL,2025,Thomas Saggese,Hitter
-145,5,,71,12,0,St. Louis Cardinals,STL,2025,Yohel Pozo,Hitter
-146,5,,72,13,0,St. Louis Cardinals,STL,2025,Nathan Church,Hitter
-147,5,,73,14,0,St. Louis Cardinals,STL,2025,Nolan Gorman,Hitter
-148,5,,74,15,0,St. Louis Cardinals,STL,2025,Jordan Walker,Hitter
+303,11,154,,,1,Arizona Diamondbacks,ARI,2025,Ryne Nelson,Pitcher
+304,11,155,,,1,Arizona Diamondbacks,ARI,2025,Brandon Pfaadt,Pitcher
+305,11,156,,,1,Arizona Diamondbacks,ARI,2025,Eduardo Rodriguez,Pitcher
+306,11,157,,,1,Arizona Diamondbacks,ARI,2025,Zac Gallen,Pitcher
+307,11,158,,,1,Arizona Diamondbacks,ARI,2025,Corbin Burnes,Pitcher
+308,11,159,,,0,Arizona Diamondbacks,ARI,2025,Andrew Saalfrank,Pitcher
+309,11,160,,,0,Arizona Diamondbacks,ARI,2025,Juan Morillo,Pitcher
+310,11,161,,,1,Arizona Diamondbacks,ARI,2025,Jalen Beeks,Pitcher
+311,11,162,,,0,Arizona Diamondbacks,ARI,2025,Ryan Thompson,Pitcher
+312,11,163,,,0,Arizona Diamondbacks,ARI,2025,Kevin Ginkel,Pitcher
+313,11,164,,,1,Arizona Diamondbacks,ARI,2025,Nabil Crismatt,Pitcher
+314,11,165,,,0,Arizona Diamondbacks,ARI,2025,John Curtiss,Pitcher
+315,11,166,,,0,Arizona Diamondbacks,ARI,2025,Kyle Backhus,Pitcher
+316,11,167,,,0,Arizona Diamondbacks,ARI,2025,Bryce Jarvis,Pitcher
+317,11,168,,,0,Arizona Diamondbacks,ARI,2025,Jake Woodford,Pitcher
+318,11,169,,,1,Arizona Diamondbacks,ARI,2025,Anthony DeSclafani,Pitcher
+319,11,,150,1,0,Arizona Diamondbacks,ARI,2025,Geraldo Perdomo,Hitter
+320,11,,151,2,0,Arizona Diamondbacks,ARI,2025,Corbin Carroll,Hitter
+321,11,,152,3,0,Arizona Diamondbacks,ARI,2025,Ketel Marte,Hitter
+322,11,,153,4,0,Arizona Diamondbacks,ARI,2025,Gabriel Moreno,Hitter
+323,11,,154,5,0,Arizona Diamondbacks,ARI,2025,Blaze Alexander,Hitter
+324,11,,155,6,0,Arizona Diamondbacks,ARI,2025,Lourdes Gurriel Jr.,Hitter
+325,11,,156,7,0,Arizona Diamondbacks,ARI,2025,Pavin Smith,Hitter
+326,11,,157,8,0,Arizona Diamondbacks,ARI,2025,James McCann,Hitter
+327,11,,158,9,0,Arizona Diamondbacks,ARI,2025,Alek Thomas,Hitter
+328,11,,159,10,0,Arizona Diamondbacks,ARI,2025,Ildemaro Vargas,Hitter
+329,11,,160,11,0,Arizona Diamondbacks,ARI,2025,Adrian Del Castillo,Hitter
+330,11,,161,12,0,Arizona Diamondbacks,ARI,2025,Tim Tawa,Hitter
+331,11,,162,13,0,Arizona Diamondbacks,ARI,2025,Jake McCarthy,Hitter
+332,11,,163,14,0,Arizona Diamondbacks,ARI,2025,Jose Herrera,Hitter
+333,11,,164,15,0,Arizona Diamondbacks,ARI,2025,Jorge Barrosa,Hitter
+334,11,,165,16,0,Arizona Diamondbacks,ARI,2025,Jordan Lawlar,Hitter
+335,11,,166,17,0,Arizona Diamondbacks,ARI,2025,Tyler Locklear,Hitter
+94,4,48,,,1,Atlanta Braves,ATL,2025,Chris Sale,Pitcher
+95,4,49,,,1,Atlanta Braves,ATL,2025,Spencer Schwellenbach,Pitcher
+96,4,50,,,1,Atlanta Braves,ATL,2025,Hurston Waldrep,Pitcher
+97,4,51,,,0,Atlanta Braves,ATL,2025,Raisel Iglesias,Pitcher
+98,4,52,,,1,Atlanta Braves,ATL,2025,Bryce Elder,Pitcher
+99,4,53,,,1,Atlanta Braves,ATL,2025,Spencer Strider,Pitcher
+100,4,54,,,1,Atlanta Braves,ATL,2025,Grant Holmes,Pitcher
+101,4,55,,,1,Atlanta Braves,ATL,2025,AJ Smith-Shawver,Pitcher
+102,4,56,,,1,Atlanta Braves,ATL,2025,Aaron Bummer,Pitcher
+103,4,57,,,0,Atlanta Braves,ATL,2025,Pierce Johnson,Pitcher
+104,4,58,,,0,Atlanta Braves,ATL,2025,Dylan Lee,Pitcher
+105,4,59,,,0,Atlanta Braves,ATL,2025,Dylan Dodd,Pitcher
+106,4,60,,,0,Atlanta Braves,ATL,2025,Daysbel Hernandez,Pitcher
+107,4,61,,,1,Atlanta Braves,ATL,2025,Austin Cox,Pitcher
+108,4,,47,1,0,Atlanta Braves,ATL,2025,Matt Olson,Hitter
+109,4,,48,2,0,Atlanta Braves,ATL,2025,Ronald Acuna Jr.,Hitter
+110,4,,49,3,0,Atlanta Braves,ATL,2025,Drake Baldwin,Hitter
+111,4,,50,4,0,Atlanta Braves,ATL,2025,Sean Murphy,Hitter
+112,4,,51,5,0,Atlanta Braves,ATL,2025,Austin Riley,Hitter
+113,4,,52,6,0,Atlanta Braves,ATL,2025,Michael Harris II,Hitter
+114,4,,53,7,0,Atlanta Braves,ATL,2025,Jurickson Profar,Hitter
+115,4,,54,8,0,Atlanta Braves,ATL,2025,Ozzie Albies,Hitter
+116,4,,55,9,0,Atlanta Braves,ATL,2025,Marcell Ozuna,Hitter
+117,4,,56,10,0,Atlanta Braves,ATL,2025,Eli White,Hitter
+118,4,,57,11,0,Atlanta Braves,ATL,2025,Nick Allen,Hitter
+119,4,,58,12,0,Atlanta Braves,ATL,2025,Nacho Alvarez Jr.,Hitter
+120,4,,59,13,0,Atlanta Braves,ATL,2025,Stuart Fairchild,Hitter
+121,4,,60,14,0,Atlanta Braves,ATL,2025,Jarred Kelenic,Hitter
+122,4,,61,15,0,Atlanta Braves,ATL,2025,Alex Verdugo,Hitter
+123,5,62,,,1,Chicago Cubs,CHC,2025,Matthew Boyd,Pitcher
+124,5,63,,,1,Chicago Cubs,CHC,2025,Cade Horton,Pitcher
+125,5,64,,,1,Chicago Cubs,CHC,2025,Colin Rea,Pitcher
+126,5,65,,,1,Chicago Cubs,CHC,2025,Brad Keller,Pitcher
+127,5,66,,,1,Chicago Cubs,CHC,2025,Jameson Taillon,Pitcher
+128,5,67,,,1,Chicago Cubs,CHC,2025,Ben Brown,Pitcher
+129,5,68,,,0,Chicago Cubs,CHC,2025,Caleb Thielbar,Pitcher
+130,5,69,,,0,Chicago Cubs,CHC,2025,Daniel Palencia,Pitcher
+131,5,70,,,1,Chicago Cubs,CHC,2025,Shota Imanaga,Pitcher
+132,5,71,,,1,Chicago Cubs,CHC,2025,Drew Pomeranz,Pitcher
+133,5,72,,,1,Chicago Cubs,CHC,2025,Javier Assad,Pitcher
+134,5,73,,,1,Chicago Cubs,CHC,2025,Ryan Brasier,Pitcher
+135,5,74,,,1,Chicago Cubs,CHC,2025,Justin Steele,Pitcher
+136,5,75,,,1,Chicago Cubs,CHC,2025,Chris Flexen,Pitcher
+137,5,76,,,0,Chicago Cubs,CHC,2025,Ryan Pressly,Pitcher
+138,5,77,,,0,Chicago Cubs,CHC,2025,Porter Hodge,Pitcher
+139,5,,62,1,0,Chicago Cubs,CHC,2025,Pete Crow-Armstrong,Hitter
+140,5,,63,2,0,Chicago Cubs,CHC,2025,Nico Hoerner,Hitter
+141,5,,64,3,0,Chicago Cubs,CHC,2025,Kyle Tucker,Hitter
+142,5,,65,4,0,Chicago Cubs,CHC,2025,Michael Busch,Hitter
+143,5,,66,5,0,Chicago Cubs,CHC,2025,Dansby Swanson,Hitter
+144,5,,67,6,0,Chicago Cubs,CHC,2025,Ian Happ,Hitter
+145,5,,68,7,0,Chicago Cubs,CHC,2025,Seiya Suzuki,Hitter
+146,5,,69,8,0,Chicago Cubs,CHC,2025,Carson Kelly,Hitter
+147,5,,70,9,0,Chicago Cubs,CHC,2025,Matt Shaw,Hitter
+148,5,,71,10,0,Chicago Cubs,CHC,2025,Miguel Amaya,Hitter
+149,5,,72,11,0,Chicago Cubs,CHC,2025,Reese McGuire,Hitter
+150,5,,73,12,0,Chicago Cubs,CHC,2025,Moises Ballesteros,Hitter
+151,5,,74,13,0,Chicago Cubs,CHC,2025,Justin Turner,Hitter
+152,5,,75,14,0,Chicago Cubs,CHC,2025,Jon Berti,Hitter
+153,6,78,,,1,Cincinnati Reds,CIN,2025,Andrew Abbott,Pitcher
+154,6,79,,,1,Cincinnati Reds,CIN,2025,Brady Singer,Pitcher
+155,6,80,,,1,Cincinnati Reds,CIN,2025,Hunter Greene,Pitcher
+156,6,81,,,1,Cincinnati Reds,CIN,2025,Nick Lodolo,Pitcher
+157,6,82,,,1,Cincinnati Reds,CIN,2025,Nick Martinez,Pitcher
+158,6,83,,,0,Cincinnati Reds,CIN,2025,Graham Ashcraft,Pitcher
+159,6,84,,,1,Cincinnati Reds,CIN,2025,Chase Burns,Pitcher
+160,6,85,,,0,Cincinnati Reds,CIN,2025,Tony Santillan,Pitcher
+161,6,86,,,0,Cincinnati Reds,CIN,2025,Emilio Pagan,Pitcher
+162,6,87,,,0,Cincinnati Reds,CIN,2025,Connor Phillips,Pitcher
+163,6,88,,,1,Cincinnati Reds,CIN,2025,Scott Barlow,Pitcher
+164,6,89,,,1,Cincinnati Reds,CIN,2025,Brent Suter,Pitcher
+165,6,90,,,0,Cincinnati Reds,CIN,2025,Lyon Richardson,Pitcher
+166,6,91,,,0,Cincinnati Reds,CIN,2025,Ian Gibaut,Pitcher
+167,6,92,,,0,Cincinnati Reds,CIN,2025,Luis Mey,Pitcher
+168,6,,76,1,0,Cincinnati Reds,CIN,2025,Elly De La Cruz,Hitter
+169,6,,77,2,0,Cincinnati Reds,CIN,2025,TJ Friedl,Hitter
+170,6,,78,3,0,Cincinnati Reds,CIN,2025,Matt McLain,Hitter
+171,6,,79,4,0,Cincinnati Reds,CIN,2025,Austin Hays,Hitter
+172,6,,80,5,0,Cincinnati Reds,CIN,2025,Noelvi Marte,Hitter
+173,6,,81,6,0,Cincinnati Reds,CIN,2025,Tyler Stephenson,Hitter
+174,6,,82,7,0,Cincinnati Reds,CIN,2025,Spencer Steer,Hitter
+175,6,,83,8,0,Cincinnati Reds,CIN,2025,Sal Stewart,Hitter
+176,6,,84,9,0,Cincinnati Reds,CIN,2025,Gavin Lux,Hitter
+177,6,,85,10,0,Cincinnati Reds,CIN,2025,Jose Trevino,Hitter
+178,6,,86,11,0,Cincinnati Reds,CIN,2025,Blake Dunn,Hitter
+179,6,,87,12,0,Cincinnati Reds,CIN,2025,Will Benson,Hitter
+180,6,,88,13,0,Cincinnati Reds,CIN,2025,Santiago Espinal,Hitter
+181,6,,89,14,0,Cincinnati Reds,CIN,2025,Christian Encarnacion-Strand,Hitter
+182,6,,90,15,0,Cincinnati Reds,CIN,2025,Jeimer Candelario,Hitter
+336,12,170,,,1,Colorado Rockies,COL,2025,Kyle Freeland,Pitcher
+337,12,171,,,0,Colorado Rockies,COL,2025,Jimmy Herget,Pitcher
+338,12,172,,,0,Colorado Rockies,COL,2025,Juan Mejia,Pitcher
+339,12,173,,,1,Colorado Rockies,COL,2025,Tanner Gordon,Pitcher
+340,12,174,,,0,Colorado Rockies,COL,2025,Victor Vodnik,Pitcher
+341,12,175,,,1,Colorado Rockies,COL,2025,Ryan Feltner,Pitcher
+342,12,176,,,1,Colorado Rockies,COL,2025,German Marquez,Pitcher
+343,12,177,,,0,Colorado Rockies,COL,2025,Jaden Hill,Pitcher
+344,12,178,,,1,Colorado Rockies,COL,2025,Chase Dollander,Pitcher
+345,12,179,,,1,Colorado Rockies,COL,2025,Antonio Senzatela,Pitcher
+346,12,180,,,0,Colorado Rockies,COL,2025,Seth Halvorsen,Pitcher
+347,12,181,,,1,Colorado Rockies,COL,2025,McCade Brown,Pitcher
+348,12,182,,,0,Colorado Rockies,COL,2025,Zach Agnos,Pitcher
+349,12,183,,,1,Colorado Rockies,COL,2025,Austin Gomber,Pitcher
+350,12,184,,,1,Colorado Rockies,COL,2025,Anthony Molina,Pitcher
+351,12,185,,,1,Colorado Rockies,COL,2025,Carson Palmquist,Pitcher
+352,12,186,,,1,Colorado Rockies,COL,2025,Ryan Rolison,Pitcher
+353,12,187,,,0,Colorado Rockies,COL,2025,Angel Chivilli,Pitcher
+354,12,188,,,1,Colorado Rockies,COL,2025,Bradley Blalock,Pitcher
+355,12,,167,1,0,Colorado Rockies,COL,2025,Hunter Goodman,Hitter
+356,12,,168,2,0,Colorado Rockies,COL,2025,Jordan Beck,Hitter
+357,12,,169,3,0,Colorado Rockies,COL,2025,Ezequiel Tovar,Hitter
+358,12,,170,4,0,Colorado Rockies,COL,2025,Mickey Moniak,Hitter
+359,12,,171,5,0,Colorado Rockies,COL,2025,Brenton Doyle,Hitter
+360,12,,172,6,0,Colorado Rockies,COL,2025,Ryan Ritter,Hitter
+361,12,,173,7,0,Colorado Rockies,COL,2025,Sam Hilliard,Hitter
+362,12,,174,8,0,Colorado Rockies,COL,2025,Kyle Karros,Hitter
+363,12,,175,9,0,Colorado Rockies,COL,2025,Thairo Estrada,Hitter
+364,12,,176,10,0,Colorado Rockies,COL,2025,Warming Bernabel,Hitter
+365,12,,177,11,0,Colorado Rockies,COL,2025,Braxton Fulford,Hitter
+366,12,,178,12,0,Colorado Rockies,COL,2025,Nick Martini,Hitter
+367,12,,179,13,0,Colorado Rockies,COL,2025,Tyler Freeman,Hitter
+368,12,,180,14,0,Colorado Rockies,COL,2025,Sean Bouchard,Hitter
+369,12,,181,15,0,Colorado Rockies,COL,2025,Yanquiel Fernandez,Hitter
+370,12,,182,16,0,Colorado Rockies,COL,2025,Adael Amador,Hitter
+371,12,,183,17,0,Colorado Rockies,COL,2025,Kyle Farmer,Hitter
+372,12,,184,18,0,Colorado Rockies,COL,2025,Michael Toglia,Hitter
+271,10,136,,,1,Los Angeles Dodgers,LAD,2025,Yoshinobu Yamamoto,Pitcher
+272,10,137,,,1,Los Angeles Dodgers,LAD,2025,Clayton Kershaw,Pitcher
+273,10,138,,,1,Los Angeles Dodgers,LAD,2025,Emmet Sheehan,Pitcher
+274,10,139,,,1,Los Angeles Dodgers,LAD,2025,Blake Snell,Pitcher
+275,10,140,,,1,Los Angeles Dodgers,LAD,2025,Shohei Ohtani,Pitcher
+276,10,141,,,1,Los Angeles Dodgers,LAD,2025,Jack Dreyer,Pitcher
+277,10,142,,,1,Los Angeles Dodgers,LAD,2025,Tyler Glasnow,Pitcher
+278,10,143,,,1,Los Angeles Dodgers,LAD,2025,Justin Wrobleski,Pitcher
+279,10,144,,,1,Los Angeles Dodgers,LAD,2025,Ben Casparius,Pitcher
+280,10,145,,,0,Los Angeles Dodgers,LAD,2025,Alex Vesia,Pitcher
+281,10,146,,,1,Los Angeles Dodgers,LAD,2025,Anthony Banda,Pitcher
+282,10,147,,,0,Los Angeles Dodgers,LAD,2025,Tanner Scott,Pitcher
+283,10,148,,,0,Los Angeles Dodgers,LAD,2025,Kirby Yates,Pitcher
+284,10,149,,,1,Los Angeles Dodgers,LAD,2025,Landon Knack,Pitcher
+285,10,150,,,1,Los Angeles Dodgers,LAD,2025,Tony Gonsolin,Pitcher
+286,10,151,,,0,Los Angeles Dodgers,LAD,2025,Blake Treinen,Pitcher
+287,10,152,,,1,Los Angeles Dodgers,LAD,2025,Matt Sauer,Pitcher
+288,10,153,,,1,Los Angeles Dodgers,LAD,2025,Roki Sasaki,Pitcher
+289,10,,136,1,0,Los Angeles Dodgers,LAD,2025,Shohei Ohtani,Hitter
+290,10,,137,2,0,Los Angeles Dodgers,LAD,2025,Will Smith,Hitter
+291,10,,138,3,0,Los Angeles Dodgers,LAD,2025,Andy Pages,Hitter
+292,10,,139,4,0,Los Angeles Dodgers,LAD,2025,Freddie Freeman,Hitter
+293,10,,140,5,0,Los Angeles Dodgers,LAD,2025,Mookie Betts,Hitter
+294,10,,141,6,0,Los Angeles Dodgers,LAD,2025,Max Muncy,Hitter
+295,10,,142,7,0,Los Angeles Dodgers,LAD,2025,Miguel Rojas,Hitter
+296,10,,143,8,0,Los Angeles Dodgers,LAD,2025,Tommy Edman,Hitter
+297,10,,144,9,0,Los Angeles Dodgers,LAD,2025,Hyeseong Kim,Hitter
+298,10,,145,10,0,Los Angeles Dodgers,LAD,2025,Teoscar Hernandez,Hitter
+299,10,,146,11,0,Los Angeles Dodgers,LAD,2025,Alex Freeland,Hitter
+300,10,,147,12,0,Los Angeles Dodgers,LAD,2025,Dalton Rushing,Hitter
+301,10,,148,13,0,Los Angeles Dodgers,LAD,2025,Enrique Hernandez,Hitter
+302,10,,149,14,0,Los Angeles Dodgers,LAD,2025,Michael Conforto,Hitter
+60,3,31,,,1,Miami Marlins,MIA,2025,Janson Junk,Pitcher
+61,3,32,,,1,Miami Marlins,MIA,2025,Edward Cabrera,Pitcher
+62,3,33,,,1,Miami Marlins,MIA,2025,Eury Perez,Pitcher
+63,3,34,,,1,Miami Marlins,MIA,2025,Sandy Alcantara,Pitcher
+64,3,35,,,0,Miami Marlins,MIA,2025,Ronny Henriquez,Pitcher
+65,3,36,,,1,Miami Marlins,MIA,2025,Max Meyer,Pitcher
+66,3,37,,,0,Miami Marlins,MIA,2025,Anthony Bender,Pitcher
+67,3,38,,,1,Miami Marlins,MIA,2025,Cade Gibson,Pitcher
+68,3,39,,,1,Miami Marlins,MIA,2025,Ryan Weathers,Pitcher
+69,3,40,,,1,Miami Marlins,MIA,2025,Lake Bachar,Pitcher
+70,3,41,,,1,Miami Marlins,MIA,2025,Tyler Phillips,Pitcher
+71,3,42,,,1,Miami Marlins,MIA,2025,Adam Mazur,Pitcher
+72,3,43,,,0,Miami Marlins,MIA,2025,Calvin Faucher,Pitcher
+73,3,44,,,1,Miami Marlins,MIA,2025,Connor Gillispie,Pitcher
+74,3,45,,,1,Miami Marlins,MIA,2025,Valente Bellozo,Pitcher
+75,3,46,,,0,Miami Marlins,MIA,2025,Josh Simpson,Pitcher
+76,3,47,,,0,Miami Marlins,MIA,2025,George Soriano,Pitcher
+77,3,,30,1,0,Miami Marlins,MIA,2025,Kyle Stowers,Hitter
+78,3,,31,2,0,Miami Marlins,MIA,2025,Xavier Edwards,Hitter
+79,3,,32,3,0,Miami Marlins,MIA,2025,Otto Lopez,Hitter
+80,3,,33,4,0,Miami Marlins,MIA,2025,Jakob Marsee,Hitter
+81,3,,34,5,0,Miami Marlins,MIA,2025,Heriberto Hernandez,Hitter
+82,3,,35,6,0,Miami Marlins,MIA,2025,Liam Hicks,Hitter
+83,3,,36,7,0,Miami Marlins,MIA,2025,Graham Pauley,Hitter
+84,3,,37,8,0,Miami Marlins,MIA,2025,Javier Sanoja,Hitter
+85,3,,38,9,0,Miami Marlins,MIA,2025,Connor Norby,Hitter
+86,3,,39,10,0,Miami Marlins,MIA,2025,Joey Wiemer,Hitter
+87,3,,40,11,0,Miami Marlins,MIA,2025,Troy Johnston,Hitter
+88,3,,41,12,0,Miami Marlins,MIA,2025,Griffin Conine,Hitter
+89,3,,42,13,0,Miami Marlins,MIA,2025,Agustin Ramirez,Hitter
+90,3,,43,14,0,Miami Marlins,MIA,2025,Dane Myers,Hitter
+91,3,,44,15,0,Miami Marlins,MIA,2025,Maximo Acosta,Hitter
+92,3,,45,16,0,Miami Marlins,MIA,2025,Eric Wagaman,Hitter
+93,3,,46,17,0,Miami Marlins,MIA,2025,Matt Mervis,Hitter
+183,7,93,,,1,Milwaukee Brewers,MIL,2025,Freddy Peralta,Pitcher
+184,7,94,,,1,Milwaukee Brewers,MIL,2025,Chad Patrick,Pitcher
+185,7,95,,,1,Milwaukee Brewers,MIL,2025,Quinn Priester,Pitcher
+186,7,96,,,1,Milwaukee Brewers,MIL,2025,Brandon Woodruff,Pitcher
+187,7,97,,,0,Milwaukee Brewers,MIL,2025,Abner Uribe,Pitcher
+188,7,98,,,0,Milwaukee Brewers,MIL,2025,Trevor Megill,Pitcher
+189,7,99,,,1,Milwaukee Brewers,MIL,2025,Aaron Ashby,Pitcher
+190,7,100,,,1,Milwaukee Brewers,MIL,2025,Jacob Misiorowski,Pitcher
+191,7,101,,,0,Milwaukee Brewers,MIL,2025,Jared Koenig,Pitcher
+192,7,102,,,1,Milwaukee Brewers,MIL,2025,Jose Quintana,Pitcher
+193,7,103,,,1,Milwaukee Brewers,MIL,2025,Logan Henderson,Pitcher
+194,7,104,,,0,Milwaukee Brewers,MIL,2025,Nick Mears,Pitcher
+195,7,105,,,0,Milwaukee Brewers,MIL,2025,Grant Anderson,Pitcher
+196,7,106,,,1,Milwaukee Brewers,MIL,2025,DL Hall,Pitcher
+197,7,107,,,1,Milwaukee Brewers,MIL,2025,Tobias Myers,Pitcher
+198,7,108,,,1,Milwaukee Brewers,MIL,2025,Rob Zastryzny,Pitcher
+199,7,,91,1,0,Milwaukee Brewers,MIL,2025,Brice Turang,Hitter
+200,7,,92,2,0,Milwaukee Brewers,MIL,2025,Sal Frelick,Hitter
+201,7,,93,3,0,Milwaukee Brewers,MIL,2025,William Contreras,Hitter
+202,7,,94,4,0,Milwaukee Brewers,MIL,2025,Jackson Chourio,Hitter
+203,7,,95,5,0,Milwaukee Brewers,MIL,2025,Isaac Collins,Hitter
+204,7,,96,6,0,Milwaukee Brewers,MIL,2025,Caleb Durbin,Hitter
+205,7,,97,7,0,Milwaukee Brewers,MIL,2025,Christian Yelich,Hitter
+206,7,,98,8,0,Milwaukee Brewers,MIL,2025,Joey Ortiz,Hitter
+207,7,,99,9,0,Milwaukee Brewers,MIL,2025,Rhys Hoskins,Hitter
+208,7,,100,10,0,Milwaukee Brewers,MIL,2025,Jake Bauers,Hitter
+209,7,,101,11,0,Milwaukee Brewers,MIL,2025,Andruw Monasterio,Hitter
+210,7,,102,12,0,Milwaukee Brewers,MIL,2025,Blake Perkins,Hitter
+211,7,,103,13,0,Milwaukee Brewers,MIL,2025,Garrett Mitchell,Hitter
+212,7,,104,14,0,Milwaukee Brewers,MIL,2025,Eric Haase,Hitter
+213,7,,105,15,0,Milwaukee Brewers,MIL,2025,Anthony Seigler,Hitter
+28,2,14,,,1,New York Mets,NYM,2025,David Peterson,Pitcher
+29,2,15,,,0,New York Mets,NYM,2025,Edwin Diaz,Pitcher
+30,2,16,,,1,New York Mets,NYM,2025,Clay Holmes,Pitcher
+31,2,17,,,1,New York Mets,NYM,2025,Tylor Megill,Pitcher
+32,2,18,,,1,New York Mets,NYM,2025,Kodai Senga,Pitcher
+33,2,19,,,1,New York Mets,NYM,2025,Nolan McLean,Pitcher
+34,2,20,,,1,New York Mets,NYM,2025,Griffin Canning,Pitcher
+35,2,21,,,0,New York Mets,NYM,2025,Brooks Raley,Pitcher
+36,2,22,,,1,New York Mets,NYM,2025,Reed Garrett,Pitcher
+37,2,23,,,1,New York Mets,NYM,2025,Brandon Sproat,Pitcher
+38,2,24,,,1,New York Mets,NYM,2025,Huascar Brazoban,Pitcher
+39,2,25,,,1,New York Mets,NYM,2025,Sean Manaea,Pitcher
+40,2,26,,,0,New York Mets,NYM,2025,Max Kranick,Pitcher
+41,2,27,,,1,New York Mets,NYM,2025,Justin Hagenman,Pitcher
+42,2,28,,,0,New York Mets,NYM,2025,Ryne Stanek,Pitcher
+43,2,29,,,1,New York Mets,NYM,2025,Frankie Montas,Pitcher
+44,2,30,,,1,New York Mets,NYM,2025,Brandon Waddell,Pitcher
+45,2,,15,1,0,New York Mets,NYM,2025,Francisco Lindor,Hitter
+46,2,,16,2,0,New York Mets,NYM,2025,Juan Soto,Hitter
+47,2,,17,3,0,New York Mets,NYM,2025,Pete Alonso,Hitter
+48,2,,18,4,0,New York Mets,NYM,2025,Brandon Nimmo,Hitter
+49,2,,19,5,0,New York Mets,NYM,2025,Brett Baty,Hitter
+50,2,,20,6,0,New York Mets,NYM,2025,Jeff McNeil,Hitter
+51,2,,21,7,0,New York Mets,NYM,2025,Francisco Alvarez,Hitter
+52,2,,22,8,0,New York Mets,NYM,2025,Luis Torrens,Hitter
+53,2,,23,9,0,New York Mets,NYM,2025,Tyrone Taylor,Hitter
+54,2,,24,10,0,New York Mets,NYM,2025,Starling Marte,Hitter
+55,2,,25,11,0,New York Mets,NYM,2025,Ronny Mauricio,Hitter
+56,2,,26,12,0,New York Mets,NYM,2025,Mark Vientos,Hitter
+57,2,,27,13,0,New York Mets,NYM,2025,Luisangel Acuna,Hitter
+58,2,,28,14,0,New York Mets,NYM,2025,Hayden Senger,Hitter
+59,2,,29,15,0,New York Mets,NYM,2025,Jesse Winker,Hitter
+1,1,1,,,1,Philadelphia Phillies,PHI,2025,Cristopher Sanchez,Pitcher
+2,1,2,,,1,Philadelphia Phillies,PHI,2025,Jesus Luzardo,Pitcher
+3,1,3,,,1,Philadelphia Phillies,PHI,2025,Ranger Suarez,Pitcher
+4,1,4,,,1,Philadelphia Phillies,PHI,2025,Zack Wheeler,Pitcher
+5,1,5,,,0,Philadelphia Phillies,PHI,2025,Matt Strahm,Pitcher
+6,1,6,,,1,Philadelphia Phillies,PHI,2025,Aaron Nola,Pitcher
+7,1,7,,,1,Philadelphia Phillies,PHI,2025,Tanner Banks,Pitcher
+8,1,8,,,0,Philadelphia Phillies,PHI,2025,Orion Kerkering,Pitcher
+9,1,9,,,1,Philadelphia Phillies,PHI,2025,Taijuan Walker,Pitcher
+10,1,10,,,0,Philadelphia Phillies,PHI,2025,Jose Alvarado,Pitcher
+11,1,11,,,1,Philadelphia Phillies,PHI,2025,Joe Ross,Pitcher
+12,1,12,,,0,Philadelphia Phillies,PHI,2025,Max Lazar,Pitcher
+13,1,13,,,0,Philadelphia Phillies,PHI,2025,Jordan Romano,Pitcher
+14,1,,1,1,0,Philadelphia Phillies,PHI,2025,Trea Turner,Hitter
+15,1,,2,2,0,Philadelphia Phillies,PHI,2025,Kyle Schwarber,Hitter
+16,1,,3,3,0,Philadelphia Phillies,PHI,2025,Bryce Harper,Hitter
+17,1,,4,4,0,Philadelphia Phillies,PHI,2025,Bryson Stott,Hitter
+18,1,,5,5,0,Philadelphia Phillies,PHI,2025,Brandon Marsh,Hitter
+19,1,,6,6,0,Philadelphia Phillies,PHI,2025,J.T. Realmuto,Hitter
+20,1,,7,7,0,Philadelphia Phillies,PHI,2025,Alec Bohm,Hitter
+21,1,,8,8,0,Philadelphia Phillies,PHI,2025,Edmundo Sosa,Hitter
+22,1,,9,9,0,Philadelphia Phillies,PHI,2025,Max Kepler,Hitter
+23,1,,10,10,0,Philadelphia Phillies,PHI,2025,Johan Rojas,Hitter
+24,1,,11,11,0,Philadelphia Phillies,PHI,2025,Rafael Marchan,Hitter
+25,1,,12,12,0,Philadelphia Phillies,PHI,2025,Otto Kemp,Hitter
+26,1,,13,13,0,Philadelphia Phillies,PHI,2025,Weston Wilson,Hitter
+27,1,,14,14,0,Philadelphia Phillies,PHI,2025,Nick Castellanos,Hitter
+214,8,109,,,1,Pittsburgh Pirates,PIT,2025,Paul Skenes,Pitcher
+215,8,110,,,1,Pittsburgh Pirates,PIT,2025,Mitch Keller,Pitcher
+216,8,111,,,1,Pittsburgh Pirates,PIT,2025,Carmen Mlodzinski,Pitcher
+217,8,112,,,1,Pittsburgh Pirates,PIT,2025,Braxton Ashcraft,Pitcher
+218,8,113,,,1,Pittsburgh Pirates,PIT,2025,Mike Burrows,Pitcher
+219,8,114,,,0,Pittsburgh Pirates,PIT,2025,Dennis Santana,Pitcher
+220,8,115,,,1,Pittsburgh Pirates,PIT,2025,Bubba Chandler,Pitcher
+221,8,116,,,0,Pittsburgh Pirates,PIT,2025,Isaac Mattson,Pitcher
+222,8,117,,,0,Pittsburgh Pirates,PIT,2025,Yohan Ramirez,Pitcher
+223,8,118,,,1,Pittsburgh Pirates,PIT,2025,Johan Oviedo,Pitcher
+224,8,119,,,0,Pittsburgh Pirates,PIT,2025,Kyle Nicolas,Pitcher
+225,8,120,,,0,Pittsburgh Pirates,PIT,2025,Chase Shugart,Pitcher
+226,8,121,,,0,Pittsburgh Pirates,PIT,2025,Colin Holderman,Pitcher
+227,8,,106,1,0,Pittsburgh Pirates,PIT,2025,Spencer Horwitz,Hitter
+228,8,,107,2,0,Pittsburgh Pirates,PIT,2025,Oneil Cruz,Hitter
+229,8,,108,3,0,Pittsburgh Pirates,PIT,2025,Jared Triolo,Hitter
+230,8,,109,4,0,Pittsburgh Pirates,PIT,2025,Joey Bart,Hitter
+231,8,,110,5,0,Pittsburgh Pirates,PIT,2025,Bryan Reynolds,Hitter
+232,8,,111,6,0,Pittsburgh Pirates,PIT,2025,Nick Gonzales,Hitter
+233,8,,112,7,0,Pittsburgh Pirates,PIT,2025,Tommy Pham,Hitter
+234,8,,113,8,0,Pittsburgh Pirates,PIT,2025,Enmanuel Valdez,Hitter
+235,8,,114,9,0,Pittsburgh Pirates,PIT,2025,Liover Peguero,Hitter
+236,8,,115,10,0,Pittsburgh Pirates,PIT,2025,Andrew McCutchen,Hitter
+237,8,,116,11,0,Pittsburgh Pirates,PIT,2025,Nick Yorke,Hitter
+238,8,,117,12,0,Pittsburgh Pirates,PIT,2025,Henry Davis,Hitter
+239,8,,118,13,0,Pittsburgh Pirates,PIT,2025,Alexander Canario,Hitter
+240,8,,119,14,0,Pittsburgh Pirates,PIT,2025,Jack Suwinski,Hitter
+241,8,,120,15,0,Pittsburgh Pirates,PIT,2025,Endy Rodriguez,Hitter
+405,14,206,,,1,SDP,SDP,2025,Nick Pivetta,Pitcher
+406,14,207,,,1,SDP,SDP,2025,Dylan Cease,Pitcher
+407,14,208,,,0,SDP,SDP,2025,Adrian Morejon,Pitcher
+408,14,209,,,0,SDP,SDP,2025,Robert Suarez,Pitcher
+409,14,210,,,0,SDP,SDP,2025,Jason Adam,Pitcher
+410,14,211,,,0,SDP,SDP,2025,Jeremiah Estrada,Pitcher
+411,14,212,,,1,SDP,SDP,2025,Randy Vasquez,Pitcher
+412,14,213,,,1,SDP,SDP,2025,Michael King,Pitcher
+413,14,214,,,1,SDP,SDP,2025,Wandy Peralta,Pitcher
+414,14,215,,,1,SDP,SDP,2025,Yu Darvish,Pitcher
+415,14,216,,,1,SDP,SDP,2025,David Morgan,Pitcher
+416,14,217,,,1,SDP,SDP,2025,Kyle Hart,Pitcher
+417,14,218,,,0,SDP,SDP,2025,Yuki Matsui,Pitcher
+418,14,219,,,1,SDP,SDP,2025,Sean Reynolds,Pitcher
+419,14,220,,,0,SDP,SDP,2025,Alek Jacob,Pitcher
+420,14,,200,1,0,SDP,SDP,2025,Fernando Tatis Jr.,Hitter
+421,14,,201,2,0,SDP,SDP,2025,Manny Machado,Hitter
+422,14,,202,3,0,SDP,SDP,2025,Xander Bogaerts,Hitter
+423,14,,203,4,0,SDP,SDP,2025,Jackson Merrill,Hitter
+424,14,,204,5,0,SDP,SDP,2025,Jake Cronenworth,Hitter
+425,14,,205,6,0,SDP,SDP,2025,Gavin Sheets,Hitter
+426,14,,206,7,0,SDP,SDP,2025,Luis Arraez,Hitter
+427,14,,207,8,0,SDP,SDP,2025,Bryce Johnson,Hitter
+428,14,,208,9,0,SDP,SDP,2025,Elias Diaz,Hitter
+429,14,,209,10,0,SDP,SDP,2025,Jose Iglesias,Hitter
+430,14,,210,11,0,SDP,SDP,2025,Tyler Wade,Hitter
+431,14,,211,12,0,SDP,SDP,2025,Oscar Gonzalez,Hitter
+432,14,,212,13,0,SDP,SDP,2025,Jason Heyward,Hitter
+433,14,,213,14,0,SDP,SDP,2025,Martin Maldonado,Hitter
+434,15,221,,,1,SFG,SFG,2025,Logan Webb,Pitcher
+435,15,222,,,1,SFG,SFG,2025,Robbie Ray,Pitcher
+436,15,223,,,1,SFG,SFG,2025,Justin Verlander,Pitcher
+437,15,224,,,0,SFG,SFG,2025,Randy Rodriguez,Pitcher
+438,15,225,,,1,SFG,SFG,2025,Landen Roupp,Pitcher
+439,15,226,,,0,SFG,SFG,2025,Ryan Walker,Pitcher
+440,15,227,,,0,SFG,SFG,2025,Spencer Bivens,Pitcher
+441,15,228,,,1,SFG,SFG,2025,Kai-Wei Teng,Pitcher
+442,15,229,,,0,SFG,SFG,2025,Erik Miller,Pitcher
+443,15,230,,,0,SFG,SFG,2025,Joey Lucchesi,Pitcher
+444,15,231,,,1,SFG,SFG,2025,Hayden Birdsong,Pitcher
+445,15,232,,,0,SFG,SFG,2025,Joel Peguero,Pitcher
+446,15,233,,,1,SFG,SFG,2025,Tristan Beck,Pitcher
+447,15,234,,,1,SFG,SFG,2025,Carson Whisenhunt,Pitcher
+448,15,235,,,1,SFG,SFG,2025,Carson Seymour,Pitcher
+449,15,,214,1,0,SFG,SFG,2025,Willy Adames,Hitter
+450,15,,215,2,0,SFG,SFG,2025,Matt Chapman,Hitter
+451,15,,216,3,0,SFG,SFG,2025,Patrick Bailey,Hitter
+452,15,,217,4,0,SFG,SFG,2025,Jung Hoo Lee,Hitter
+453,15,,218,5,0,SFG,SFG,2025,Heliot Ramos,Hitter
+454,15,,219,6,0,SFG,SFG,2025,Casey Schmitt,Hitter
+455,15,,220,7,0,SFG,SFG,2025,Christian Koss,Hitter
+456,15,,221,8,0,SFG,SFG,2025,Dominic Smith,Hitter
+457,15,,222,9,0,SFG,SFG,2025,Andrew Knizner,Hitter
+458,15,,223,10,0,SFG,SFG,2025,Tyler Fitzgerald,Hitter
+459,15,,224,11,0,SFG,SFG,2025,Drew Gilbert,Hitter
+460,15,,225,12,0,SFG,SFG,2025,Jerar Encarnacion,Hitter
+461,15,,226,13,0,SFG,SFG,2025,Luis Matos,Hitter
+462,15,,227,14,0,SFG,SFG,2025,Wilmer Flores,Hitter
+463,15,,228,15,0,SFG,SFG,2025,Sam Huff,Hitter
+242,9,122,,,1,St. Louis Cardinals,STL,2025,Sonny Gray,Pitcher
+243,9,123,,,1,St. Louis Cardinals,STL,2025,Matthew Liberatore,Pitcher
+244,9,124,,,1,St. Louis Cardinals,STL,2025,Kyle Leahy,Pitcher
+245,9,125,,,0,St. Louis Cardinals,STL,2025,Matt Svanson,Pitcher
+246,9,126,,,1,St. Louis Cardinals,STL,2025,Michael McGreevy,Pitcher
+247,9,127,,,0,St. Louis Cardinals,STL,2025,JoJo Romero,Pitcher
+248,9,128,,,1,St. Louis Cardinals,STL,2025,Andre Pallante,Pitcher
+249,9,129,,,0,St. Louis Cardinals,STL,2025,Gordon Graceffo,Pitcher
+250,9,130,,,1,St. Louis Cardinals,STL,2025,Miles Mikolas,Pitcher
+251,9,131,,,0,St. Louis Cardinals,STL,2025,Riley O'Brien,Pitcher
+252,9,132,,,0,St. Louis Cardinals,STL,2025,Andre Granillo,Pitcher
+253,9,133,,,0,St. Louis Cardinals,STL,2025,Chris Roycroft,Pitcher
+254,9,134,,,0,St. Louis Cardinals,STL,2025,Ryan Fernandez,Pitcher
+255,9,135,,,0,St. Louis Cardinals,STL,2025,John King,Pitcher
+256,9,,121,1,0,St. Louis Cardinals,STL,2025,Masyn Winn,Hitter
+257,9,,122,2,0,St. Louis Cardinals,STL,2025,Brendan Donovan,Hitter
+258,9,,123,3,0,St. Louis Cardinals,STL,2025,Willson Contreras,Hitter
+259,9,,124,4,0,St. Louis Cardinals,STL,2025,Ivan Herrera,Hitter
+260,9,,125,5,0,St. Louis Cardinals,STL,2025,Alec Burleson,Hitter
+261,9,,126,6,0,St. Louis Cardinals,STL,2025,Victor Scott II,Hitter
+262,9,,127,7,0,St. Louis Cardinals,STL,2025,Pedro Pages,Hitter
+263,9,,128,8,0,St. Louis Cardinals,STL,2025,Nolan Arenado,Hitter
+264,9,,129,9,0,St. Louis Cardinals,STL,2025,Lars Nootbaar,Hitter
+265,9,,130,10,0,St. Louis Cardinals,STL,2025,Jose Fermin,Hitter
+266,9,,131,11,0,St. Louis Cardinals,STL,2025,Thomas Saggese,Hitter
+267,9,,132,12,0,St. Louis Cardinals,STL,2025,Yohel Pozo,Hitter
+268,9,,133,13,0,St. Louis Cardinals,STL,2025,Nathan Church,Hitter
+269,9,,134,14,0,St. Louis Cardinals,STL,2025,Nolan Gorman,Hitter
+270,9,,135,15,0,St. Louis Cardinals,STL,2025,Jordan Walker,Hitter
+373,13,189,,,1,WSN,WSN,2025,MacKenzie Gore,Pitcher
+374,13,190,,,0,WSN,WSN,2025,Jose A. Ferrer,Pitcher
+375,13,191,,,1,WSN,WSN,2025,Brad Lord,Pitcher
+376,13,192,,,1,WSN,WSN,2025,Trevor Williams,Pitcher
+377,13,193,,,1,WSN,WSN,2025,Mitchell Parker,Pitcher
+378,13,194,,,1,WSN,WSN,2025,Andrew Alvarez,Pitcher
+379,13,195,,,1,WSN,WSN,2025,Cade Cavalli,Pitcher
+380,13,196,,,0,WSN,WSN,2025,Jorge Lopez,Pitcher
+381,13,197,,,0,WSN,WSN,2025,PJ Poulin,Pitcher
+382,13,198,,,0,WSN,WSN,2025,Cole Henry,Pitcher
+383,13,199,,,0,WSN,WSN,2025,Orlando Ribalta,Pitcher
+384,13,200,,,0,WSN,WSN,2025,Zach Brzykcy,Pitcher
+385,13,201,,,1,WSN,WSN,2025,Jake Irvin,Pitcher
+386,13,202,,,0,WSN,WSN,2025,Jackson Rutledge,Pitcher
+387,13,203,,,0,WSN,WSN,2025,Konnor Pilkington,Pitcher
+388,13,204,,,1,WSN,WSN,2025,Shinnosuke Ogasawara,Pitcher
+389,13,205,,,0,WSN,WSN,2025,Eduardo Salazar,Pitcher
+390,13,,185,1,0,WSN,WSN,2025,James Wood,Hitter
+391,13,,186,2,0,WSN,WSN,2025,CJ Abrams,Hitter
+392,13,,187,3,0,WSN,WSN,2025,Daylen Lile,Hitter
+393,13,,188,4,0,WSN,WSN,2025,Jacob Young,Hitter
+394,13,,189,5,0,WSN,WSN,2025,Nasim Nunez,Hitter
+395,13,,190,6,0,WSN,WSN,2025,Luis Garcia Jr.,Hitter
+396,13,,191,7,0,WSN,WSN,2025,Paul DeJong,Hitter
+397,13,,192,8,0,WSN,WSN,2025,Dylan Crews,Hitter
+398,13,,193,9,0,WSN,WSN,2025,Josh Bell,Hitter
+399,13,,194,10,0,WSN,WSN,2025,Jose Tena,Hitter
+400,13,,195,11,0,WSN,WSN,2025,Brady House,Hitter
+401,13,,196,12,0,WSN,WSN,2025,Andres Chaparro,Hitter
+402,13,,197,13,0,WSN,WSN,2025,Robert Hassell III,Hitter
+403,13,,198,14,0,WSN,WSN,2025,Riley Adams,Hitter
+404,13,,199,15,0,WSN,WSN,2025,Keibert Ruiz,Hitter

@@ -780,6 +780,60 @@ class StatsConverter:
             # No data - use balanced default that matches generic teams
             return 65000  # Moderate-high attack angle for MLB average
 
+    # Jump metric ranges (Statcast "feet in right direction in first 3 seconds")
+    # Positive = towards ball, negative = wrong direction
+    FIELDER_JUMP_ELITE = 4.0      # +4 ft = elite first step
+    FIELDER_JUMP_GOOD = 2.0       # +2 ft = good
+    FIELDER_JUMP_AVG = 0.0        # 0 ft = average
+    FIELDER_JUMP_POOR = -3.0      # -3 ft = poor first step/wrong direction
+    
+    # Jump COMPONENT ranges (each is feet vs average in its time window)
+    # Reaction: feet covered in first 1.5 seconds (first step quality)
+    FIELDER_REACTION_FT_ELITE = 2.5   # +2.5 ft = elite first step
+    FIELDER_REACTION_FT_GOOD = 1.0    # +1 ft = good
+    FIELDER_REACTION_FT_AVG = 0.0     # 0 ft = average
+    FIELDER_REACTION_FT_POOR = -2.0   # -2 ft = poor first step
+    
+    # Burst: feet covered in second 1.5 seconds (acceleration phase)
+    FIELDER_BURST_FT_ELITE = 2.5      # +2.5 ft = explosive acceleration
+    FIELDER_BURST_FT_GOOD = 1.0       # +1 ft = good acceleration
+    FIELDER_BURST_FT_AVG = 0.0        # 0 ft = average
+    FIELDER_BURST_FT_POOR = -2.0      # -2 ft = slow acceleration
+    
+    # Route: feet lost/gained from direction (route efficiency component)
+    FIELDER_ROUTE_FT_ELITE = 1.5      # +1.5 ft = excellent routes (rarely wrong direction)
+    FIELDER_ROUTE_FT_GOOD = 0.5       # +0.5 ft = good routes
+    FIELDER_ROUTE_FT_AVG = 0.0        # 0 ft = average
+    FIELDER_ROUTE_FT_POOR = -2.0      # -2 ft = poor routes (wrong direction)
+    
+    # Directional OAA thresholds (from Baseball Savant directional_outs_above_average.csv)
+    # These measure ability to make plays in specific directions relative to starting position
+    # Back OAA: Ability to go back on deep balls (outfielders) or away from plate (infielders)
+    FIELDER_BACK_OAA_ELITE = 8.0      # +8 OAA going back = elite range backward
+    FIELDER_BACK_OAA_GOOD = 3.0       # +3 OAA = good
+    FIELDER_BACK_OAA_AVG = 0.0        # 0 = average
+    FIELDER_BACK_OAA_POOR = -5.0      # -5 OAA = struggles going back
+    
+    # In OAA: Ability to come in on shallow balls (outfielders) or charge (infielders)
+    FIELDER_IN_OAA_ELITE = 6.0        # +6 OAA coming in = elite charging ability
+    FIELDER_IN_OAA_GOOD = 2.0         # +2 OAA = good
+    FIELDER_IN_OAA_AVG = 0.0          # 0 = average
+    FIELDER_IN_OAA_POOR = -4.0        # -4 OAA = struggles coming in
+
+    # Catch Probability: 5-star plays (hardest, 0-25% expected catch rate)
+    # Elite outfielders like Pete Crow-Armstrong convert 50%+ of these
+    FIELDER_CATCH_5STAR_ELITE = 50.0  # 50%+ = elite (Crow-Armstrong: 59.4%)
+    FIELDER_CATCH_5STAR_GOOD = 35.0   # 35%+ = good  
+    FIELDER_CATCH_5STAR_AVG = 20.0    # 20% = average (roughly at expectation)
+    FIELDER_CATCH_5STAR_POOR = 10.0   # 10% = poor
+
+    # Catch Probability: 3-4 star plays (difficult, 25-75% expected catch rate)
+    # These differentiate good from great fielders
+    FIELDER_CATCH_34STAR_ELITE = 85.0   # 85%+ = elite  
+    FIELDER_CATCH_34STAR_GOOD = 75.0    # 75%+ = good
+    FIELDER_CATCH_34STAR_AVG = 65.0     # 65% = average
+    FIELDER_CATCH_34STAR_POOR = 50.0    # 50% = poor
+
     @classmethod
     def mlb_stats_to_defensive_attributes(
         cls,
@@ -789,7 +843,14 @@ class StatsConverter:
         arm_strength_mph: Optional[float] = None,
         drs: Optional[float] = None,
         jump: Optional[float] = None,
-        fielding_pct: Optional[float] = None
+        jump_reaction: Optional[float] = None,
+        jump_burst: Optional[float] = None,
+        jump_route: Optional[float] = None,
+        fielding_pct: Optional[float] = None,
+        back_oaa: Optional[float] = None,
+        in_oaa: Optional[float] = None,
+        catch_5star_pct: Optional[float] = None,
+        catch_34star_pct: Optional[float] = None
     ) -> Dict[str, int]:
         """
         Convert MLB defensive metrics to v2 game attributes (CRITICAL for BABIP tuning).
@@ -798,11 +859,17 @@ class StatsConverter:
 
         Strategy:
         - Sprint speed → TOP_SPRINT_SPEED (direct mapping)
-        - OAA + Jump → REACTION_TIME (better OAA/jump = faster reaction)
-        - OAA + DRS → ROUTE_EFFICIENCY (better overall defense = better routes)
+        - OAA + Jump Reaction → REACTION_TIME (better first step = faster reaction)
+        - OAA + DRS + Jump Route → ROUTE_EFFICIENCY (better routes = more efficient)
+        - Jump Burst → BURST (acceleration in second 1.5s)
         - Arm strength → ARM_STRENGTH (direct mapping by position)
         - Fielding % → FIELDING_SECURE (fewer errors = more secure)
         - OAA residual → ARM_ACCURACY (defense not explained by speed/range)
+        - Jump → JUMP (composite metric, for legacy compatibility)
+        - Back OAA → RANGE_BACK (ability to go back on balls)
+        - In OAA → RANGE_IN (ability to come in on balls)
+        - Catch Prob 5-star → CATCH_ELITE (elite plays, 0-25% expected)
+        - Catch Prob 3-4 star → CATCH_DIFFICULT (difficult plays, 25-75% expected)
 
         Parameters
         ----------
@@ -817,16 +884,29 @@ class StatsConverter:
         drs : float, optional
             Defensive Runs Saved (FanGraphs)
         jump : float, optional
-            Outfielder first step efficiency (Statcast)
+            Outfielder first step efficiency in feet (Statcast)
+            Represents "feet covered in right direction in first 3 seconds"
+            Typical range: -4 to +6 ft, where positive = towards ball
         fielding_pct : float, optional
             Traditional fielding percentage
+        back_oaa : float, optional
+            Directional OAA going back (sum of back_left, back, back_right slices)
+        in_oaa : float, optional
+            Directional OAA coming in (sum of in_left, in, in_right slices)
+        catch_5star_pct : float, optional
+            Catch success rate on 5-star plays (0-25% expected catch rate)
+            Elite fielders convert 50%+ of these (e.g., Crow-Armstrong: 59.4%)
+        catch_34star_pct : float, optional
+            Catch success rate on 3-4 star plays (25-75% expected catch rate)
+            Differentiates good from great fielders
 
         Returns
         -------
         dict
             Dictionary with defensive attribute keys (all 0-100k scale):
             - reaction_time, top_sprint_speed, route_efficiency,
-              arm_strength, arm_accuracy, fielding_secure
+              arm_strength, arm_accuracy, fielding_secure, jump,
+              range_back, range_in, catch_elite, catch_difficult
         """
         attrs = {}
 
@@ -853,7 +933,19 @@ class StatsConverter:
         # REACTION_TIME attribute: higher = faster reaction (100k = 0.00s, 0 = 0.30s)
         # OAA metric: higher = better defender
         # Therefore: inverse=False (higher OAA → higher attribute → faster reaction)
-        if oaa is not None:
+        #
+        # 2025-11-26: Prefer Jump Reaction component when available (more direct measure)
+        if jump_reaction is not None and position in ['LF', 'CF', 'RF']:
+            # Outfielders with jump reaction data - direct measure of first 1.5s performance
+            attrs['reaction_time'] = cls.percentile_to_rating(
+                jump_reaction,
+                cls.FIELDER_REACTION_FT_ELITE,  # +2.5 ft = elite first step
+                cls.FIELDER_REACTION_FT_GOOD,   # +1 ft = good
+                cls.FIELDER_REACTION_FT_AVG,    # 0 ft = average
+                cls.FIELDER_REACTION_FT_POOR,   # -2 ft = poor
+                inverse=False
+            )
+        elif oaa is not None:
             attrs['reaction_time'] = cls.percentile_to_rating(
                 oaa,  # Use OAA directly, not scaled
                 cls.FIELDER_OAA_ELITE,    # +8 OAA = elite reaction (90k-100k)
@@ -863,7 +955,7 @@ class StatsConverter:
                 inverse=False  # Higher OAA = higher rating = faster reaction
             )
         elif jump is not None and position in ['LF', 'CF', 'RF']:
-            # Outfielders: use jump metric if OAA not available
+            # Outfielders: use composite jump metric if OAA not available
             # Jump is typically 0-5 ft range, scale to match OAA thresholds
             jump_as_oaa = jump * 2.0  # Rough conversion: 4 ft jump ≈ +8 OAA equivalent
             attrs['reaction_time'] = cls.percentile_to_rating(
@@ -877,30 +969,43 @@ class StatsConverter:
         else:
             attrs['reaction_time'] = 50000  # Default average
 
-        # 3. ROUTE_EFFICIENCY - From OAA + DRS composite
-        route_score = 0.0
-        has_route_data = False
-
-        if oaa is not None:
-            route_score += oaa * 0.5
-            has_route_data = True
-
-        if drs is not None:
-            route_score += drs * 0.5
-            has_route_data = True
-
-        if has_route_data:
-            # Use average of OAA and DRS thresholds
+        # 3. ROUTE_EFFICIENCY - From OAA + DRS composite, OR Jump Route component
+        # 2025-11-26: Prefer Jump Route component for outfielders (direct route measure)
+        if jump_route is not None and position in ['LF', 'CF', 'RF']:
+            # Outfielders with jump route data - direct measure of direction efficiency
             attrs['route_efficiency'] = cls.percentile_to_rating(
-                route_score,
-                (cls.FIELDER_OAA_ELITE + cls.FIELDER_DRS_ELITE) / 2,  # ~9.0
-                (cls.FIELDER_OAA_GOOD + cls.FIELDER_DRS_GOOD) / 2,    # ~4.0
-                (cls.FIELDER_OAA_AVG + cls.FIELDER_DRS_AVG) / 2,      # 0.0
-                (cls.FIELDER_OAA_POOR + cls.FIELDER_DRS_POOR) / 2,    # ~-5.0
+                jump_route,
+                cls.FIELDER_ROUTE_FT_ELITE,  # +1.5 ft = excellent routes
+                cls.FIELDER_ROUTE_FT_GOOD,   # +0.5 ft = good routes
+                cls.FIELDER_ROUTE_FT_AVG,    # 0 ft = average
+                cls.FIELDER_ROUTE_FT_POOR,   # -2 ft = poor routes
                 inverse=False
             )
         else:
-            attrs['route_efficiency'] = 50000
+            # Fall back to OAA + DRS composite
+            route_score = 0.0
+            has_route_data = False
+
+            if oaa is not None:
+                route_score += oaa * 0.5
+                has_route_data = True
+
+            if drs is not None:
+                route_score += drs * 0.5
+                has_route_data = True
+
+            if has_route_data:
+                # Use average of OAA and DRS thresholds
+                attrs['route_efficiency'] = cls.percentile_to_rating(
+                    route_score,
+                    (cls.FIELDER_OAA_ELITE + cls.FIELDER_DRS_ELITE) / 2,  # ~9.0
+                    (cls.FIELDER_OAA_GOOD + cls.FIELDER_DRS_GOOD) / 2,    # ~4.0
+                    (cls.FIELDER_OAA_AVG + cls.FIELDER_DRS_AVG) / 2,      # 0.0
+                    (cls.FIELDER_OAA_POOR + cls.FIELDER_DRS_POOR) / 2,    # ~-5.0
+                    inverse=False
+                )
+            else:
+                attrs['route_efficiency'] = 50000
 
         # 4. ARM_STRENGTH - Position-specific from Statcast arm data
         # Position-specific thresholds (in mph)
@@ -986,6 +1091,182 @@ class StatsConverter:
             )
         else:
             attrs['arm_accuracy'] = 50000
+
+        # 7. BURST - Acceleration in second 1.5 seconds (from Jump Burst component)
+        # 2025-11-26: New attribute mapping Statcast Burst component
+        if jump_burst is not None and position in ['LF', 'CF', 'RF']:
+            # Outfielders with burst data - direct measure of acceleration phase
+            attrs['burst'] = cls.percentile_to_rating(
+                jump_burst,
+                cls.FIELDER_BURST_FT_ELITE,  # +2.5 ft = explosive acceleration
+                cls.FIELDER_BURST_FT_GOOD,   # +1 ft = good
+                cls.FIELDER_BURST_FT_AVG,    # 0 ft = average
+                cls.FIELDER_BURST_FT_POOR,   # -2 ft = poor
+                inverse=False
+            )
+        elif position in ['LF', 'CF', 'RF']:
+            # Outfielders without burst data - derive from OAA or sprint speed
+            if sprint_speed is not None:
+                # Faster players tend to have better burst
+                # Estimate: 29.5 ft/s → ~75k, 27.5 ft/s → ~50k, 26 ft/s → ~30k
+                burst_from_speed = int((sprint_speed - 27.5) * 12500 + 50000)
+                attrs['burst'] = int(np.clip(burst_from_speed, 20000, 85000))
+            elif oaa is not None:
+                # Use OAA as proxy
+                burst_from_oaa = 50000 + int(oaa * 2500)
+                attrs['burst'] = int(np.clip(burst_from_oaa, 20000, 85000))
+            else:
+                attrs['burst'] = 50000
+        else:
+            # Infielders: burst less measured, default to average
+            attrs['burst'] = 50000
+
+        # 8. JUMP - Direct mapping of Statcast jump metric (feet in right direction in 3s)
+        # This is a FIRST-CLASS attribute that models reaction + burst + route direction
+        # separately from pure reaction time or route efficiency
+        if jump is not None:
+            # Jump metric: typical range -4 to +6 ft
+            # Positive = moved towards ball in first 3 seconds
+            # Negative = initially wrong direction
+            attrs['jump'] = cls.percentile_to_rating(
+                jump,
+                cls.FIELDER_JUMP_ELITE,   # +4 ft = elite first step
+                cls.FIELDER_JUMP_GOOD,    # +2 ft = good
+                cls.FIELDER_JUMP_AVG,     # 0 ft = average
+                cls.FIELDER_JUMP_POOR,    # -3 ft = poor
+                inverse=False  # Higher jump is better
+            )
+        elif position in ['LF', 'CF', 'RF']:
+            # Outfielders: derive from OAA if available
+            # Good outfielders typically have good jumps
+            if oaa is not None:
+                # Scale OAA to jump rating: higher OAA = better jump
+                # +8 OAA → ~75k, 0 OAA → ~50k, -5 OAA → ~30k
+                jump_from_oaa = 50000 + int(oaa * 3125)  # ±25k swing over ±8 OAA range
+                attrs['jump'] = int(np.clip(jump_from_oaa, 15000, 90000))
+            else:
+                attrs['jump'] = 50000  # Default average for outfielders
+        else:
+            # Infielders: jump is less critical, default to average
+            # But if we have OAA, use a smaller influence
+            if oaa is not None:
+                jump_from_oaa = 50000 + int(oaa * 2000)  # Smaller influence for infielders
+                attrs['jump'] = int(np.clip(jump_from_oaa, 25000, 80000))
+            else:
+                attrs['jump'] = 50000
+
+        # 9. RANGE_BACK - Ability to go back on balls (from directional OAA)
+        # 2025-11-26: New attribute for player-specific backward movement ability
+        if back_oaa is not None:
+            attrs['range_back'] = cls.percentile_to_rating(
+                back_oaa,
+                cls.FIELDER_BACK_OAA_ELITE,  # +8 OAA back = elite
+                cls.FIELDER_BACK_OAA_GOOD,   # +3 OAA = good
+                cls.FIELDER_BACK_OAA_AVG,    # 0 = average
+                cls.FIELDER_BACK_OAA_POOR,   # -5 OAA = poor
+                inverse=False  # Higher back_oaa is better
+            )
+        elif position in ['LF', 'CF', 'RF']:
+            # Outfielders: derive from OAA if available (back range is important)
+            if oaa is not None:
+                # Estimate: better overall fielders tend to be better going back
+                range_back_from_oaa = 50000 + int(oaa * 2500)
+                attrs['range_back'] = int(np.clip(range_back_from_oaa, 25000, 80000))
+            else:
+                attrs['range_back'] = 50000
+        else:
+            # Infielders: going back is less critical, default closer to average
+            if oaa is not None:
+                range_back_from_oaa = 50000 + int(oaa * 1500)
+                attrs['range_back'] = int(np.clip(range_back_from_oaa, 30000, 75000))
+            else:
+                attrs['range_back'] = 50000
+
+        # 10. RANGE_IN - Ability to come in on balls (from directional OAA)
+        # 2025-11-26: New attribute for player-specific forward/charging movement
+        if in_oaa is not None:
+            attrs['range_in'] = cls.percentile_to_rating(
+                in_oaa,
+                cls.FIELDER_IN_OAA_ELITE,  # +6 OAA in = elite
+                cls.FIELDER_IN_OAA_GOOD,   # +2 OAA = good
+                cls.FIELDER_IN_OAA_AVG,    # 0 = average
+                cls.FIELDER_IN_OAA_POOR,   # -4 OAA = poor
+                inverse=False  # Higher in_oaa is better
+            )
+        elif position in ['LF', 'CF', 'RF']:
+            # Outfielders: derive from OAA + sprint speed
+            if oaa is not None:
+                range_in_from_oaa = 50000 + int(oaa * 2000)
+                attrs['range_in'] = int(np.clip(range_in_from_oaa, 25000, 80000))
+            elif sprint_speed is not None:
+                # Faster runners tend to charge better
+                range_in_from_speed = int((sprint_speed - 27.5) * 10000 + 50000)
+                attrs['range_in'] = int(np.clip(range_in_from_speed, 30000, 75000))
+            else:
+                attrs['range_in'] = 50000
+        else:
+            # Infielders: charging ability is important
+            if oaa is not None:
+                range_in_from_oaa = 50000 + int(oaa * 2500)
+                attrs['range_in'] = int(np.clip(range_in_from_oaa, 25000, 85000))
+            else:
+                attrs['range_in'] = 50000
+
+        # 11. CATCH_ELITE - Ability to make 5-star catches (0-25% expected catch rate)
+        # 2025-11-26: New attribute for player-specific elite catch ability
+        # Crow-Armstrong converts 59.4% of 5-star plays (elite is 50%+)
+        if catch_5star_pct is not None and position in ['LF', 'CF', 'RF']:
+            attrs['catch_elite'] = cls.percentile_to_rating(
+                catch_5star_pct,
+                cls.FIELDER_CATCH_5STAR_ELITE,  # 50% = elite
+                cls.FIELDER_CATCH_5STAR_GOOD,   # 35% = good
+                cls.FIELDER_CATCH_5STAR_AVG,    # 20% = average
+                cls.FIELDER_CATCH_5STAR_POOR,   # 10% = poor
+                inverse=False  # Higher catch % is better
+            )
+        elif position in ['LF', 'CF', 'RF']:
+            # Outfielders without catch probability data - derive from OAA
+            # Elite fielders (high OAA) tend to make difficult catches
+            if oaa is not None:
+                # +8 OAA → ~75k, 0 OAA → ~50k, -5 OAA → ~30k
+                catch_elite_from_oaa = 50000 + int(oaa * 3125)
+                attrs['catch_elite'] = int(np.clip(catch_elite_from_oaa, 20000, 85000))
+            else:
+                attrs['catch_elite'] = 50000
+        else:
+            # Infielders: elite catches less common, use OAA influence
+            if oaa is not None:
+                catch_elite_from_oaa = 50000 + int(oaa * 2000)
+                attrs['catch_elite'] = int(np.clip(catch_elite_from_oaa, 30000, 75000))
+            else:
+                attrs['catch_elite'] = 50000
+
+        # 12. CATCH_DIFFICULT - Ability to make 3-4 star catches (25-75% expected)
+        # 2025-11-26: New attribute for player-specific difficult catch ability
+        if catch_34star_pct is not None and position in ['LF', 'CF', 'RF']:
+            attrs['catch_difficult'] = cls.percentile_to_rating(
+                catch_34star_pct,
+                cls.FIELDER_CATCH_34STAR_ELITE,  # 85% = elite
+                cls.FIELDER_CATCH_34STAR_GOOD,   # 75% = good
+                cls.FIELDER_CATCH_34STAR_AVG,    # 65% = average
+                cls.FIELDER_CATCH_34STAR_POOR,   # 50% = poor
+                inverse=False  # Higher catch % is better
+            )
+        elif position in ['LF', 'CF', 'RF']:
+            # Outfielders without catch probability data - derive from OAA
+            if oaa is not None:
+                # Similar scale but tighter since 3-4 star has higher baseline
+                catch_diff_from_oaa = 50000 + int(oaa * 2500)
+                attrs['catch_difficult'] = int(np.clip(catch_diff_from_oaa, 25000, 80000))
+            else:
+                attrs['catch_difficult'] = 50000
+        else:
+            # Infielders: derive from OAA
+            if oaa is not None:
+                catch_diff_from_oaa = 50000 + int(oaa * 2000)
+                attrs['catch_difficult'] = int(np.clip(catch_diff_from_oaa, 30000, 75000))
+            else:
+                attrs['catch_difficult'] = 50000
 
         return attrs
 

@@ -3,6 +3,9 @@ Fetch MLB player statistics using pybaseball.
 
 Provides a clean interface to retrieve pitcher and hitter stats from MLB data
 sources including Baseball Savant, FanGraphs, and Baseball Reference.
+
+Can also load data from pre-downloaded Baseball Savant CSV files in 
+data/bballsavant/{season}/ for faster, more reliable access.
 """
 
 import pandas as pd
@@ -11,6 +14,13 @@ import warnings
 
 # Suppress pybaseball warnings
 warnings.filterwarnings('ignore')
+
+# Try to import the CSV loader for Baseball Savant data
+try:
+    from .savant_csv_loader import SavantCSVLoader
+    SAVANT_CSV_AVAILABLE = True
+except ImportError:
+    SAVANT_CSV_AVAILABLE = False
 
 try:
     from pybaseball import (
@@ -320,6 +330,14 @@ class PybaseballFetcher:
         hitters_df['arm_strength_mph'] = None
         hitters_df['fielding_pct'] = None
         hitters_df['jump'] = None
+        hitters_df['jump_oaa'] = None       # Statcast Jump: OAA from jump metrics (outfielders only)
+        hitters_df['jump_reaction'] = None  # Statcast Jump: reaction component (feet in first 1.5s)
+        hitters_df['jump_burst'] = None     # Statcast Jump: burst component (feet in second 1.5s)
+        hitters_df['jump_route'] = None     # Statcast Jump: route component (feet from direction)
+        hitters_df['back_oaa'] = None       # Directional OAA: sum of back slices (back_left + back + back_right)
+        hitters_df['in_oaa'] = None         # Directional OAA: sum of in slices (in_left + in + in_right)
+        hitters_df['catch_5star_pct'] = None  # Catch probability: 5-star plays (0-25% expected)
+        hitters_df['catch_34star_pct'] = None # Catch probability: 3-4 star plays (25-75% expected)
         hitters_df['primary_position'] = None
         
         # Initialize bat tracking columns
@@ -327,6 +345,95 @@ class PybaseballFetcher:
         hitters_df['swing_length'] = None
         hitters_df['squared_up_rate'] = None
         hitters_df['hard_swing_rate'] = None
+        
+        # 0. Try to load from Baseball Savant CSV files first (faster, more reliable)
+        csv_jump_loaded = 0
+        csv_oaa_loaded = 0
+        if SAVANT_CSV_AVAILABLE:
+            try:
+                savant = SavantCSVLoader(season=self.season)
+                
+                # Check if CSV data is available
+                if savant.jump_df is not None or savant.oaa_df is not None:
+                    print(f"    Loading from Baseball Savant CSV files...")
+                    
+                    for idx, row in hitters_df.iterrows():
+                        player_name = row['player_name']
+                        
+                        # Load Jump data (outfielders)
+                        jump_data = savant.get_jump_data(player_name)
+                        if jump_data:
+                            if jump_data.get('bootup_ft') is not None:
+                                hitters_df.at[idx, 'jump'] = jump_data['bootup_ft']
+                            if jump_data.get('oaa') is not None:
+                                hitters_df.at[idx, 'jump_oaa'] = jump_data['oaa']
+                            if jump_data.get('reaction_ft') is not None:
+                                hitters_df.at[idx, 'jump_reaction'] = jump_data['reaction_ft']
+                            if jump_data.get('burst_ft') is not None:
+                                hitters_df.at[idx, 'jump_burst'] = jump_data['burst_ft']
+                            if jump_data.get('route_ft') is not None:
+                                hitters_df.at[idx, 'jump_route'] = jump_data['route_ft']
+                            csv_jump_loaded += 1
+                        
+                        # Load OAA data
+                        oaa_data = savant.get_oaa_data(player_name)
+                        if oaa_data:
+                            if oaa_data.get('oaa') is not None:
+                                hitters_df.at[idx, 'oaa'] = oaa_data['oaa']
+                            if oaa_data.get('fielding_runs_prevented') is not None:
+                                # Store as extra data if needed
+                                pass
+                            if oaa_data.get('position'):
+                                hitters_df.at[idx, 'primary_position'] = oaa_data['position']
+                            csv_oaa_loaded += 1
+                        
+                        # Load Directional OAA data (for RANGE_BACK and RANGE_IN attributes)
+                        dir_oaa = savant.get_directional_oaa(player_name)
+                        if dir_oaa:
+                            # Sum back slices for back_oaa
+                            back_left = dir_oaa.get('oaa_back_left') or 0
+                            back_center = dir_oaa.get('oaa_back') or 0
+                            back_right = dir_oaa.get('oaa_back_right') or 0
+                            back_total = back_left + back_center + back_right
+                            if any([dir_oaa.get('oaa_back_left'), dir_oaa.get('oaa_back'), 
+                                    dir_oaa.get('oaa_back_right')]):
+                                hitters_df.at[idx, 'back_oaa'] = back_total
+                            
+                            # Sum in slices for in_oaa
+                            in_left = dir_oaa.get('oaa_in_left') or 0
+                            in_center = dir_oaa.get('oaa_in') or 0
+                            in_right = dir_oaa.get('oaa_in_right') or 0
+                            in_total = in_left + in_center + in_right
+                            if any([dir_oaa.get('oaa_in_left'), dir_oaa.get('oaa_in'),
+                                    dir_oaa.get('oaa_in_right')]):
+                                hitters_df.at[idx, 'in_oaa'] = in_total
+                        
+                        # Load Catch Probability data (for CATCH_ELITE and CATCH_DIFFICULT attributes)
+                        catch_prob = savant.get_catch_probability(player_name)
+                        if catch_prob:
+                            # 5-star plays (hardest, 0-25% expected)
+                            if catch_prob.get('5star_pct') is not None:
+                                hitters_df.at[idx, 'catch_5star_pct'] = catch_prob['5star_pct']
+                            
+                            # Combined 3-4 star plays (difficult, 25-75% expected)
+                            # Calculate weighted average of 3-star and 4-star catch rates
+                            star3_made = catch_prob.get('3star_made') or 0
+                            star3_opp = catch_prob.get('3star_opp') or 0
+                            star4_made = catch_prob.get('4star_made') or 0
+                            star4_opp = catch_prob.get('4star_opp') or 0
+                            
+                            total_opp = star3_opp + star4_opp
+                            if total_opp > 0:
+                                combined_pct = ((star3_made + star4_made) / total_opp) * 100
+                                hitters_df.at[idx, 'catch_34star_pct'] = combined_pct
+                    
+                    if csv_jump_loaded > 0:
+                        print(f"    Loaded Jump data for {csv_jump_loaded} players from CSV")
+                    if csv_oaa_loaded > 0:
+                        print(f"    Loaded OAA data for {csv_oaa_loaded} players from CSV")
+                        
+            except Exception as e:
+                print(f"    Could not load from CSV files: {e}")
 
         try:
             # 1. Fetch Statcast fielding data (OAA, arm strength, jump)
@@ -498,6 +605,79 @@ class PybaseballFetcher:
                 except Exception as e:
                     print(f"    Could not fetch bat tracking data: {e}")
 
+            # 1d. Fetch Jump leaderboard from Baseball Savant (Reaction, Burst, Route components)
+            # Jump = feet covered in right direction in first 3 seconds after pitch release
+            if self.season >= 2020:  # Jump data available from 2020+
+                try:
+                    print(f"    Fetching Baseball Savant outfielder jump data...")
+                    jump_data = self._fetch_jump_leaderboard()
+                    
+                    if jump_data is not None and len(jump_data) > 0:
+                        jump_count = 0
+                        
+                        for idx, row in hitters_df.iterrows():
+                            player_name = row['player_name']
+                            position = row.get('primary_position', '')
+                            
+                            # Jump data is only relevant for outfielders
+                            if position not in ['LF', 'CF', 'RF', 'OF']:
+                                continue
+                            
+                            # Match player by name
+                            match = None
+                            if ' ' in player_name:
+                                parts = player_name.split()
+                                last_first = f"{parts[-1]}, {parts[0]}"
+                                
+                                # Get name column
+                                name_col = 'player_name' if 'player_name' in jump_data.columns else 'name'
+                                if name_col not in jump_data.columns:
+                                    # Try to find any name-like column
+                                    for col in jump_data.columns:
+                                        if 'name' in col.lower():
+                                            name_col = col
+                                            break
+                                
+                                if name_col in jump_data.columns:
+                                    match = jump_data[
+                                        jump_data[name_col].str.contains(last_first, case=False, na=False)
+                                    ]
+                                    
+                                    if len(match) == 0:
+                                        # Try just last name
+                                        match = jump_data[
+                                            jump_data[name_col].str.contains(parts[-1], case=False, na=False)
+                                        ]
+                                        # Only use if unique match
+                                        if len(match) > 1:
+                                            match = pd.DataFrame()  # Reset - ambiguous
+                            
+                            if match is not None and len(match) > 0:
+                                jump_row = match.iloc[0]
+                                
+                                # Reaction (feet in first 1.5s vs average)
+                                if 'reaction_ft' in jump_row.index and pd.notna(jump_row['reaction_ft']):
+                                    hitters_df.at[idx, 'jump_reaction'] = float(jump_row['reaction_ft'])
+                                
+                                # Burst (feet in second 1.5s vs average)
+                                if 'burst_ft' in jump_row.index and pd.notna(jump_row['burst_ft']):
+                                    hitters_df.at[idx, 'jump_burst'] = float(jump_row['burst_ft'])
+                                
+                                # Route (feet lost/gained from direction)
+                                if 'route_ft' in jump_row.index and pd.notna(jump_row['route_ft']):
+                                    hitters_df.at[idx, 'jump_route'] = float(jump_row['route_ft'])
+                                
+                                # Total Jump (feet vs average = Reaction + Burst + Route)
+                                if 'jump_ft' in jump_row.index and pd.notna(jump_row['jump_ft']):
+                                    hitters_df.at[idx, 'jump'] = float(jump_row['jump_ft'])
+                                
+                                jump_count += 1
+                        
+                        print(f"    Added jump data for {jump_count} outfielders")
+                    
+                except Exception as e:
+                    print(f"    Could not fetch jump leaderboard data: {e}")
+
             # 2. Fetch FanGraphs fielding data (DRS, fielding %, position)
             try:
                 print(f"    Fetching FanGraphs fielding data (DRS)...")
@@ -605,6 +785,72 @@ class PybaseballFetcher:
                 
         except Exception as e:
             print(f"    Error fetching arm strength: {e}")
+            return None
+
+    def _fetch_jump_leaderboard(self) -> Optional[pd.DataFrame]:
+        """
+        Fetch outfielder jump leaderboard directly from Baseball Savant.
+        
+        Jump is the Statcast metric that measures "feet covered in the right direction
+        in the first three seconds after pitch release." It has three components:
+        - Reaction: Feet covered in first 1.5 seconds (first step quality)
+        - Burst: Feet covered in second 1.5 seconds (acceleration phase)
+        - Route: Feet lost/gained from direction (route efficiency over 3s)
+        
+        Total Jump (Feet vs Avg) = Reaction + Burst + Route
+        
+        Returns
+        -------
+        pd.DataFrame or None
+            DataFrame with jump data:
+            - player_name: Player name (format: "Last, First")
+            - player_id: MLBAM player ID
+            - outs: Number of outs made
+            - opp: Number of opportunities
+            - oaa: Outs Above Average
+            - reaction_ft: Reaction component in feet vs average
+            - burst_ft: Burst component in feet vs average
+            - route_ft: Route component in feet vs average
+            - jump_ft: Total jump (feet vs average)
+            - feet_covered: Total feet covered in 3 seconds
+        """
+        try:
+            url = f'https://baseballsavant.mlb.com/leaderboard/outfield_jump?year={self.season}&min=25&csv=true'
+            response = requests.get(url, timeout=15)
+            
+            if response.status_code == 200 and len(response.text) > 100:
+                df = pd.read_csv(StringIO(response.text))
+                
+                # Standardize column names based on Baseball Savant format
+                # The leaderboard has: Outs, Opp, %, OAA, Reaction, Burst, Route, Feet vs Avg, Feet Covered
+                rename_map = {}
+                for col in df.columns:
+                    col_lower = col.lower().strip()
+                    if 'reaction' in col_lower:
+                        rename_map[col] = 'reaction_ft'
+                    elif 'burst' in col_lower:
+                        rename_map[col] = 'burst_ft'
+                    elif 'route' in col_lower:
+                        rename_map[col] = 'route_ft'
+                    elif 'feet vs' in col_lower or 'feet_vs' in col_lower:
+                        rename_map[col] = 'jump_ft'
+                    elif 'feet covered' in col_lower or 'feet_covered' in col_lower:
+                        rename_map[col] = 'feet_covered'
+                    elif col_lower == 'oaa':
+                        rename_map[col] = 'oaa'
+                    elif 'name' in col_lower or 'player' in col_lower:
+                        rename_map[col] = 'player_name'
+                
+                if rename_map:
+                    df = df.rename(columns=rename_map)
+                
+                return df
+            else:
+                print(f"    Baseball Savant jump leaderboard returned status {response.status_code}")
+                return None
+                
+        except Exception as e:
+            print(f"    Error fetching jump leaderboard: {e}")
             return None
 
     def _match_player_in_bat_tracking(self, player_name: str, bat_data: pd.DataFrame) -> Optional[pd.Series]:

@@ -380,6 +380,17 @@ class TeamLoader:
             ARM_STRENGTH=record.get('arm_strength', 50000),
             ARM_ACCURACY=record.get('arm_accuracy', 50000),
             FIELDING_SECURE=record.get('fielding_secure', 50000),
+            # v3 addition: Jump metric for first-step/direction quality
+            # Note: 'jump_attr' is the 0-100k converted attribute, 'jump' is raw Statcast data
+            JUMP=record.get('jump_attr', 50000),
+            # v3 addition: Burst for acceleration phase (from Statcast Jump Burst component)
+            BURST=record.get('burst_attr', 50000),
+            # v3 addition: Directional ability from Statcast Directional OAA
+            RANGE_BACK=record.get('range_back_attr', 50000),  # Ability to go back on balls
+            RANGE_IN=record.get('range_in_attr', 50000),      # Ability to come in on balls
+            # v3 addition: Catch probability for difficult plays
+            CATCH_ELITE=record.get('catch_elite_attr', 50000),        # 5-star plays (0-25% expected)
+            CATCH_DIFFICULT=record.get('catch_difficult_attr', 50000), # 3-4 star plays (25-75% expected)
             # Other attributes use defaults
         )
 

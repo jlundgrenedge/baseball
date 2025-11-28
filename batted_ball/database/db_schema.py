@@ -103,6 +103,10 @@ class DatabaseSchema:
                 arm_strength INTEGER,              -- Throw velocity from Statcast
                 arm_accuracy INTEGER,              -- Throw precision from residual DRS
                 fielding_secure INTEGER,           -- Catch success from fielding %
+                jump_attr INTEGER,                 -- v3: First-step quality from Statcast jump (0-100k)
+                burst_attr INTEGER,                -- v3: Acceleration phase from Statcast burst (0-100k)
+                range_back_attr INTEGER,           -- v3: Directional ability going back (0-100k)
+                range_in_attr INTEGER,             -- v3: Directional ability coming in (0-100k)
 
                 -- Position and defensive role
                 primary_position TEXT,             -- C, 1B, 2B, SS, 3B, LF, CF, RF
@@ -126,7 +130,24 @@ class DatabaseSchema:
                 drs REAL,                          -- Defensive Runs Saved (FanGraphs)
                 arm_strength_mph REAL,             -- Throw velocity (Statcast)
                 fielding_pct REAL,                 -- Traditional fielding percentage
-                jump REAL,                         -- Outfielder first step (Statcast)
+                jump REAL,                         -- Outfielder Jump: feet vs avg (Statcast)
+                jump_oaa INTEGER,                  -- Outfielder Jump OAA (Statcast)
+                
+                -- Jump components (Statcast - outfielders only, in feet vs avg)
+                jump_reaction REAL,                -- Feet covered in first 1.5s vs avg
+                jump_burst REAL,                   -- Feet covered in second 1.5s vs avg
+                jump_route REAL,                   -- Feet lost/gained from route direction
+                jump_feet_covered REAL,            -- Total feet covered in 3 seconds
+                
+                -- Directional OAA (Statcast - ability in specific directions)
+                back_oaa REAL,                     -- Directional OAA going back (sum of back slices)
+                in_oaa REAL,                       -- Directional OAA coming in (sum of in slices)
+                
+                -- Catch probability (Statcast - performance on difficult plays)
+                catch_5star_pct REAL,              -- Success rate on 5-star plays (0-25% expected)
+                catch_34star_pct REAL,             -- Success rate on 3-4 star plays (25-75% expected)
+                catch_elite_attr INTEGER,          -- v3: CATCH_ELITE attribute (0-100k)
+                catch_difficult_attr INTEGER,      -- v3: CATCH_DIFFICULT attribute (0-100k)
 
                 -- MLB bat tracking metrics (Statcast - for contact quality modeling)
                 bat_speed REAL,                    -- Average bat speed in mph (62-79 range)
@@ -240,6 +261,16 @@ class DatabaseSchema:
             cursor.execute("ALTER TABLE hitters ADD COLUMN swing_length REAL")
             cursor.execute("ALTER TABLE hitters ADD COLUMN squared_up_rate REAL")
             cursor.execute("ALTER TABLE hitters ADD COLUMN hard_swing_rate REAL")
+            conn.commit()
+            print("  Migration complete.")
+
+        # v3 migration: Add catch probability columns
+        if 'catch_5star_pct' not in columns:
+            print("Migrating database: Adding catch probability columns to hitters...")
+            cursor.execute("ALTER TABLE hitters ADD COLUMN catch_5star_pct REAL")
+            cursor.execute("ALTER TABLE hitters ADD COLUMN catch_34star_pct REAL")
+            cursor.execute("ALTER TABLE hitters ADD COLUMN catch_elite_attr INTEGER")
+            cursor.execute("ALTER TABLE hitters ADD COLUMN catch_difficult_attr INTEGER")
             conn.commit()
             print("  Migration complete.")
 

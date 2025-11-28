@@ -2,7 +2,9 @@
 
 ## Executive Summary
 
-Our baseball physics simulation has calibrated **exit velocity** and **hard hit rate** to match MLB targets (HHR ~38% vs 40% target, Avg EV ~90 mph vs 88 mph target), yet **BABIP remains stubbornly low at ~0.18 vs MLB's 0.295 target**. This document identifies gaps in our current research and implementation that may explain this discrepancy.
+Our baseball physics simulation has calibrated **exit velocity** and **hard hit rate** to match MLB targets (HHR ~38% vs 40% target, Avg EV ~90 mph vs 88 mph target), yet **BABIP remains stubbornly high at ~0.45 vs MLB's 0.295 target**. This document identifies gaps in our current research and implementation that may explain this discrepancy.
+
+**Recent Discovery**: The primary issue is **ground ball fielding** - balls are getting through the infield at unrealistically high rates. Our ground ball BABIP is approximately 0.60-0.70 vs MLB's ~0.24 target.
 
 ---
 
@@ -12,12 +14,74 @@ Our baseball physics simulation has calibrated **exit velocity** and **hard hit 
 - Exit velocity distribution matches MLB (mean ~90 mph, HHR ~38%)
 - Physics validation passes 7/7 tests (trajectory, spin, altitude effects)
 - Collision efficiency model properly accounts for bat-ball contact quality
-- Launch angle has mixture model with extreme tails for weak contact
+- Trajectory physics correctly calculates ground ball landing positions (negative LA → 15-25 ft from home)
+- Coordinate system conversion between trajectory coords (x=outfield, y=lateral) and field coords (x=lateral, y=forward) is correct
 
 ### What Doesn't Work
-- **BABIP: 0.18 vs 0.295 target** (balls in play are fielded 82% vs 70.5%)
+- **BABIP: ~0.45 vs 0.295 target** (balls in play are fielded only ~55% vs 70.5%)
+- **Ground Ball BABIP: ~0.60-0.70 vs 0.24 target** (main problem area)
+- **Ground Ball Fielding Rate: ~33% vs ~76% target**
 - **K Rate: ~32% vs 22% target** (too many strikeouts)
-- **Runs/Game: ~1.5 vs 4.5 target** (insufficient offense)
+- **Runs/Game: ~7.3 vs 4.5 target** (too many runs due to ground balls getting through)
+
+---
+
+## Recent Debugging Work: Ground Ball Fielding
+
+### What We Discovered
+
+1. **Ground ball trajectory physics is correct**: A 100 mph exit velocity, -5° launch angle ground ball lands at ~22 ft from home plate and rolls toward the outfield at ~124 fps with deceleration of ~12 fps².
+
+2. **Spray angle convention is correct**: 
+   - Negative spray → Right field (positive X in field coords)
+   - Positive spray → Left field (negative X in field coords)
+
+3. **The problem is interception timing**: The ground ball interception algorithm tests discrete time points (0.1s, 0.15s, etc.) along the ball path. Fast-moving balls can pass through a fielder's interception zone between these test points.
+
+4. **Direct-path fix helped partially**: We added logic to detect balls passing near a fielder's Y-position and calculate if they can intercept by moving laterally. This fixed comebackers to the pitcher but didn't help balls to the "holes."
+
+### Current Ground Ball Interception Test Results
+
+```
+Ground ball fielding test (100 mph, LA=-5):
+============================================================
+Up the middle        spray= +0  land=(-0, 22)   -> FIELDED  by pitcher
+Toward SS            spray=+30  land=(-11, 19)  -> THROUGH
+Toward 2B            spray=-30  land=(11, 19)   -> FIELDED  by first_base
+Toward 3B            spray=+45  land=(-16, 16)  -> THROUGH
+Toward 1B            spray=-45  land=(16, 16)   -> THROUGH
+SS hole              spray=+15  land=(-6, 22)   -> FIELDED  by shortstop
+2B hole              spray=-15  land=(6, 22)    -> THROUGH
+Line toward 3B       spray=+60  land=(-19, 11)  -> THROUGH
+Line toward 1B       spray=-60  land=(19, 11)   -> THROUGH
+
+Fielded: 3/9 = 33%
+Target: ~75-80% fielded for realistic ground ball BABIP (~0.24)
+```
+
+### Key Observations
+
+1. **Balls landing near fielder positions get fielded** (up the middle → pitcher, SS hole → shortstop)
+2. **Balls landing far from fielders get through** (lines toward corners, balls to holes)
+3. **Infielder depth may be too deep**: SS at Y=80-85, 2B at Y=75-80, but balls land at Y=15-22
+
+### The Core Problem
+
+Ground balls land at Y=15-25 feet from home plate, but infielders are positioned at Y=75-85 feet. The ball must roll 50-70 feet to reach the infielders. During this time, the ball decelerates but is still moving fast (100+ fps initially).
+
+The interception algorithm finds the closest point where a fielder could intercept, but:
+- For balls hit to the "holes" (between fielders), the closest point is far from any fielder
+- The lateral distance to the ball path exceeds the fielder's ability to cover in time
+
+### Potential Fixes to Investigate
+
+1. **Infielder positioning**: Are our infielders positioned too deep? MLB infielders play at ~90-120 ft from home for normal depth, not 75-85 ft.
+
+2. **Infielder lateral range**: Our max lateral range is 18 ft, but maybe it should be higher for infielders who can anticipate and charge.
+
+3. **Charging the ball**: Infielders move forward on ground balls. Our model may not account for this properly.
+
+4. **Time step resolution**: The 0.05s time step may be too coarse for fast ground balls.
 
 ---
 
@@ -174,7 +238,43 @@ If our mix differs from MLB, our overall BABIP will differ accordingly.
 
 ## Gap Analysis: Fielding Model
 
-### Gap 8: Fielder Starting Positions and Shifts
+### **CRITICAL Gap 8: Infielder Positioning and Ground Ball Interception**
+
+**This is the primary issue causing high BABIP.**
+
+**Current State**:
+Our infielders are positioned at:
+- Pitcher: (0, 60.5) - on the mound
+- Shortstop: (-20, 80-85) with random variance
+- Second Base: (20, 75-80) with random variance
+- Third Base: (-60, 70-75) with random variance
+- First Base: (60, 68-75) with random variance
+
+Ground balls land at Y=15-25 ft from home plate and roll toward outfield at 100-130 fps.
+
+**The Problem**:
+When a ground ball is hit to the "hole" (between fielders), no fielder can reach it in time:
+- Ball lands at (11, 19) for spray=-30° (toward 2B hole)
+- Closest fielder (2B at ~(20, 78)) is 60+ feet away
+- Ball reaches outfield grass before fielder can intercept
+
+**What's Missing**:
+1. **Actual MLB infielder depth positioning** - How far from home plate do infielders really play?
+2. **Infielder charging mechanics** - Do infielders move forward on contact?
+3. **Lateral range data** - How far laterally can infielders reach on ground balls?
+4. **Ground ball travel times by spray angle** - Time windows for different hit directions
+5. **Infield hit rate by exit velocity and spray angle** - What % of ground balls become hits?
+
+**Research Request**:
+1. Standard MLB infielder positioning (feet from home plate, feet from foul line)
+2. Infielder depth by situation (normal, double play, drawn in)
+3. Ground ball fielding success rate by spray angle zone
+4. Infield hit rate for ground balls 100+ mph
+5. How does infielder reaction/first-step quickness affect range?
+
+---
+
+### Gap 9: Fielder Starting Positions and Shifts
 
 **Current Research Says**: Generic fielder positioning
 
@@ -488,15 +588,58 @@ For each research area, please provide:
 
 ---
 
-## Priority Order
+## Priority Order (Updated Based on Recent Debugging)
 
-1. **Request A** (BABIP Component Analysis) - Diagnose the exact problem
-2. **Gap 11** (Bat Speed Data) - We have the data, just need to use it
-3. **Gap 12** (Squared-Up Rate) - Direct measure of contact quality
-4. **Gap 1** (EV-LA Correlation) - Likely biggest impact on BABIP
-5. **Gap 6** (Hit Type Proportions) - Verify our mix is correct
-6. **Gap 4** (Hang Time/Catch Probability) - Validate fielding model
-7. **Gap 7** (Line Drive/Barrel Production) - Ensure we make enough line drives
+**HIGHEST PRIORITY - Ground Ball Fielding (This is the main problem):**
+1. **Gap 8** (Infielder Positioning) - Infielders may be positioned wrong; ground balls getting through at 67% rate vs 24% target
+2. **Request E** (NEW - Ground Ball Fielding Physics) - Need exact data on infielder depth, range, and travel times
+
+**HIGH PRIORITY - Contact Quality:**
+3. **Gap 11** (Bat Speed Data) - We have the data, just need to use it
+4. **Gap 12** (Squared-Up Rate) - Direct measure of contact quality
+5. **Gap 1** (EV-LA Correlation) - Affects hit type distribution
+
+**MEDIUM PRIORITY - Validation:**
+6. **Request A** (BABIP Component Analysis) - Diagnose where we differ from reality
+7. **Gap 6** (Hit Type Proportions) - Verify our mix is correct
+8. **Gap 4** (Hang Time/Catch Probability) - Validate fly ball fielding
+
+---
+
+## NEW: Request E - Ground Ball Fielding Physics (CRITICAL)
+
+This is the most important research request. Our ground ball BABIP is ~0.65-0.70 vs MLB's 0.24.
+
+**Questions to Answer:**
+
+1. **Infielder Positioning (feet from home plate)**:
+   - Where do SS, 2B, 3B, 1B position themselves in "normal" depth?
+   - What's the range of depths (shallow for bunt defense, deep for double play)?
+   - How does positioning vary by batter (pull hitter vs spray hitter)?
+
+2. **Ground Ball Travel Physics**:
+   - At what speed (mph) do ground balls travel to infielders?
+   - How much do ground balls decelerate per foot on grass/dirt?
+   - What's the typical time window for an infielder to field a hard ground ball?
+
+3. **Infielder Range Data**:
+   - How far laterally can an average infielder cover?
+   - What's the "hole" size between SS and 3B? Between SS and 2B?
+   - How does first-step quickness affect range (in feet)?
+
+4. **Ground Ball Outcome Data by Location**:
+   - What % of ground balls up the middle become hits?
+   - What % of ground balls in the "hole" become hits?
+   - What % of ground balls hit directly at an infielder become outs?
+   - Infield hit rate by exit velocity (90 mph vs 100 mph vs 110 mph)?
+
+5. **Charging Mechanics**:
+   - Do infielders charge (move forward) on ground ball contact?
+   - How much time does charging save on a play?
+   - When do infielders "play it on a hop" vs charge?
+
+**Why This Matters:**
+Our simulation has ground balls landing at Y=15-25 ft from home plate, but infielders positioned at Y=70-85 ft. The ball travels 50-60 ft before reaching the infielder. If our infielder positioning is wrong, or our travel time calculations are off, we'll have incorrect fielding rates.
 
 ---
 
@@ -541,3 +684,89 @@ Current implementation:
 - All coordinates in feet, velocities in mph, angles in degrees
 
 The goal is to produce realistic BABIP (~0.295) through correct physical modeling, not by artificially inflating hit probabilities.
+
+---
+
+## Current Ground Ball Implementation Details
+
+### Coordinate Systems
+
+**Trajectory Coordinates** (used in physics engine):
+- X-axis: Direction toward outfield (positive = center field)
+- Y-axis: Lateral direction (positive = left field)
+- Z-axis: Vertical (positive = up)
+
+**Field Coordinates** (used for positions and fielding):
+- X-axis: Lateral (positive = RIGHT field, negative = LEFT field)
+- Y-axis: Forward direction (positive = toward center field)
+- Z-axis: Vertical (positive = up)
+
+**Conversion**: `field_x = -trajectory_y, field_y = trajectory_x`
+
+### Current Infielder Positions (Field Coordinates, feet)
+
+From `batted_ball/constants.py`:
+- Pitcher: (0, 60.5) - on the mound
+- Catcher: (0, -3) - behind home plate
+- First Baseman: (60, 75) - near first base line
+- Second Baseman: (20, 80) - toward 2B bag, shallow
+- Shortstop: (-20, 80) - toward 2B bag, shallow
+- Third Baseman: (-60, 75) - near third base line
+
+Note: Positions have random variance of 3-9 feet applied in `fielding.py:add_fielder()`.
+
+**Question for Research AI**: Are these positions realistic for MLB infielders? The Y-coordinates (75-80 ft from home) seem potentially too shallow or too deep.
+
+### Ground Ball Physics Parameters
+
+From `batted_ball/ground_ball_interception.py` and `batted_ball/constants.py`:
+- Rolling friction: 0.30 (grass)
+- Air resistance: ~2 fps² (GROUND_BALL_AIR_RESISTANCE)
+- Total deceleration: ~12 fps² (gravity * friction + air resistance)
+- Fielder reaction time: ~0.18s
+- Fielder sprint speed: ~28-30 fps (elite)
+- Max lateral range checked: 18 feet
+
+### Ground Ball Trajectory Example
+
+100 mph exit velocity, -5° launch angle, spray=0° (up the middle):
+- Landing position: (0, 22) feet from home
+- Landing speed: ~124 fps (85 mph)
+- Ball direction: (0, 1) - straight toward center field
+- Time to reach Y=60 (pitcher): ~0.5s total (0.18s flight + 0.32s roll)
+- Time to reach Y=80 (SS/2B): ~0.7s total
+
+### Key Files for Ground Ball System
+
+1. `batted_ball/ground_ball_interception.py` - Main interception algorithm
+2. `batted_ball/trajectory.py` - Ball trajectory physics, coordinate conversion
+3. `batted_ball/field_layout.py` - Defensive positions
+4. `batted_ball/fielding.py` - Fielder attributes and movement
+5. `batted_ball/constants.py` - Physics constants
+6. `batted_ball/ground_ball_handler.py` - Ground ball play execution
+
+---
+
+## Files to Attach for Deep Research AI
+
+**Critical Files (MUST attach):**
+1. `batted_ball/ground_ball_interception.py` - The core algorithm that's not working
+2. `batted_ball/field_layout.py` - Defensive positioning
+3. `batted_ball/trajectory.py` - Ball physics and coordinate systems
+4. `batted_ball/constants.py` - All physics constants
+5. `research/BABIP_Gap_Analysis_Research_Prompt.md` - This document
+
+**Important Context Files:**
+6. `batted_ball/fielding.py` - Fielder attributes and movement
+7. `batted_ball/contact.py` - Bat-ball collision model
+8. `batted_ball/at_bat.py` - At-bat simulation including launch angle
+9. `CLAUDE.md` or `.github/copilot-instructions.md` - Project guidelines
+
+**For Understanding Game Flow:**
+10. `batted_ball/play_simulation.py` - How plays are simulated
+11. `batted_ball/ground_ball_handler.py` - Ground ball play execution
+
+**Database/Player Creation:**
+12. `batted_ball/attributes.py` - Player attribute system
+13. `batted_ball/database/stats_converter.py` - MLB stats to attributes conversion
+

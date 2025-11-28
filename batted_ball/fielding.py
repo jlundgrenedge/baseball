@@ -201,7 +201,18 @@ class Fielder:
         return self.attributes.get_route_efficiency_pct()
     
     def calculate_directional_speed_penalty(self, movement_direction: np.ndarray) -> float:
-        """Calculate speed penalty based on movement direction."""
+        """
+        Calculate speed penalty based on movement direction.
+        
+        2025-11-26: Updated to use player-specific RANGE_BACK and RANGE_IN modifiers
+        instead of fixed constants. This allows for differentiation between players
+        like Pete Crow-Armstrong (+15 back OAA) vs Juan Soto (-5 back OAA).
+        
+        Returns
+        -------
+        float
+            Speed multiplier (0.85 to 1.15) based on direction and player ability
+        """
         from .constants import (
             FORWARD_MOVEMENT_PENALTY,
             LATERAL_MOVEMENT_PENALTY,
@@ -223,11 +234,36 @@ class Fielder:
         angle_deg = np.abs(np.degrees(angle))
         
         if angle_deg <= 45:
-            return FORWARD_MOVEMENT_PENALTY  # Forward movement
+            # Forward movement - use player's RANGE_IN modifier
+            # Elite players coming in can be faster than base constant
+            base_penalty = FORWARD_MOVEMENT_PENALTY  # 1.0
+            player_modifier = self.attributes.get_range_in_modifier()  # 0.90 to 1.12
+            # Blend: base is 1.0, player can modify it ± ~10%
+            return base_penalty * player_modifier
         elif angle_deg <= 135:
-            return LATERAL_MOVEMENT_PENALTY   # Lateral movement
+            # Lateral movement - use average of back and in modifiers
+            # Lateral is less affected by directional ability
+            back_mod = self.attributes.get_range_back_modifier()
+            in_mod = self.attributes.get_range_in_modifier()
+            avg_directional = (back_mod + in_mod) / 2.0
+            # Blend with base lateral penalty (0.97)
+            return LATERAL_MOVEMENT_PENALTY * avg_directional
         else:
-            return BACKWARD_MOVEMENT_PENALTY  # Backward movement
+            # Backward movement - use player's RANGE_BACK modifier
+            # This is where player differences are most pronounced
+            # Elite: 1.0-1.10, Poor: 0.85-0.93
+            base_penalty = BACKWARD_MOVEMENT_PENALTY  # 0.93
+            player_modifier = self.attributes.get_range_back_modifier()  # 0.85 to 1.15
+            
+            # The player modifier already encodes their ability relative to average
+            # Elite (85k+): modifier > 1.0 means they're BETTER going back than average
+            # Poor (15k-): modifier < 1.0 means they're WORSE going back than average
+            # 
+            # Combined with base penalty:
+            # - Elite player (modifier 1.10): 0.93 * 1.10 = 1.02 (slightly FASTER going back!)
+            # - Average player (modifier 1.0): 0.93 * 1.0 = 0.93 (standard penalty)
+            # - Poor player (modifier 0.85): 0.93 * 0.85 = 0.79 (much slower going back)
+            return base_penalty * player_modifier
     
     def calculate_optimal_intercept_point(self, ball_trajectory_data: dict,
                                         current_time: float) -> np.ndarray:
@@ -564,7 +600,15 @@ class Fielder:
         FIELDING REALISM ENHANCEMENTS (Pass #2):
         - Added stochastic route efficiency variance (±2% noise)
         - Added reaction time jitter (~±50ms)
-        - Added jump quality modifier system
+        - Integrated Statcast Jump metric (feet covered in right direction in first 3s)
+
+        JUMP INTEGRATION (2025-11-26):
+        Jump represents "feet covered in the right direction in the first 3 seconds".
+        Elite fielders (+4 ft) effectively start closer to the ball because they cover
+        more ground early. Poor fielders (-6 ft) effectively start further away.
+        
+        Implementation: Jump is converted to a distance credit applied to medium/long plays.
+        Short plays (<30ft) don't benefit as much from Jump since there's no pursuit.
 
         Parameters
         ----------
@@ -595,24 +639,14 @@ class Fielder:
         reaction_jitter = np.random.normal(0, 0.05)  # ~±50ms std dev
         first_step_time = max(0.0, first_step_time + reaction_jitter)
 
-        # FIELDING REALISM: Roll for "jump quality" - affects initial reaction
-        # 5%: Poor jump → +10% penalty to route efficiency
-        # 15%: Subpar jump → +5% penalty to route efficiency
-        # 65%: Normal jump → no change
-        # 15%: Quick jump → +2% bonus to route efficiency
-        jump_roll = np.random.random()
-        if jump_roll < 0.05:
-            # Poor jump (5%)
-            jump_modifier = -0.10  # -10% route efficiency
-        elif jump_roll < 0.20:
-            # Subpar jump (15%)
-            jump_modifier = -0.05  # -5% route efficiency
-        elif jump_roll < 0.85:
-            # Normal jump (65%)
-            jump_modifier = 0.0
-        else:
-            # Quick jump (15%)
-            jump_modifier = 0.02  # +2% route efficiency
+        # STATCAST JUMP: Get fielder's Jump metric (feet above/below average in first 3s)
+        # This replaces the random "jump quality" roll with actual player data
+        # Jump ranges from ~-6 ft (poor) to +7 ft (elite)
+        jump_feet = self.attributes.get_jump_feet()
+        
+        # Add stochastic variance to Jump (~±1 ft per play for variability)
+        jump_variance = np.random.normal(0, 1.0)  # ±1 ft std dev
+        effective_jump_feet = jump_feet + jump_variance
 
         # Apply directional speed penalty
         direction_penalty = self.calculate_directional_speed_penalty(movement_vector)
@@ -622,9 +656,12 @@ class Fielder:
         # MLB fielders can sprint at near-max speed for defensive plays
         if distance < 30.0:
             # Short burst: 88-94% of max speed
+            # Jump has minimal effect on short plays - fielder is already close
             speed_percentage = 0.88 + (distance / 30.0) * 0.06  # 88% at 0ft, 94% at 30ft
             effective_speed = directional_max_speed * speed_percentage
             route_penalty = 1.0  # No route inefficiency on short plays
+            # Jump credit: minimal on short plays (scaled by distance/30)
+            jump_distance_credit = effective_jump_feet * (distance / 30.0) * 0.3
         elif distance < 60.0:
             # Medium range: 94-98% of max speed
             normalized_dist = (distance - 30.0) / 30.0  # 0 to 1
@@ -634,13 +671,15 @@ class Fielder:
             route_efficiency_raw = self.get_route_efficiency()
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
 
-            # FIELDING REALISM: Add stochastic variance (±2% noise) and jump quality modifier
+            # FIELDING REALISM: Add stochastic variance (±2% noise)
             route_eff_variance = np.random.normal(0, 0.02)  # ±2% noise
-            route_efficiency = np.clip(route_efficiency + route_eff_variance + jump_modifier, 0.85, 0.99)
+            route_efficiency = np.clip(route_efficiency + route_eff_variance, 0.85, 0.99)
 
-            # REBALANCED 2025-01-XX: Increased penalty from 0.3 to 0.5
-            # This makes route efficiency more impactful on medium-range plays
-            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.5  # Increased penalty
+            # REBALANCED 2025-01-XX: Route efficiency more impactful on medium-range plays
+            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.5
+            
+            # Jump credit: moderate on medium plays (full effect)
+            jump_distance_credit = effective_jump_feet
         else:
             # Long range: 98-100% of max speed
             normalized_dist = min((distance - 60.0) / 60.0, 1.0)  # 0 to 1, capped
@@ -650,16 +689,22 @@ class Fielder:
             route_efficiency_raw = self.get_route_efficiency()
             route_efficiency = route_efficiency_raw if route_efficiency_raw <= 1.0 else route_efficiency_raw / 100.0
 
-            # FIELDING REALISM: Add stochastic variance (±2% noise) and jump quality modifier
+            # FIELDING REALISM: Add stochastic variance (±2% noise)
             route_eff_variance = np.random.normal(0, 0.02)  # ±2% noise
-            route_efficiency = np.clip(route_efficiency + route_eff_variance + jump_modifier, 0.85, 0.99)
+            route_efficiency = np.clip(route_efficiency + route_eff_variance, 0.85, 0.99)
 
-            # REBALANCED 2025-01-XX: Increased penalty from 0.15 to 0.35
-            # This makes route efficiency more impactful on long-range plays
-            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.35  # Increased penalty
+            # REBALANCED 2025-01-XX: Route efficiency more impactful on long-range plays
+            route_penalty = 1.0 + (1.0 - route_efficiency) * 0.35
+            
+            # Jump credit: full effect on long plays
+            # Long plays benefit most from good Jump (early direction, burst)
+            jump_distance_credit = effective_jump_feet
 
+        # Calculate effective distance (route penalty increases, jump credit decreases)
+        # Jump credit reduces effective distance (positive jump = less distance to cover)
+        effective_distance = max(1.0, distance * route_penalty - jump_distance_credit)
+        
         # Calculate movement time
-        effective_distance = distance * route_penalty
         movement_time = effective_distance / effective_speed
 
         # Total time = first step + movement
@@ -783,6 +828,10 @@ class Fielder:
         # REBALANCED 2025-01-XX: Further adjusted to increase BABIP from 0.248 to ~0.300
         # Problem: Too many plays had 0.95+ catch probability (45.6% of plays)
         # Solution: Lower base probabilities and add intermediate tier at 0.5s
+        #
+        # 2025-11-26: Added player-specific catch bonuses from Statcast Catch Probability
+        # - CATCH_ELITE: Bonus for 5-star plays (time_margin < -0.15)
+        # - CATCH_DIFFICULT: Bonus for 3-4 star plays (time_margin -0.15 to 0.2)
         if time_margin >= 1.0:
             # Fielder arrives well ahead (1.0+s early) - very routine play
             # Standing and waiting, minimal chance of error
@@ -796,23 +845,39 @@ class Fielder:
             # Fielder arrives with time (0.2-0.5s early) - solid play
             # Reduced from 0.98 to 0.88 for more realistic variance
             probability = 0.88  # After worst penalties: 0.88 * 0.727 = 0.64 (64%)
+            # Apply CATCH_DIFFICULT bonus for 3-4 star difficulty plays
+            catch_difficult_bonus = self.attributes.get_catch_difficult_bonus()
+            probability = min(1.0, probability + catch_difficult_bonus)  # Up to +0.20 for elite
         elif time_margin >= 0.0:
             # Fielder arrives on time (0-0.2s early) - difficult running catch
             # In reality, arriving exactly on time is challenging, not routine
             # Reduced from 0.85 to 0.78 for more misses on close plays
             probability = 0.78  # After worst penalties: 0.78 * 0.727 = 0.567 (57%)
+            # Apply CATCH_DIFFICULT bonus for 3-4 star difficulty plays
+            catch_difficult_bonus = self.attributes.get_catch_difficult_bonus()
+            probability = min(1.0, probability + catch_difficult_bonus)  # Up to +0.20 for elite
         elif time_margin > -0.15:
             # Fielder very slightly late (-0.15-0.0s) - diving/stretching range
             # This represents the fielder's reach/dive ability (2-4 feet)
             probability = 0.42  # After penalties: 0.42 * 0.92 = 0.39 (unchanged)
+            # Apply CATCH_DIFFICULT bonus for 3-4 star difficulty plays
+            catch_difficult_bonus = self.attributes.get_catch_difficult_bonus()
+            probability = min(1.0, probability + catch_difficult_bonus)  # Up to +0.20 for elite
         elif time_margin > -0.35:
             # Fielder late (-0.35--0.15s) - extremely difficult diving plays
             # Requires spectacular diving effort
+            # This is 5-star territory - apply CATCH_ELITE bonus
             probability = 0.10  # After penalties: 0.10 * 0.92 = 0.09 (unchanged)
+            # Apply CATCH_ELITE bonus for 5-star plays (0-25% expected catch rate)
+            catch_elite_bonus = self.attributes.get_catch_elite_bonus()
+            probability = min(1.0, probability + catch_elite_bonus)  # Up to +0.40 for elite like Crow-Armstrong
         elif time_margin > -0.60:
             # Very late (-0.60--0.35s) - nearly impossible
             # Would require fielder to be on the ground already
             probability = 0.03  # After penalties: 0.03 * 0.92 = 0.03
+            # Apply CATCH_ELITE bonus for 5-star plays
+            catch_elite_bonus = self.attributes.get_catch_elite_bonus()
+            probability = min(1.0, probability + catch_elite_bonus)  # Up to +0.40 for elite
         else:
             # Impossibly late (< -0.60s)
             # Ball has already landed and rolled away

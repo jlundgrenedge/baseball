@@ -488,17 +488,32 @@ class BattedBallSimulator:
         tuple
             (corrected_initial_state, corrected_max_time, use_simplified_physics)
         """
-        # For ground balls, reduce effective velocity based on launch angle
-        # Very low angles lose energy quickly due to ground interaction
-        if launch_angle <= 5.0:
-            # Very low: 60-70% of velocity (simulates immediate ground interaction)
-            velocity_factor = 0.60 + (launch_angle / 5.0) * 0.10  # 0.60-0.70
-        elif launch_angle <= 8.0:
-            # Low: 70-80% of velocity
-            velocity_factor = 0.70 + ((launch_angle - 5.0) / 3.0) * 0.10  # 0.70-0.80
+        # UPDATED 2025-11-26: Previous velocity factors (0.60-0.90) were too aggressive,
+        # causing ground balls to land at extremely low speeds (10-25 mph for 100 mph EV).
+        # This made ground ball BABIP unrealistically low (~0.05) because fielders
+        # could easily reach slow-moving balls.
+        #
+        # Real physics: Ground balls lose some energy from bouncing (COR ~0.4 for vertical
+        # component), but HORIZONTAL velocity is mostly preserved. A 100 mph ground ball
+        # hitting at -10 degrees will still be traveling at 80-90+ mph horizontally after
+        # the first bounce.
+        #
+        # The GroundBallSimulator handles the actual bounce physics. Here we just need
+        # to model the initial trajectory before the first bounce.
+        
+        # For ground balls, apply minimal initial velocity reduction
+        # The bounce physics (COR) will handle energy loss properly
+        if launch_angle <= 0.0:
+            # Negative launch angle: ball goes down into ground immediately
+            # Preserve 85-90% of velocity (minimal air-phase drag)
+            velocity_factor = 0.85 + (abs(launch_angle) / 30.0) * 0.05  # 0.85-0.90
+            velocity_factor = min(velocity_factor, 0.90)  # Cap at 90%
+        elif launch_angle <= 5.0:
+            # Very low positive angle: short hop, lands quickly
+            velocity_factor = 0.90 + (launch_angle / 5.0) * 0.05  # 0.90-0.95
         else:
-            # Medium-low: 80-90% of velocity
-            velocity_factor = 0.80 + ((launch_angle - 8.0) / 2.0) * 0.10  # 0.80-0.90
+            # Low angle (5-10 degrees): one-hopper
+            velocity_factor = 0.95 + ((launch_angle - 5.0) / 5.0) * 0.03  # 0.95-0.98
         
         # Apply velocity reduction
         corrected_state = initial_state.copy()

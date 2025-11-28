@@ -792,12 +792,6 @@ class AtBatSimulator:
         # Harder locations increase effective offset (worse contact)
         adjusted_offset = total_offset * (1.0 + location_difficulty)
 
-        # =========================================================================
-        # DETERMINE CONTACT QUALITY EARLY (before calculating launch angle)
-        # This enables contact-quality-dependent launch angle distributions
-        # =========================================================================
-        contact_quality = self._determine_contact_quality(adjusted_offset, pitch_location, pitch_data.get('is_strike', True))
-
         # Get actual pitch trajectory angle from pitch simulation
         # Use the actual downward angle from the pitch's trajectory at the plate
         # instead of assuming a constant 7° for all pitches (more realistic)
@@ -809,27 +803,18 @@ class AtBatSimulator:
             # Fallback to typical downward angle if not available
             pitch_trajectory_angle = 7.0
 
-        # =========================================================================
-        # CONTACT-QUALITY-DEPENDENT LAUNCH ANGLE MODEL
-        # Get swing path angle with variance that depends on contact quality
-        # and vertical offset (to capture topped/under-cut mishits)
-        # =========================================================================
-        bat_path_angle = self.hitter.get_swing_path_angle_deg(
-            pitch_location=pitch_location,
-            pitch_type=pitch_type,
-            vertical_contact_offset=v_offset,
-            contact_quality=contact_quality
-        )
-
         # Contact made - simulate with physics
         collision_result = self.contact_model.full_collision(
             bat_speed_mph=bat_speed,
             pitch_speed_mph=pitch_velocity,
-            bat_path_angle_deg=bat_path_angle,
-            pitch_trajectory_angle_deg=pitch_trajectory_angle,
+            bat_path_angle_deg=self.hitter.get_swing_path_angle_deg(
+                pitch_location=pitch_location,
+                pitch_type=pitch_type
+            ),  # Sample swing path with realistic variance influenced by pitch
+            pitch_trajectory_angle_deg=pitch_trajectory_angle,  # Use actual pitch trajectory angle
             vertical_contact_offset_inches=v_offset,
             horizontal_contact_offset_inches=total_h_offset,
-            distance_from_sweet_spot_inches=adjusted_offset
+            distance_from_sweet_spot_inches=adjusted_offset  # Use adjusted offset for contact quality
         )
 
         # Generate spray angle for this at-bat using hitter's spray tendency
@@ -860,8 +845,8 @@ class AtBatSimulator:
             fast_mode=self.fast_mode,
         )
 
-        # Contact quality already determined earlier (before launch angle calculation)
-        # This enables contact-quality-dependent launch angle distributions
+        # Determine contact quality based on adjusted offset and location
+        contact_quality = self._determine_contact_quality(adjusted_offset, pitch_location, pitch_data.get('is_strike', True))
         
         return {
             'contact_quality': contact_quality,

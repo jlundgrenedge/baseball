@@ -286,7 +286,14 @@ class TeamDatabase:
             arm_strength_mph=clean_value(stats.get('arm_strength_mph')),
             drs=clean_value(stats.get('drs')),
             jump=clean_value(stats.get('jump')),
+            jump_reaction=clean_value(stats.get('jump_reaction')),  # v3: Jump Reaction component
+            jump_burst=clean_value(stats.get('jump_burst')),        # v3: Jump Burst component
+            jump_route=clean_value(stats.get('jump_route')),        # v3: Jump Route component
             fielding_pct=clean_value(stats.get('fielding_pct')),
+            back_oaa=clean_value(stats.get('back_oaa')),            # v3: Directional OAA going back
+            in_oaa=clean_value(stats.get('in_oaa')),                # v3: Directional OAA coming in
+            catch_5star_pct=clean_value(stats.get('catch_5star_pct')),    # v3: Catch probability 5-star
+            catch_34star_pct=clean_value(stats.get('catch_34star_pct')),  # v3: Catch probability 3-4 star
         )
 
         cursor = self.conn.cursor()
@@ -306,13 +313,18 @@ class TeamDatabase:
                     contact = ?, power = ?, discipline = ?, speed = ?,
                     vision = ?, attack_angle_control = ?,
                     reaction_time = ?, top_sprint_speed = ?, route_efficiency = ?,
-                    arm_strength = ?, arm_accuracy = ?, fielding_secure = ?,
+                    arm_strength = ?, arm_accuracy = ?, fielding_secure = ?, 
+                    jump_attr = ?, burst_attr = ?, range_back_attr = ?, range_in_attr = ?,
+                    catch_elite_attr = ?, catch_difficult_attr = ?,
                     primary_position = ?,
                     batting_avg = ?, on_base_pct = ?, slugging_pct = ?, ops = ?,
                     home_runs = ?, stolen_bases = ?, strikeouts = ?, walks = ?,
                     avg_exit_velo = ?, max_exit_velo = ?, barrel_pct = ?,
                     sprint_speed = ?, games_played = ?, at_bats = ?,
-                    oaa = ?, drs = ?, arm_strength_mph = ?, fielding_pct = ?, jump = ?,
+                    oaa = ?, drs = ?, arm_strength_mph = ?, fielding_pct = ?, jump = ?, jump_oaa = ?,
+                    jump_reaction = ?, jump_burst = ?, jump_route = ?,
+                    back_oaa = ?, in_oaa = ?,
+                    catch_5star_pct = ?, catch_34star_pct = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE hitter_id = ?
             """, (
@@ -322,6 +334,12 @@ class TeamDatabase:
                 defensive_attrs.get('reaction_time'), defensive_attrs.get('top_sprint_speed'),  # v2 defensive
                 defensive_attrs.get('route_efficiency'), defensive_attrs.get('arm_strength'),
                 defensive_attrs.get('arm_accuracy'), defensive_attrs.get('fielding_secure'),
+                defensive_attrs.get('jump'),  # v3 jump attribute (0-100k)
+                defensive_attrs.get('burst'),  # v3 burst attribute (0-100k)
+                defensive_attrs.get('range_back'),  # v3 directional ability going back (0-100k)
+                defensive_attrs.get('range_in'),    # v3 directional ability coming in (0-100k)
+                defensive_attrs.get('catch_elite'),     # v3 catch elite plays (0-100k)
+                defensive_attrs.get('catch_difficult'), # v3 catch difficult plays (0-100k)
                 position,  # primary_position
                 clean_value(stats.get('batting_avg')), clean_value(stats.get('on_base_pct')),
                 clean_value(stats.get('slugging_pct')), clean_value(stats.get('ops')),
@@ -332,7 +350,12 @@ class TeamDatabase:
                 clean_value(stats.get('games_played')), clean_value(stats.get('at_bats')),
                 clean_value(stats.get('oaa')), clean_value(stats.get('drs')),  # defensive source data
                 clean_value(stats.get('arm_strength_mph')), clean_value(stats.get('fielding_pct')),
-                clean_value(stats.get('jump')),
+                clean_value(stats.get('jump')),  # raw source data
+                clean_value(stats.get('jump_oaa')),  # jump OAA (outfielders)
+                clean_value(stats.get('jump_reaction')), clean_value(stats.get('jump_burst')),  # jump components
+                clean_value(stats.get('jump_route')),
+                clean_value(stats.get('back_oaa')), clean_value(stats.get('in_oaa')),  # directional OAA source
+                clean_value(stats.get('catch_5star_pct')), clean_value(stats.get('catch_34star_pct')),  # catch prob source
                 hitter_id
             ))
         else:
@@ -342,14 +365,18 @@ class TeamDatabase:
                     player_name, contact, power, discipline, speed,
                     vision, attack_angle_control,
                     reaction_time, top_sprint_speed, route_efficiency,
-                    arm_strength, arm_accuracy, fielding_secure,
+                    arm_strength, arm_accuracy, fielding_secure, 
+                    jump_attr, burst_attr, range_back_attr, range_in_attr,
+                    catch_elite_attr, catch_difficult_attr,
                     primary_position,
                     batting_avg, on_base_pct, slugging_pct, ops,
                     home_runs, stolen_bases, strikeouts, walks,
                     avg_exit_velo, max_exit_velo, barrel_pct, sprint_speed,
                     season, games_played, at_bats,
-                    oaa, drs, arm_strength_mph, fielding_pct, jump
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    oaa, drs, arm_strength_mph, fielding_pct, jump, jump_oaa,
+                    jump_reaction, jump_burst, jump_route, back_oaa, in_oaa,
+                    catch_5star_pct, catch_34star_pct
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stats.get('player_name'), attrs['contact'], attrs['power'],
                 attrs['discipline'], attrs['speed'],
@@ -358,6 +385,12 @@ class TeamDatabase:
                 defensive_attrs.get('reaction_time'), defensive_attrs.get('top_sprint_speed'),  # v2 defensive
                 defensive_attrs.get('route_efficiency'), defensive_attrs.get('arm_strength'),
                 defensive_attrs.get('arm_accuracy'), defensive_attrs.get('fielding_secure'),
+                defensive_attrs.get('jump'),  # v3 jump attribute (0-100k)
+                defensive_attrs.get('burst'),  # v3 burst attribute (0-100k)
+                defensive_attrs.get('range_back'),  # v3 directional ability going back (0-100k)
+                defensive_attrs.get('range_in'),    # v3 directional ability coming in (0-100k)
+                defensive_attrs.get('catch_elite'),     # v3 catch elite plays (0-100k)
+                defensive_attrs.get('catch_difficult'), # v3 catch difficult plays (0-100k)
                 position,  # primary_position
                 clean_value(stats.get('batting_avg')), clean_value(stats.get('on_base_pct')),
                 clean_value(stats.get('slugging_pct')), clean_value(stats.get('ops')),
@@ -368,7 +401,12 @@ class TeamDatabase:
                 season, clean_value(stats.get('games_played')), clean_value(stats.get('at_bats')),
                 clean_value(stats.get('oaa')), clean_value(stats.get('drs')),  # defensive source data
                 clean_value(stats.get('arm_strength_mph')), clean_value(stats.get('fielding_pct')),
-                clean_value(stats.get('jump'))
+                clean_value(stats.get('jump')),  # raw source data
+                clean_value(stats.get('jump_oaa')),  # jump OAA (outfielders)
+                clean_value(stats.get('jump_reaction')), clean_value(stats.get('jump_burst')),  # jump components
+                clean_value(stats.get('jump_route')),
+                clean_value(stats.get('back_oaa')), clean_value(stats.get('in_oaa')),  # directional OAA source
+                clean_value(stats.get('catch_5star_pct')), clean_value(stats.get('catch_34star_pct'))  # catch prob source
             ))
             hitter_id = cursor.lastrowid
 

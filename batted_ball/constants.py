@@ -266,28 +266,26 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # With q=0.09: perfect contact → ~100 mph, typical contact (q~0.05) → ~90 mph
 # This enables HR production while keeping average EV reasonable (~88 mph).
 #
-# RECALIBRATED 2025-11-26: Set to q=0.21 for TRUE bat speeds (no scaling)
+# RECALIBRATED 2025-11-27 (v3): Final tuning at q=0.175
 # 
-# CHANGE: Now using REAL Statcast bat speeds directly (63-79 mph range)
-# instead of scaling them +12 mph. To compensate, collision efficiency
-# increased from 0.13 to 0.21.
+# Tuning history:
+#   q=0.21, offset=0.04: 98 mph avg EV, 27% HR/FB (way too high)
+#   q=0.15, offset=0.042: 90 mph avg EV, 3% HR/FB (too low)  
+#   q=0.17, offset=0.05: 88 mph avg EV, 8.8% HR/FB, 30% hard-hit (HR/HH low)
+#   q=0.18, offset=0.055: 91 mph avg EV, 17.7% HR/FB, 40% hard-hit (EV/HR slightly high)
+#   q=0.175, offset=0.052: Target ~89 mph avg EV, ~12% HR/FB, ~38% hard-hit
 #
-# Math derivation (accounting for offset penalties):
-#   Target: Same ~92 mph average EV as before
-#   Formula: EV = q × pitch_speed + (1 + q) × bat_speed
-#   Offset penalty: ~0.079 (typical contact)
-#   Old: bat=83 mph, q_eff=0.051 (0.13-0.079) → 92 mph EV
-#   New: bat=71 mph, q_eff=0.131 (0.21-0.079) → 92 mph EV
+# With q_base=0.175 and offset_penalty=0.052 per inch:
+# - Perfect contact (0"): q=0.175 → 99 mph EV (barrel territory)
+# - Good contact (0.5"): q=0.149 → 95 mph EV (hard hit)
+# - Typical contact (1.0"): q=0.123 → 91 mph EV
+# - Average contact (1.5"): q=0.097 → 86 mph EV
+# - Poor contact (2.0"): q=0.071 → 82 mph EV
 #
-# With q_base=0.21 and TRUE bat speeds (~71 mph avg):
-# - Perfect contact (0"): q=0.21 → ~104 mph EV (realistic max)
-# - Good contact (0.6"): q=0.17 → ~97 mph EV
-# - Typical contact (1.1"): q=0.13 → ~91 mph EV
-# - Poor contact (2.0"): q=0.09 → ~83 mph EV
-# Target: ~89-91 mph avg EV, ~35-40% Hard Hit Rate
-COLLISION_EFFICIENCY_WOOD = 0.21        # Wood bats - tuned for TRUE bat speeds (no scaling)
-COLLISION_EFFICIENCY_ALUMINUM = 0.14    # Aluminum bats (slightly higher)
-COLLISION_EFFICIENCY_COMPOSITE = 0.15   # Composite bats (highest)
+# Target: ~88-89 mph avg EV, ~38% Hard Hit Rate, ~12% HR/FB
+COLLISION_EFFICIENCY_WOOD = 0.175       # Wood bats - final tuning for MLB-realistic EV
+COLLISION_EFFICIENCY_ALUMINUM = 0.195   # Aluminum bats (higher COR than wood)
+COLLISION_EFFICIENCY_COMPOSITE = 0.205  # Composite bats (highest - trampoline effect)
 
 # Sweet Spot Physics
 SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone
@@ -303,20 +301,22 @@ BALL_DEFORMATION_ENERGY_LOSS = 0.70      # Energy lost in ball deformation (~70%
 TRAMPOLINE_ENERGY_RECOVERY = 0.95        # Energy recovery from bat barrel flex
 
 # Contact Offset Effects (Research-Based)
-# RECALIBRATED 2025-11-26: Reduced from 0.06 to 0.04 for higher hard-hit rate
+# RECALIBRATED 2025-11-27 (v3): Final tuning at 0.052 for balanced EV variance
 # 
-# With TRUE bat speeds (~71 mph) and q_base=0.21:
-# Average offset ~1.2-1.5" (barrel error + timing + location difficulty)
-# 
-# With offset_penalty=0.04 per inch:
-# - Perfect contact (0"): q=0.21 → 105 mph EV
-# - Good contact (0.5"): q=0.19 → 102 mph EV (HARD HIT)
-# - Typical contact (1.0"): q=0.17 → 98 mph EV (HARD HIT)
-# - Average contact (1.3"): q=0.158 → 95 mph EV (HARD HIT threshold)
-# - Poor contact (2.0"): q=0.13 → 91 mph EV
+# This creates the right spread between good contact (HRs) and poor contact (weak hits)
 #
-# This should produce ~40% hard-hit rate (95+ mph) and avg EV ~90 mph
-OFFSET_EFFICIENCY_DEGRADATION = 0.04     # Efficiency loss per inch of offset
+# With TRUE bat speeds (~71 mph) and q_base=0.175:
+# Average offset ~1.3" (barrel error + timing + location difficulty)
+# 
+# With offset_penalty=0.052 per inch:
+# - Perfect contact (0"): q=0.175 → 99 mph EV (enables HRs)
+# - Good contact (0.5"): q=0.149 → 95 mph EV (hard hit)
+# - Typical contact (1.0"): q=0.123 → 91 mph EV
+# - Average contact (1.5"): q=0.097 → 86 mph EV
+# - Poor contact (2.0"): q=0.071 → 82 mph EV
+#
+# Target: ~38% hard-hit rate (95+ mph), avg EV ~88 mph, HR/FB ~12%
+OFFSET_EFFICIENCY_DEGRADATION = 0.052   # Efficiency loss per inch of offset
 HORIZONTAL_OFFSET_SPIN_FACTOR = 400.0    # rpm per inch of horizontal offset
 VERTICAL_OFFSET_SPIN_FACTOR = 500.0      # rpm per inch of vertical offset
 SPIN_INDEPENDENCE_FACTOR = 0.95          # How much bat overwrites pitch spin
@@ -592,26 +592,35 @@ PITCHER_Y = 60.5  # On the mound
 CATCHER_X = 0.0
 CATCHER_Y = -2.0  # Behind home plate
 
-# Infielders (adjusted for better coverage)
-FIRST_BASEMAN_X = 75.0    # Slightly closer to the line
-FIRST_BASEMAN_Y = 20.0    # Moved up slightly
-SECOND_BASEMAN_X = 40.0   # Moved in and left for better gap coverage
-SECOND_BASEMAN_Y = 55.0   # Moved in from 50
-SHORTSTOP_X = -35.0       # Moved right slightly for better up-the-middle coverage
-SHORTSTOP_Y = 55.0        # Moved in from 60
-THIRD_BASEMAN_X = -75.0   # Slightly closer to the line
-THIRD_BASEMAN_Y = 20.0    # Moved up slightly
+# Infielders - CALIBRATED FOR REALISTIC GROUND BALL BABIP
+# The key insight: infielders must intercept ground balls BEFORE they pass laterally.
+# Ground balls land at ~60 ft from home and roll at 60-90 mph (88-132 fps).
+# With friction deceleration of ~10 fps², balls reach y=80 in ~0.25s, y=90 in ~0.35s.
+# Fielders need ~1.2-1.5s reaction + movement to cover 15-20 ft laterally.
+# Solution: Position infielders shallower (70-80 ft) so they can intercept sooner.
+#
+# GROUND BALL INTERCEPTION PHYSICS:
+# - Ball landing at y=60, rolling at 88 fps toward y=80: arrives in 0.25s
+# - Fielder at 80 ft needs 0.5-0.7s to react + move 10-15 ft laterally
+# - With flight_time ~0.5s, total ball time = 0.75s, fielder time = 0.7s → margin +0.05s
+# - This allows ~75-80% of ground balls to be fielded (target: ~75% for 0.25 BABIP)
+FIRST_BASEMAN_X = 60.0    # Near first base line, slightly pulled in
+FIRST_BASEMAN_Y = 75.0    # ~75 ft from home (standard infield depth)
+SECOND_BASEMAN_X = 20.0   # Toward 2B bag, tighter to middle
+SECOND_BASEMAN_Y = 80.0   # ~80 ft from home (shallow for GB coverage)
+SHORTSTOP_X = -20.0       # Toward 2B bag, tighter to middle  
+SHORTSTOP_Y = 80.0        # ~80 ft from home (shallow for GB coverage)
+THIRD_BASEMAN_X = -60.0   # Near third base line, slightly pulled in
+THIRD_BASEMAN_Y = 75.0    # ~75 ft from home (standard infield depth)
 
-# Outfielders (deeper positioning for realistic BABIP)
-# Positioned deeper to allow short liners (150-220 ft) to drop for hits
-# This creates the "tweener" zone that MLB hitters exploit
-# Trade-off: Some deep fly balls may become doubles, but BABIP increases
-LEFT_FIELDER_X = -145.0   # 30° left of center (wider for gap coverage)
-LEFT_FIELDER_Y = 285.0    # Deeper: allows short liners to fall in
-CENTER_FIELDER_X = 0.0    # Straight up the middle
-CENTER_FIELDER_Y = 330.0  # Deeper: creates more "tweener" hits
-RIGHT_FIELDER_X = 145.0   # 30° right of center (wider for gap coverage)
-RIGHT_FIELDER_Y = 285.0   # Deeper: allows short liners to fall in
+# Outfielders - MLB 2025 STATCAST POSITIONING DATA
+# These are accurate from Statcast - outfielders play very deep
+LEFT_FIELDER_X = -136.0   # 297 ft at -27° = -135.5 ft lateral
+LEFT_FIELDER_Y = 265.0    # 297 ft at -27° = 264.7 ft depth
+CENTER_FIELDER_X = 1.0    # 322 ft at 0° = ~1 ft lateral (slight shift)
+CENTER_FIELDER_Y = 322.0  # 322 ft at 0° = 321.8 ft depth
+RIGHT_FIELDER_X = 136.0   # 295 ft at 27° = 135.5 ft lateral
+RIGHT_FIELDER_Y = 262.0   # 295 ft at 27° = 262.1 ft depth
 
 # ============================================================================
 # FIELDING ATTRIBUTES AND PHYSICS
@@ -918,11 +927,15 @@ GROUND_BALL_COR_DIRT = 0.40        # Dirt infield (lower bounce)
 GROUND_BALL_COR_DEFAULT = 0.45     # Default to grass
 
 # Coefficient of rolling friction
-# Source: Sports science studies on baseball surfaces
-ROLLING_FRICTION_GRASS = 0.08      # Natural grass rolling friction
-ROLLING_FRICTION_TURF = 0.06       # Artificial turf (smoother)
-ROLLING_FRICTION_DIRT = 0.10       # Dirt infield (rougher)
-ROLLING_FRICTION_DEFAULT = 0.08    # Default to grass
+# Source: Calibrated against MLB ground ball play times
+# A hard-hit ground ball (100+ mph, 35+ mph after landing) should:
+# - Reach infielder at 80-100 ft in ~1.5-2.5 seconds
+# - Stop rolling within 100-150 ft on grass
+# Original values (0.06-0.10) were way too low, leading to 300+ ft rolls
+ROLLING_FRICTION_GRASS = 0.30      # Natural grass rolling friction (calibrated)
+ROLLING_FRICTION_TURF = 0.22       # Artificial turf (smoother, faster)
+ROLLING_FRICTION_DIRT = 0.35       # Dirt infield (rougher, slower)
+ROLLING_FRICTION_DEFAULT = 0.30    # Default to grass
 
 # Ground ball deceleration from air resistance (ft/s²)
 # Additional to rolling friction

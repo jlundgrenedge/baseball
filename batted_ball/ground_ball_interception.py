@@ -53,14 +53,16 @@ class GroundBallInterceptor:
         self.surface_type = surface_type
         
         # Ground ball deceleration parameters
+        # Friction coefficients calibrated against MLB ground ball play times
+        # A hard-hit ground ball should reach infielders in 1.5-2.5 seconds
         if surface_type == 'grass':
-            self.rolling_friction = 0.08  # Rolling friction coefficient
+            self.rolling_friction = 0.30  # Natural grass rolling friction
             self.bounce_loss = 0.85       # Velocity retention per bounce
         elif surface_type == 'turf':
-            self.rolling_friction = 0.06  # Faster on turf
+            self.rolling_friction = 0.22  # Faster on turf
             self.bounce_loss = 0.90
         else:  # dirt
-            self.rolling_friction = 0.12  # Slower on dirt
+            self.rolling_friction = 0.35  # Slower on dirt
             self.bounce_loss = 0.75
     
     def find_best_interception(self, batted_ball_result, fielders: Dict[str, Fielder]) -> GroundBallInterceptionResult:
@@ -129,10 +131,15 @@ class GroundBallInterceptor:
                 continue  # Fielder cannot intercept
 
             ball_time, fielder_time, ball_pos, distance = interception_data
-            time_margin = fielder_time - ball_time
+            # Margin: positive = fielder arrives BEFORE ball (good for defense)
+            # ball_time is when ball reaches position, fielder_time is when fielder arrives
+            # If ball takes 1.5s and fielder takes 1.0s, margin = 1.5 - 1.0 = +0.5s (good)
+            time_margin = ball_time - fielder_time
             
-            # Only consider fielders who can make the play (margin >= -0.1)
-            if time_margin >= -0.1:
+            # Only consider fielders who can make the play (margin >= -0.05)
+            # Tightened from -0.1 to be more realistic - if the ball beat the fielder there,
+            # they usually can't make the play
+            if time_margin >= -0.05:
                 # Prioritize by fielder appropriateness and distance
                 is_better = False
                 
@@ -161,8 +168,8 @@ class GroundBallInterceptor:
                     best_ball_position = ball_pos
                     best_fielder_time = fielder_time
         
-        # Set result
-        if best_fielder is not None and best_margin >= -0.1:  # Allow slight negative margin
+        # Set result - tightened margin check from -0.1 to -0.05
+        if best_fielder is not None and best_margin >= -0.05:
             result.can_be_fielded = True
             result.fielding_fielder = best_fielder
             result.fielding_position = best_position
@@ -218,14 +225,82 @@ class GroundBallInterceptor:
         is_hard_hit = exit_velocity_mph > 85.0
         is_weak_hit = exit_velocity_mph < 70.0
 
+        best_option = None
+        best_margin = float('-inf')
+        best_score = float('-inf')
+        
+        # =======================================================================
+        # SPECIAL CHECK: Ball coming directly at fielder (or close enough to intercept)
+        # =======================================================================
+        # For balls passing near an infielder's Y-position, check if they can
+        # run laterally to intercept it. This handles comebackers to the pitcher
+        # and balls hit near (but not directly at) infielders.
+        
+        # Calculate how close the ball path comes to the fielder (perpendicular distance)
+        # Ball path: landing_pos + t * ball_direction
+        # Find closest point on ball path to fielder_pos
+        to_fielder = fielder_pos - landing_pos
+        projection = np.dot(to_fielder, ball_direction)
+        
+        if projection > 0:  # Ball is moving toward fielder's direction
+            closest_point_on_path = landing_pos + projection * ball_direction
+            lateral_offset = np.linalg.norm(fielder_pos - closest_point_on_path)
+            
+            # Calculate when ball reaches this closest point
+            distance_ball_travels = projection
+            discriminant = ball_speed_fps**2 - 2.0 * decel_fps2 * distance_ball_travels
+            
+            if discriminant > 0:
+                ball_roll_time = (ball_speed_fps - math.sqrt(discriminant)) / decel_fps2
+                total_ball_time = flight_time + ball_roll_time
+                
+                # Calculate fielder time to reach the interception point
+                # They need to: react + run laterally + reach for ball
+                # Use realistic lateral movement time based on distance
+                if lateral_offset <= 3.0:
+                    # Very close - just reach/dive
+                    lateral_move_time = lateral_offset / 15.0  # Quick lateral movement
+                elif lateral_offset <= 8.0:
+                    # Moderate distance - run + dive (about 20-25 fps lateral)
+                    lateral_move_time = lateral_offset / 22.0
+                else:
+                    # Far lateral - full sprint (about 28-30 fps for fast fielders)
+                    lateral_move_time = self._calculate_fielder_travel_time(lateral_offset, fielder_speed_fps)
+                
+                total_fielder_time = reaction_time + lateral_move_time
+                margin = total_ball_time - total_fielder_time
+                
+                # Apply position-specific constraints
+                can_field_here = True
+                if position_name == 'pitcher':
+                    # Pitcher can only field near the mound (within ~15 ft)
+                    mound_pos = np.array([0.0, 60.5])
+                    dist_from_mound = np.linalg.norm(closest_point_on_path - mound_pos)
+                    if dist_from_mound > 15.0:
+                        can_field_here = False
+                    # Also limit lateral range for pitcher (they stay near mound)
+                    if lateral_offset > 12.0:
+                        can_field_here = False
+                
+                # Max lateral range for infielders is about 15-20 ft
+                max_lateral_range = 18.0  # feet
+                if lateral_offset > max_lateral_range:
+                    can_field_here = False
+                
+                if can_field_here and margin >= -0.05:
+                    # This is a viable direct-path interception
+                    ball_pos = closest_point_on_path
+                    best_option = (total_ball_time, total_fielder_time, ball_pos, lateral_offset)
+                    best_margin = margin
+                    best_score = -lateral_offset  # Prefer shorter lateral distances
+        
+        # =======================================================================
+        # STANDARD CHECK: Test interception points along ball trajectory
+        # =======================================================================
         # Test interception points along ball trajectory at different times
         min_test_time = 0.1   # Start testing immediately after landing
         max_test_time = 1.5   # Realistic maximum for infield plays
         time_step = 0.05      # Finer resolution for better accuracy
-
-        best_option = None
-        best_margin = float('-inf')
-        best_score = float('-inf')
 
         test_time = min_test_time
         while test_time <= max_test_time:
@@ -254,20 +329,31 @@ class GroundBallInterceptor:
             # Calculate ball speed at this time (for collision timing)
             ball_speed_at_time = max(ball_speed_fps - decel_fps2 * test_time, 1.0)
 
-            # Calculate fielder time to reach this position
+            # Calculate fielder time to reach this position using REALISTIC acceleration model
+            # This is the key fix - fielders don't teleport at top speed!
             distance_to_ball = np.linalg.norm(ball_pos - fielder_pos)
-            fielder_movement_time = distance_to_ball / fielder_speed_fps
+            fielder_movement_time = self._calculate_fielder_travel_time(distance_to_ball, fielder_speed_fps)
             total_fielder_time = reaction_time + fielder_movement_time
 
-            # Total time from contact: flight_time + test_time
+            # Total time from contact until ball reaches interception point:
+            # ball_time = flight_time (in air) + test_time (rolling)
             total_ball_time = flight_time + test_time
-            total_fielder_arrival = flight_time + total_fielder_time
+            
+            # Fielder arrival time from contact:
+            # The fielder reacts at contact and starts moving, NOT waiting for ball to land.
+            # So fielder time is just reaction + movement, not flight_time + reaction + movement.
+            # NOTE: If reaction_time > flight_time, fielder hasn't finished reacting when ball lands.
+            # If reaction_time < flight_time, fielder starts moving while ball is still in air.
+            total_fielder_arrival = total_fielder_time  # reaction_time + fielder_movement_time
 
-            # Calculate margin (positive = fielder arrives first)
-            margin = total_fielder_arrival - total_ball_time
+            # Calculate margin: positive = fielder arrives BEFORE ball (good)
+            # ball_time - fielder_time: if ball takes longer, margin is positive (fielder waiting)
+            margin = total_ball_time - total_fielder_arrival
 
             # Track best viable option with scoring based on ball velocity
-            if margin >= -0.1:  # Tighter tolerance for realistic plays
+            # Margin check: require margin >= -0.05s (fielder can be up to 0.05s late)
+            # Negative margin means ball arrived first, positive means fielder waiting
+            if margin >= -0.05:
                 # Calculate score based on fielding strategy
                 if is_hard_hit:
                     # For hard-hit balls: Prefer interceptions CLOSER to fielder's position
@@ -306,20 +392,71 @@ class GroundBallInterceptor:
         return ball_pos
     
     def _get_fielder_speed_fps(self, fielder: Fielder) -> float:
-        """Get fielder movement speed in feet per second."""
-        # Use fielder's sprint speed rating to determine fps
-        # Average MLB fielder: ~27 ft/s, Elite: ~30 ft/s, Poor: ~24 ft/s
+        """Get fielder TOP SPEED in feet per second (used for long-distance runs).
         
-        sprint_rating = getattr(fielder, 'sprint_speed', 50)  # Default to average
+        Note: This is MAX speed. For short distances, use _calculate_fielder_travel_time()
+        which accounts for acceleration. Fielders don't hit top speed instantly.
         
-        if sprint_rating >= 80:
-            return 30.0  # Elite speed
-        elif sprint_rating >= 60:
-            return 24.0 + (sprint_rating - 60) * 0.3  # 24-30 fps range
-        elif sprint_rating >= 40:
-            return 20.0 + (sprint_rating - 40) * 0.2  # 20-24 fps range  
+        MLB Statcast sprint speed reference:
+        - Elite (90th percentile): ~30 ft/s (20.5 mph)
+        - Average (50th percentile): ~27 ft/s (18.4 mph)  
+        - Poor (10th percentile): ~24 ft/s (16.4 mph)
+        """
+        # Use the proper method on Fielder class
+        return fielder.get_sprint_speed_fps()
+    
+    def _calculate_fielder_travel_time(self, distance: float, max_speed_fps: float) -> float:
+        """
+        Calculate time for fielder to cover distance, accounting for acceleration.
+        
+        Fielders don't instantly hit top speed - they need to accelerate from a
+        standing start. This model uses realistic acceleration physics.
+        
+        Research basis:
+        - Elite athletes accelerate at ~10-15 ft/s² from standing start
+        - MLB infielders typically accelerate at ~12 ft/s²
+        - It takes ~2-2.5 seconds to reach full sprint speed
+        
+        For short distances (typical infield plays of 10-40 ft), fielders never
+        reach top speed, so the "average speed" model is more accurate.
+        
+        Parameters
+        ----------
+        distance : float
+            Distance to cover in feet
+        max_speed_fps : float
+            Maximum (top) speed in ft/s
+            
+        Returns
+        -------
+        float
+            Time in seconds to cover the distance
+        """
+        # Acceleration for infielder from ready position
+        # Baseball players start from an athletic ready stance, allowing faster
+        # acceleration than a cold start. Research suggests ~25-30 fps² is realistic.
+        # This gives: 20ft in ~1.3s, 30ft in ~1.6s - matching observed fielding times
+        acceleration = 28.0  # ft/s² - calibrated for realistic fielding
+        
+        # Distance to reach top speed: d = v²/(2a)
+        distance_to_max_speed = (max_speed_fps ** 2) / (2.0 * acceleration)
+        
+        if distance <= distance_to_max_speed:
+            # Fielder never reaches top speed - entire journey is accelerating
+            # Using: d = 0.5 * a * t², solve for t: t = sqrt(2d/a)
+            time = math.sqrt(2.0 * distance / acceleration)
         else:
-            return max(18.0, 16.0 + sprint_rating * 0.05)  # 16-20 fps range
+            # Fielder accelerates to top speed, then runs at constant speed
+            # Time to reach top speed: t = v/a
+            time_to_max_speed = max_speed_fps / acceleration
+            
+            # Remaining distance at top speed
+            remaining_distance = distance - distance_to_max_speed
+            time_at_max_speed = remaining_distance / max_speed_fps
+            
+            time = time_to_max_speed + time_at_max_speed
+        
+        return time
     
     def get_ground_ball_trajectory_points(self, batted_ball_result, max_time: float = 3.0) -> List[Tuple[float, float, float]]:
         """
