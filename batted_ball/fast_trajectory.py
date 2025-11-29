@@ -6,13 +6,23 @@ This module provides ultra-fast trajectory calculations by using:
 2. Pre-allocated buffers to reduce memory allocation (Phase 2)
 3. Simplified interface for batch processing
 4. Multiple speed modes (ACCURATE, FAST, ULTRA_FAST, EXTREME)
+5. Parallel batch processing with Numba prange (Phase 5)
 
 Use this for high-volume simulations where maximum speed is critical.
 """
 
 import numpy as np
-from .integrator import integrate_trajectory_jit, integrate_trajectory_buffered
-from .aerodynamics import aerodynamic_force_tuple
+from .integrator import (
+    integrate_trajectory_jit, 
+    integrate_trajectory_buffered, 
+    integrate_trajectory_lookup,
+    integrate_trajectories_batch_parallel,
+    calculate_trajectory_endpoints_batch,
+    calculate_fielder_times_batch,
+    create_batch_initial_states,
+    create_batch_spin_params,
+)
+from .aerodynamics import aerodynamic_force_tuple, aerodynamic_force_tuple_lookup, get_lookup_tables
 from .performance import get_trajectory_buffer
 from .constants import (
     BALL_CROSS_SECTIONAL_AREA,
@@ -63,6 +73,7 @@ class FastTrajectorySimulator:
         dt=None,
         simulation_mode=None,
         use_buffer_pool=True,
+        use_lookup=None,
     ):
         """
         Initialize fast trajectory simulator.
@@ -86,6 +97,10 @@ class FastTrajectorySimulator:
             If True, use pre-allocated buffer pool to reduce allocation overhead.
             Provides ~20-30% additional speedup for high-volume simulations.
             Default: True
+        use_lookup : bool, optional
+            If True, use lookup tables for aerodynamic coefficients.
+            If None, automatically enabled for ULTRA_FAST and EXTREME modes.
+            Provides 3-5x speedup on force calculations.
         """
         self.air_density = air_density
         self.cd_base = cd_base
@@ -106,6 +121,19 @@ class FastTrajectorySimulator:
             self.dt = dt
         else:
             self.dt = get_dt_for_mode(self.simulation_mode)
+        
+        # Determine lookup table usage (Phase 3 optimization)
+        if use_lookup is not None:
+            self.use_lookup = use_lookup
+        else:
+            # Auto-enable for ultra-fast modes
+            self.use_lookup = self.simulation_mode in (SimulationMode.ULTRA_FAST, SimulationMode.EXTREME)
+        
+        # Pre-fetch lookup tables if enabled (lazy init)
+        self._cd_table = None
+        self._cl_table = None
+        if self.use_lookup:
+            self._cd_table, self._cl_table = get_lookup_tables()
 
     def simulate_batted_ball(
         self,
@@ -176,33 +204,53 @@ class FastTrajectorySimulator:
 
         # Pack parameters for JIT force function
         spin_x, spin_y, spin_z = spin_axis_arr
-        force_args = (
-            spin_x, spin_y, spin_z,
-            spin_rate,
-            self.cd_base,
-            self.air_density,
-            self.cross_area,
-        )
 
-        # Run integration - use buffered version if enabled
+        # Run integration - choose path based on settings
         if self.use_buffer_pool:
             # Get pre-allocated buffers
             buffer = get_trajectory_buffer()
             buf_idx, pos_buf, vel_buf, time_buf = buffer.get_buffer()
             
             try:
-                # Run buffered integration
-                step_count = integrate_trajectory_buffered(
-                    initial_state,
-                    self.dt,
-                    max_time,
-                    ground_level,
-                    aerodynamic_force_tuple,
-                    time_buf,
-                    pos_buf,
-                    vel_buf,
-                    *force_args
-                )
+                if self.use_lookup and self._cd_table is not None:
+                    # Phase 3: Ultra-fast lookup-based integration
+                    step_count = integrate_trajectory_lookup(
+                        initial_state,
+                        self.dt,
+                        max_time,
+                        ground_level,
+                        aerodynamic_force_tuple_lookup,
+                        time_buf,
+                        pos_buf,
+                        vel_buf,
+                        self._cd_table,
+                        self._cl_table,
+                        spin_x, spin_y, spin_z,
+                        spin_rate,
+                        self.cd_base,
+                        self.air_density,
+                        self.cross_area
+                    )
+                else:
+                    # Standard buffered integration with full physics
+                    force_args = (
+                        spin_x, spin_y, spin_z,
+                        spin_rate,
+                        self.cd_base,
+                        self.air_density,
+                        self.cross_area,
+                    )
+                    step_count = integrate_trajectory_buffered(
+                        initial_state,
+                        self.dt,
+                        max_time,
+                        ground_level,
+                        aerodynamic_force_tuple,
+                        time_buf,
+                        pos_buf,
+                        vel_buf,
+                        *force_args
+                    )
                 
                 # Copy results from buffers (we need to return owned arrays)
                 times = time_buf[:step_count].copy()
@@ -212,7 +260,14 @@ class FastTrajectorySimulator:
                 # Always release buffer
                 buffer.release_buffer(buf_idx)
         else:
-            # Original non-buffered path
+            # Original non-buffered path (no lookup mode support)
+            force_args = (
+                spin_x, spin_y, spin_z,
+                spin_rate,
+                self.cd_base,
+                self.air_density,
+                self.cross_area,
+            )
             times, positions, velocities, step_count = integrate_trajectory_jit(
                 initial_state,
                 self.dt,
@@ -287,13 +342,6 @@ class FastTrajectorySimulator:
 
         # Pack parameters
         spin_x, spin_y, spin_z = spin_axis_arr
-        force_args = (
-            spin_x, spin_y, spin_z,
-            spin_rate,
-            self.cd_base,
-            self.air_density,
-            self.cross_area,
-        )
 
         # Run integration - use buffered version if enabled
         if self.use_buffer_pool:
@@ -301,17 +349,45 @@ class FastTrajectorySimulator:
             buf_idx, pos_buf, vel_buf, time_buf = buffer.get_buffer()
             
             try:
-                step_count = integrate_trajectory_buffered(
-                    initial_state,
-                    self.dt,
-                    max_time,
-                    0.0,  # ground level
-                    aerodynamic_force_tuple,
-                    time_buf,
-                    pos_buf,
-                    vel_buf,
-                    *force_args
-                )
+                if self.use_lookup and self._cd_table is not None:
+                    # Phase 3: Ultra-fast lookup-based integration
+                    step_count = integrate_trajectory_lookup(
+                        initial_state,
+                        self.dt,
+                        max_time,
+                        0.0,  # ground level
+                        aerodynamic_force_tuple_lookup,
+                        time_buf,
+                        pos_buf,
+                        vel_buf,
+                        self._cd_table,
+                        self._cl_table,
+                        spin_x, spin_y, spin_z,
+                        spin_rate,
+                        self.cd_base,
+                        self.air_density,
+                        self.cross_area
+                    )
+                else:
+                    # Standard buffered integration with full physics
+                    force_args = (
+                        spin_x, spin_y, spin_z,
+                        spin_rate,
+                        self.cd_base,
+                        self.air_density,
+                        self.cross_area,
+                    )
+                    step_count = integrate_trajectory_buffered(
+                        initial_state,
+                        self.dt,
+                        max_time,
+                        0.0,  # ground level
+                        aerodynamic_force_tuple,
+                        time_buf,
+                        pos_buf,
+                        vel_buf,
+                        *force_args
+                    )
                 
                 times = time_buf[:step_count].copy()
                 positions = pos_buf[:step_count].copy()
@@ -319,6 +395,14 @@ class FastTrajectorySimulator:
             finally:
                 buffer.release_buffer(buf_idx)
         else:
+            # Original non-buffered path (no lookup mode support)
+            force_args = (
+                spin_x, spin_y, spin_z,
+                spin_rate,
+                self.cd_base,
+                self.air_density,
+                self.cross_area,
+            )
             times, positions, velocities, step_count = integrate_trajectory_jit(
                 initial_state,
                 self.dt,
@@ -486,3 +570,272 @@ def benchmark_jit_speedup(n_trajectories=100, fast_mode=False, simulation_mode=N
         'simulation_mode': simulation_mode.value,
         'dt': sim.dt,
     }
+
+
+# ============================================================================
+# Phase 5: Parallel Batch Trajectory Simulator
+# ============================================================================
+
+class ParallelBatchTrajectorySimulator:
+    """
+    Parallel batch trajectory simulator using Numba's prange for multi-core processing.
+    
+    This class provides maximum performance for batch trajectory calculations by:
+    1. Using Numba @njit(parallel=True) with prange
+    2. Pre-computing lookup tables for aerodynamic coefficients
+    3. Processing all trajectories in parallel across CPU cores
+    
+    Expected speedup: 2-3x on 4+ core systems compared to sequential batch processing.
+    Best for batch sizes >= 16 (overhead dominates for smaller batches).
+    
+    Example
+    -------
+    >>> sim = ParallelBatchTrajectorySimulator()
+    >>> 
+    >>> # Simulate 1000 trajectories with varying parameters
+    >>> exit_velocities = np.random.uniform(35, 55, 1000)  # m/s
+    >>> launch_angles = np.random.uniform(5, 45, 1000)     # degrees
+    >>> spray_angles = np.random.uniform(-45, 45, 1000)    # degrees
+    >>> spin_rates = np.random.uniform(1000, 3000, 1000)   # RPM
+    >>> spin_axes = np.tile([0, 1, 0], (1000, 1))          # backspin
+    >>> 
+    >>> results = sim.simulate_batch_parallel(
+    ...     exit_velocities, launch_angles, spray_angles, spin_rates, spin_axes
+    ... )
+    >>> print(f"Mean distance: {results['distances'].mean():.1f} m")
+    """
+    
+    def __init__(
+        self,
+        air_density=RHO_SEA_LEVEL,
+        cd_base=CD_BASE,
+        simulation_mode=SimulationMode.ULTRA_FAST,
+    ):
+        """
+        Initialize parallel batch trajectory simulator.
+        
+        Parameters
+        ----------
+        air_density : float
+            Air density in kg/m³ (default: 1.225 = sea level)
+        cd_base : float
+            Base drag coefficient
+        simulation_mode : SimulationMode
+            Simulation speed/accuracy mode. Defaults to ULTRA_FAST for batches.
+        """
+        self.air_density = air_density
+        self.cd_base = cd_base
+        self.cross_area = BALL_CROSS_SECTIONAL_AREA
+        self.simulation_mode = simulation_mode
+        self.dt = get_dt_for_mode(simulation_mode)
+        
+        # Pre-load lookup tables
+        self._cd_table, self._cl_table = get_lookup_tables()
+        
+        # Pre-compile by running a single trajectory
+        self._warmup()
+    
+    def _warmup(self):
+        """Warm up JIT compilation with a single trajectory."""
+        initial_states = np.array([[0.0, 0.0, 1.0, 40.0, 0.0, 20.0]])
+        spin_params = np.array([[0.0, 1.0, 0.0, 2000.0]])
+        
+        try:
+            _ = calculate_trajectory_endpoints_batch(
+                initial_states, self.dt, 10.0, 0.0, spin_params,
+                self.cd_base, self.air_density, self.cross_area,
+                self._cd_table, self._cl_table, aerodynamic_force_tuple_lookup
+            )
+        except Exception:
+            pass  # Ignore errors during warmup
+    
+    def simulate_batch_parallel(
+        self,
+        exit_velocities,
+        launch_angles,
+        spray_angles,
+        spin_rates,
+        spin_axes,
+        max_time=10.0,
+        ground_level=0.0,
+        full_trajectories=False,
+    ):
+        """
+        Simulate multiple trajectories in parallel using Numba prange.
+        
+        Parameters
+        ----------
+        exit_velocities : array-like
+            Exit velocities in m/s, shape (N,)
+        launch_angles : array-like
+            Launch angles in degrees, shape (N,)
+        spray_angles : array-like
+            Spray angles in degrees, shape (N,)
+        spin_rates : array-like
+            Spin rates in RPM, shape (N,)
+        spin_axes : array-like
+            Spin axis vectors, shape (N, 3) or (3,) for shared axis
+        max_time : float
+            Maximum simulation time in seconds
+        ground_level : float
+            Ground level z-coordinate in meters
+        full_trajectories : bool
+            If True, return full position/velocity arrays (memory intensive).
+            If False, return only endpoints and summary stats (default).
+        
+        Returns
+        -------
+        dict
+            If full_trajectories=False:
+                - 'landing_positions': np.ndarray (N, 3)
+                - 'landing_times': np.ndarray (N,)
+                - 'distances': np.ndarray (N,) horizontal distances
+                - 'apex_heights': np.ndarray (N,) maximum heights
+                
+            If full_trajectories=True:
+                - 'positions': np.ndarray (N, max_steps, 3)
+                - 'velocities': np.ndarray (N, max_steps, 3)
+                - 'times': np.ndarray (N, max_steps)
+                - 'step_counts': np.ndarray (N,)
+        """
+        # Prepare batch inputs
+        initial_states = create_batch_initial_states(
+            exit_velocities, launch_angles, spray_angles
+        )
+        spin_params = create_batch_spin_params(spin_rates, spin_axes)
+        
+        if full_trajectories:
+            # Return complete trajectories
+            positions, velocities, times, step_counts = integrate_trajectories_batch_parallel(
+                initial_states, self.dt, max_time, ground_level, spin_params,
+                self.cd_base, self.air_density, self.cross_area,
+                self._cd_table, self._cl_table, aerodynamic_force_tuple_lookup
+            )
+            return {
+                'positions': positions,
+                'velocities': velocities,
+                'times': times,
+                'step_counts': step_counts,
+            }
+        else:
+            # Return only endpoints (memory efficient)
+            landing_pos, landing_times, distances, apex_heights = calculate_trajectory_endpoints_batch(
+                initial_states, self.dt, max_time, ground_level, spin_params,
+                self.cd_base, self.air_density, self.cross_area,
+                self._cd_table, self._cl_table, aerodynamic_force_tuple_lookup
+            )
+            return {
+                'landing_positions': landing_pos,
+                'landing_times': landing_times,
+                'distances': distances,
+                'apex_heights': apex_heights,
+            }
+    
+    def simulate_endpoints_only(
+        self,
+        exit_velocities,
+        launch_angles,
+        spray_angles,
+        spin_rates,
+        spin_axes,
+        max_time=10.0,
+        ground_level=0.0,
+    ):
+        """
+        Memory-efficient batch simulation returning only endpoints.
+        
+        Alias for simulate_batch_parallel with full_trajectories=False.
+        Use when you only need final positions (e.g., fielding simulations).
+        """
+        return self.simulate_batch_parallel(
+            exit_velocities, launch_angles, spray_angles, spin_rates, spin_axes,
+            max_time, ground_level, full_trajectories=False
+        )
+
+
+def benchmark_parallel_batch(n_trajectories=1000, n_runs=3):
+    """
+    Benchmark parallel batch simulation vs sequential.
+    
+    Parameters
+    ----------
+    n_trajectories : int
+        Number of trajectories per batch
+    n_runs : int
+        Number of benchmark runs (averages results)
+    
+    Returns
+    -------
+    dict
+        Benchmark results with speedup comparison
+    """
+    import time
+    
+    # Generate test data
+    np.random.seed(42)
+    exit_velocities = np.random.uniform(35, 55, n_trajectories)
+    launch_angles = np.random.uniform(5, 45, n_trajectories)
+    spray_angles = np.random.uniform(-45, 45, n_trajectories)
+    spin_rates = np.random.uniform(1000, 3000, n_trajectories)
+    spin_axes = np.tile([0, 1, 0], (n_trajectories, 1))
+    
+    # Parallel simulator
+    parallel_sim = ParallelBatchTrajectorySimulator()
+    
+    # Sequential simulator
+    sequential_sim = FastTrajectorySimulator(simulation_mode=SimulationMode.ULTRA_FAST)
+    
+    # Warm up both
+    _ = parallel_sim.simulate_batch_parallel(
+        exit_velocities[:10], launch_angles[:10], spray_angles[:10],
+        spin_rates[:10], spin_axes[:10]
+    )
+    for i in range(10):
+        _ = sequential_sim.simulate_batted_ball(
+            exit_velocities[i], launch_angles[i], spray_angles[i],
+            spin_rates[i], spin_axes[i]
+        )
+    
+    # Benchmark parallel
+    parallel_times = []
+    for _ in range(n_runs):
+        start = time.time()
+        _ = parallel_sim.simulate_batch_parallel(
+            exit_velocities, launch_angles, spray_angles, spin_rates, spin_axes
+        )
+        parallel_times.append(time.time() - start)
+    
+    # Benchmark sequential
+    sequential_times = []
+    for _ in range(n_runs):
+        start = time.time()
+        for i in range(n_trajectories):
+            _ = sequential_sim.simulate_batted_ball(
+                exit_velocities[i], launch_angles[i], spray_angles[i],
+                spin_rates[i], spin_axes[i]
+            )
+        sequential_times.append(time.time() - start)
+    
+    parallel_avg = np.mean(parallel_times)
+    sequential_avg = np.mean(sequential_times)
+    speedup = sequential_avg / parallel_avg
+    
+    return {
+        'n_trajectories': n_trajectories,
+        'parallel_time': parallel_avg,
+        'sequential_time': sequential_avg,
+        'speedup': speedup,
+        'parallel_traj_per_sec': n_trajectories / parallel_avg,
+        'sequential_traj_per_sec': n_trajectories / sequential_avg,
+    }
+
+
+# Re-export for convenience
+__all__ = [
+    'FastTrajectorySimulator',
+    'BatchTrajectorySimulator',
+    'ParallelBatchTrajectorySimulator',
+    'benchmark_jit_speedup',
+    'benchmark_parallel_batch',
+    'calculate_fielder_times_batch',
+]
