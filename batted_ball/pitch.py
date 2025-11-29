@@ -9,6 +9,7 @@ Implements realistic pitch physics including:
 - Integration with collision model
 
 Phase 3 Implementation
+Phase 7: Rust acceleration for pitch trajectories
 """
 
 import numpy as np
@@ -24,6 +25,7 @@ from .constants import (
     DT_FAST,
     MAX_SIMULATION_TIME,
     GROUND_LEVEL,
+    BALL_RADIUS,
     # Mound and plate geometry
     MOUND_DISTANCE,
     MOUND_HEIGHT_FEET,
@@ -68,6 +70,13 @@ from .constants import (
 from .environment import Environment
 from .aerodynamics import AerodynamicForces
 from .integrator import integrate_trajectory
+
+# Phase 7: Import Rust acceleration
+from .fast_trajectory import RUST_AVAILABLE, get_lookup_tables
+try:
+    import trajectory_rs
+except ImportError:
+    trajectory_rs = None
 
 
 class PitchType:
@@ -611,9 +620,11 @@ class PitchSimulator:
 
     Simulates pitch trajectory from release to home plate using the same
     aerodynamics as batted balls but with pitch-specific spin characteristics.
+    
+    Phase 7: Uses Rust-accelerated trajectory calculation when available.
     """
 
-    def __init__(self, dt=DT_DEFAULT):
+    def __init__(self, dt=DT_DEFAULT, use_rust=None):
         """
         Initialize pitch simulator.
 
@@ -621,8 +632,25 @@ class PitchSimulator:
         ----------
         dt : float
             Time step for integration (seconds)
+        use_rust : bool, optional
+            Whether to use Rust acceleration. Defaults to True if available.
         """
         self.dt = dt
+        
+        # Phase 7: Initialize Rust acceleration
+        if use_rust is None:
+            self.use_rust = RUST_AVAILABLE
+        else:
+            self.use_rust = use_rust and RUST_AVAILABLE
+        
+        # Pre-fetch lookup tables if using Rust
+        if self.use_rust:
+            self._cd_table, self._cl_table = get_lookup_tables()
+            self._cross_area = np.pi * BALL_RADIUS**2
+        else:
+            self._cd_table = None
+            self._cl_table = None
+            self._cross_area = None
 
     def simulate(
         self,
@@ -751,25 +779,46 @@ class PitchSimulator:
             # Quick trajectory simulation to see where this actually goes
             test_state = np.concatenate([release_pos_m, v0_vec_test])
 
-            def test_force(position, velocity):
-                total_force, _, _ = aero.calculate_total_aerodynamic_force(
-                    velocity, spin_axis, effective_spin_rpm
+            # Phase 7: Use Rust for test trajectory if available
+            if self.use_rust and self._cd_table is not None:
+                spin_axis_arr = np.array(spin_axis, dtype=float)
+                spin_axis_mag = np.linalg.norm(spin_axis_arr)
+                if spin_axis_mag > 1e-6:
+                    spin_axis_arr = spin_axis_arr / spin_axis_mag
+                
+                test_positions, _, _ = trajectory_rs.integrate_trajectory(
+                    test_state,
+                    dt_to_use,
+                    2.0,
+                    -10.0,  # Don't stop at ground
+                    spin_axis_arr,
+                    effective_spin_rpm,
+                    env.air_density,
+                    self._cross_area,
+                    self._cd_table,
+                    self._cl_table
                 )
-                return total_force
+                test_traj = {'position': test_positions}
+            else:
+                def test_force(position, velocity):
+                    total_force, _, _ = aero.calculate_total_aerodynamic_force(
+                        velocity, spin_axis, effective_spin_rpm
+                    )
+                    return total_force
 
-            def test_stop(position):
-                x, y, z = position
-                return x <= 0.0 or z <= GROUND_LEVEL
+                def test_stop(position):
+                    x, y, z = position
+                    return x <= 0.0 or z <= GROUND_LEVEL
 
-            test_traj = integrate_trajectory(
-                test_state,
-                test_force,
-                dt=dt_to_use,
-                max_time=2.0,
-                ground_level=GROUND_LEVEL,
-                method='euler',  # Use euler for speed
-                custom_stop_condition=test_stop
-            )
+                test_traj = integrate_trajectory(
+                    test_state,
+                    test_force,
+                    dt=dt_to_use,
+                    max_time=2.0,
+                    ground_level=GROUND_LEVEL,
+                    method='euler',  # Use euler for speed
+                    custom_stop_condition=test_stop
+                )
 
             # Find where it actually crossed
             x_positions = test_traj['position'][:, 0]
@@ -799,32 +848,69 @@ class PitchSimulator:
         # Create initial state
         initial_state = np.concatenate([release_pos_m, v0_vec])
 
-        # Define force function (uses spin_axis and effective_spin_rpm from above)
-        def force_function(position, velocity):
-            """Calculate aerodynamic forces."""
-            total_force, _, _ = aero.calculate_total_aerodynamic_force(
-                velocity,
-                spin_axis,
-                effective_spin_rpm
+        # Phase 7: Use Rust-accelerated path when available
+        if self.use_rust and self._cd_table is not None:
+            # Normalize spin axis
+            spin_axis_arr = np.array(spin_axis, dtype=float)
+            spin_axis_mag = np.linalg.norm(spin_axis_arr)
+            if spin_axis_mag > 1e-6:
+                spin_axis_arr = spin_axis_arr / spin_axis_mag
+            
+            # Call Rust integrator
+            positions, velocities, times = trajectory_rs.integrate_trajectory(
+                initial_state,
+                dt_to_use,
+                2.0,  # max_time
+                -10.0,  # ground_level (use negative to not trigger ground stop)
+                spin_axis_arr,
+                effective_spin_rpm,
+                env.air_density,
+                self._cross_area,
+                self._cd_table,
+                self._cl_table
             )
-            return total_force
+            
+            # Find where ball crosses plate (x <= 0)
+            plate_idx = len(positions)
+            for i in range(len(positions)):
+                if positions[i, 0] <= 0.0:
+                    plate_idx = i + 1  # Include the crossing point
+                    break
+            
+            # Trim to plate crossing
+            trajectory_data = {
+                'time': times[:plate_idx],
+                'position': positions[:plate_idx],
+                'velocity': velocities[:plate_idx],
+            }
+        else:
+            # Original Python path
+            # Define force function (uses spin_axis and effective_spin_rpm from above)
+            def force_function(position, velocity):
+                """Calculate aerodynamic forces."""
+                total_force, _, _ = aero.calculate_total_aerodynamic_force(
+                    velocity,
+                    spin_axis,
+                    effective_spin_rpm
+                )
+                return total_force
 
-        # Integrate trajectory
-        # Stop when pitch crosses plate (x = 0) or hits ground
-        def stop_condition(position):
-            """Stop when ball crosses plate or hits ground."""
-            x, y, z = position
-            return x <= 0.0 or z <= GROUND_LEVEL
+            # Integrate trajectory
+            # Stop when pitch crosses plate (x = 0) or hits ground
+            def stop_condition(position):
+                """Stop when ball crosses plate or hits ground."""
+                x, y, z = position
+                return x <= 0.0 or z <= GROUND_LEVEL
 
-        trajectory_data = integrate_trajectory(
-            initial_state,
-            force_function,
-            dt=dt_to_use,
-            max_time=2.0,  # Pitch takes ~0.4-0.5 sec, but allow margin
-            ground_level=GROUND_LEVEL,
-            method=method,
-            custom_stop_condition=stop_condition
-        )
+            trajectory_data = integrate_trajectory(
+                initial_state,
+                force_function,
+                dt=dt_to_use,
+                max_time=2.0,  # Pitch takes ~0.4-0.5 sec, but allow margin
+                ground_level=GROUND_LEVEL,
+                method=method,
+                custom_stop_condition=stop_condition
+            )
 
         # Store release parameters
         release_params = {

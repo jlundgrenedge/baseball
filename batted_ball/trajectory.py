@@ -315,7 +315,9 @@ class BattedBallSimulator:
         # Phase 7: Use Rust-accelerated path when available
         # Note: Rust path doesn't support wind, custom CD, or significant sidespin
         # Falls back to Python path for these cases
-        sidespin_ratio = abs(sidespin_rpm) / max(backspin_rpm, 1.0) if backspin_rpm > 0 else 1.0
+        # Use abs() on backspin to handle topspin (negative backspin) correctly
+        abs_backspin = abs(backspin_rpm)
+        sidespin_ratio = abs(sidespin_rpm) / max(abs_backspin, 1.0) if abs_backspin > 0 else 0.0
         use_rust_path = (
             self.use_rust 
             and self._fast_sim is not None 
