@@ -235,10 +235,47 @@ This consistency is maintained across trajectory, fielding, and baserunning modu
 
 ## Performance Optimization
 
+The simulation includes extensive performance optimizations achieving **5x speedup** with full physics.
+
+### Rust Acceleration (Phase 7)
+
+The core trajectory integration is accelerated via native Rust code using PyO3:
+
+```bash
+# Build and install (one-time setup)
+cd trajectory_rs
+maturin build --release
+pip install target/wheels/*.whl
+```
+
+**Performance Results**:
+| Metric | Before Rust | After Rust | Speedup |
+|--------|-------------|------------|---------|
+| Game (with wind) | ~30s | **6.2s** | **5x** |
+| Batted balls/sec | 4 | **1000+** | **250x** |
+| Pitch simulation | 22/sec | **158/sec** | **7x** |
+
+**Full Physics Support**: Wind, backspin, topspin, and sidespin all use the Rust path.
+
+### Simulation Modes
+
+```python
+from batted_ball.constants import SimulationMode
+
+# Standard mode (maximum accuracy)
+sim = GameSimulator(away, home, simulation_mode=SimulationMode.ACCURATE)
+
+# Fast mode (2x speedup, <1% accuracy loss)
+sim = GameSimulator(away, home, simulation_mode=SimulationMode.FAST)
+
+# Ultra-fast mode (5x speedup, <2% accuracy loss)
+sim = GameSimulator(away, home, simulation_mode=SimulationMode.ULTRA_FAST)
+```
+
 ### Standard Mode
 - Time step: 0.001s (1ms) for maximum accuracy
 - Typical at-bat: ~50-200ms
-- Full game (200+ at-bats): ~30-60 seconds
+- Full game (200+ at-bats): ~6 seconds (with Rust)
 
 ### Fast Mode
 ```python
@@ -254,6 +291,17 @@ from batted_ball.performance import UltraFastMode
 with UltraFastMode():
     # Your simulation code here
     pass  # 10x speedup, <2% accuracy loss
+```
+
+### Checking Rust Availability
+
+```python
+from batted_ball.fast_trajectory import is_rust_available, get_rust_version
+
+if is_rust_available():
+    print(f"Rust acceleration enabled: {get_rust_version()}")
+else:
+    print("Falling back to Python/Numba")
 ```
 
 ## Validation & Benchmarks

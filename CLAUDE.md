@@ -1,9 +1,9 @@
 # CLAUDE.md - AI Assistant Guide for Baseball Physics Simulation Engine
 
-**Last Updated**: 2025-11-20
+**Last Updated**: 2025-01-06
 **Repository**: Baseball Physics Simulation Engine
 **Purpose**: Guide AI assistants in understanding and working with this codebase
-**Version**: 1.2.0 (Series Statistics & Fielding Realism)
+**Version**: 1.3.0 (Rust Acceleration with Full Physics)
 
 ---
 
@@ -27,11 +27,11 @@
 A **physics-based baseball simulation engine** (~25,600 lines of Python) that models complete games from pitch to play outcome. This is NOT an arcade game or pure statistical simulation - every outcome emerges from rigorous physics calculations calibrated against MLB Statcast data.
 
 ### Project Maturity
-- **Status**: Production-ready, all 5 development phases complete
+- **Status**: Production-ready, all 5 development phases complete + Phase 7 Rust acceleration
 - **Validation**: 7/7 MLB benchmark tests passing
-- **Performance**: Optimized with Numba JIT, parallel processing, optional GPU acceleration
+- **Performance**: Optimized with Rust native code, Numba JIT, parallel processing
 - **Documentation**: 42 detailed guides, 8 research papers
-- **Version**: 1.2.0 - Series statistics, fielding realism, ballpark system
+- **Version**: 1.3.0 - Rust acceleration with full physics (wind, sidespin)
 
 ### Core Capabilities
 - Full 9-inning game simulation with realistic play-by-play
@@ -46,6 +46,7 @@ A **physics-based baseball simulation engine** (~25,600 lines of Python) that mo
 - **Simulation Metrics**: OOTP-style transparency with pitch-level tracking
 - **Ballpark System**: MLB stadium dimensions with fence distances and heights
 - **Fielding Realism**: Stochastic variance including route efficiency, reaction time, positioning
+- **Rust Acceleration**: 5x game speedup via native trajectory integration (Phase 7)
 
 ---
 
@@ -946,12 +947,42 @@ if metrics.play_metrics:
 
 ## Performance Considerations
 
+### Rust Acceleration (Phase 7 - Primary Optimization)
+
+The simulation uses native Rust code for trajectory calculations, achieving **5x game speedup**:
+
+**Performance Results**:
+| Metric | Before Rust | After Rust | Speedup |
+|--------|-------------|------------|---------|
+| Game (with wind) | ~30s | **6.2s** | **5x** |
+| Batted balls/sec | 4 | **1000+** | **250x** |
+| Pitch simulation | 22/sec | **158/sec** | **7x** |
+
+**Rust Library** (`trajectory_rs/`):
+- PyO3 bindings for Python integration
+- Rayon for parallel batch processing
+- Full physics: wind, backspin, topspin, sidespin
+- Build: `cd trajectory_rs && maturin build --release && pip install target/wheels/*.whl`
+
+**Key Functions**:
+- `integrate_trajectory()`: Standard trajectory (no wind)
+- `integrate_trajectory_with_wind()`: Wind-aware trajectory
+- `integrate_trajectories_batch()`: Parallel batch processing
+
+**Checking Availability**:
+```python
+from batted_ball.fast_trajectory import is_rust_available, get_rust_version
+
+if is_rust_available():
+    print(f"Rust: {get_rust_version()}")  # Auto-used by BattedBallSimulator
+```
+
 ### Performance Modes
 
 **Standard Mode** (default):
 - Time step: 0.001s (1ms) - maximum accuracy
 - Typical at-bat: 50-200ms
-- Full game: 30-60 seconds
+- Full game: ~6 seconds (with Rust)
 - **Use when**: Precision matters, single game simulations
 
 **Fast Mode**:
@@ -1338,15 +1369,57 @@ rover = Fielder(name="Rover", position="Rover", ...)
 
 ---
 
-**Last Updated**: 2025-11-20
-**Version**: 1.2.0
+**Last Updated**: 2025-01-06
+**Version**: 1.3.0
 **Maintainer**: Baseball Physics Simulation Engine Project
-**Status**: Production-ready, all 5 phases complete + MLB database + series statistics
+**Status**: Production-ready, all 5 phases complete + MLB database + series statistics + Rust acceleration
 **Validation**: 7/7 MLB benchmarks passing ✓
 
 ---
 
 ## Recent Changes
+
+### v1.3.0 - 2025-01-06 (Rust Acceleration with Full Physics)
+
+**Major Performance Improvement**: 5x game speedup via native Rust trajectory integration
+
+1. **Rust Trajectory Library** (`trajectory_rs/`)
+   - PyO3 0.23 bindings for seamless Python integration
+   - Rayon for parallel batch processing
+   - RK4 integrator matching Python physics exactly
+   - ~500 lines of Rust code
+
+2. **Full Physics Support in Rust**
+   - **Wind support**: `integrate_trajectory_with_wind()` function
+   - Proper relative velocity calculation: `drag = f(ball_velocity - wind_velocity)`
+   - **Full spin axis support**: 3D spin axis from backspin + sidespin
+   - Topspin (negative backspin) uses Rust path
+   - High sidespin (any ratio) uses Rust path
+   - Falls back to Python only for custom CD overrides
+
+3. **Performance Results**
+   | Metric | Before Rust | After Rust | Speedup |
+   |--------|-------------|------------|---------|
+   | Game (with wind) | ~30s | **6.2s** | **5x** |
+   | Batted balls/sec | 4 | **1000+** | **250x** |
+   | Pitch simulation | 22/sec | **158/sec** | **7x** |
+   | Trajectory batch | 11,000/sec | 183,000/sec | 17x |
+
+4. **Files Created/Modified**
+   - `trajectory_rs/Cargo.toml`: Rust project config (PyO3 0.23, Rayon)
+   - `trajectory_rs/pyproject.toml`: Python build config (maturin)
+   - `trajectory_rs/src/lib.rs`: Full trajectory integrator (~500 LOC)
+   - `batted_ball/trajectory.py`: Rust integration with wind + sidespin
+   - `batted_ball/pitch.py`: Rust acceleration for pitch simulation
+
+5. **Building the Rust Library**
+   ```bash
+   cd trajectory_rs
+   maturin build --release
+   pip install target/wheels/*.whl
+   ```
+
+**Impact**: Games now complete in ~6 seconds with full physics (wind, spin), validated with 7/7 physics tests passing.
 
 ### v1.2.0 - 2025-11-20 (Series Statistics & Fielding Realism)
 

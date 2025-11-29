@@ -4,6 +4,12 @@
 >
 > **⚠️ TEST WITH MLB DATA**: Use real MLB teams from the database, NOT synthetic `create_test_team()`. The simulation's purpose is modeling real baseball.
 
+## Performance
+
+**Rust Acceleration**: Games complete in ~6 seconds (was 30s) with full physics (wind, spin).
+- Build: `cd trajectory_rs && maturin build --release && pip install target/wheels/*.whl`
+- Check: `python -c "from batted_ball.fast_trajectory import is_rust_available; print(is_rust_available())"`
+
 ## Quick Start
 
 ```bash
@@ -14,7 +20,7 @@ game_simulation.bat → Option 8 → Select teams → 5-10 games
 python -m batted_ball.validation  # Must pass 7/7 tests
 ```
 
-**Never run more than 10 games for testing** - it's slow and unnecessary. 5-10 games provides sufficient statistical signal.
+**Never run more than 10 games for testing** - 5-10 games provides sufficient statistical signal.
 
 ## Testing Strategy (IMPORTANT)
 

@@ -161,32 +161,6 @@ fn aerodynamic_force_with_wind(
     [drag[0] + magnus[0], drag[1] + magnus[1], drag[2] + magnus[2]]
 }
 
-/// Calculate aerodynamic forces (drag + Magnus) using lookup tables.
-///
-/// Returns force components (fx, fy, fz) in Newtons.
-/// No wind version for backwards compatibility.
-#[inline(always)]
-fn aerodynamic_force(
-    velocity: &[f64; 3],
-    spin_axis: &[f64; 3],
-    spin_rpm: f64,
-    air_density: f64,
-    cross_area: f64,
-    cd_table: &ArrayView2<f64>,
-    cl_table: &ArrayView2<f64>,
-) -> [f64; 3] {
-    aerodynamic_force_with_wind(
-        velocity,
-        &[0.0, 0.0, 0.0],  // No wind
-        spin_axis,
-        spin_rpm,
-        air_density,
-        cross_area,
-        cd_table,
-        cl_table,
-    )
-}
-
 /// Calculate derivative of state vector.
 ///
 /// State: [x, y, z, vx, vy, vz]
@@ -273,6 +247,7 @@ fn step_rk4_with_wind(
 ///
 /// This is the critical hot path - optimized for maximum performance.
 #[inline(always)]
+#[allow(dead_code)]
 fn step_rk4(
     state: &[f64; 6],
     dt: f64,
