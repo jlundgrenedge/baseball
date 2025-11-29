@@ -197,6 +197,9 @@ class GroundBallInterceptor:
             (ball_time, fielder_time, ball_position, distance) or None if impossible
         """
         fielder_pos = np.array([fielder.current_position.x, fielder.current_position.y])
+        
+        # Calculate charge bonus - how much fielder can move forward on slower hits
+        charge_bonus = self._calculate_charge_bonus(exit_velocity_mph, position_name)
 
         # Special handling for catcher - they can only field very short balls
         # since they're positioned behind home plate facing forward
@@ -217,6 +220,16 @@ class GroundBallInterceptor:
         # Get fielder capabilities
         fielder_speed_fps = self._get_fielder_speed_fps(fielder)
         reaction_time = fielder.get_reaction_time_seconds()
+        
+        # Calculate effective fielder position after charging forward
+        # Fielders charge toward home during ball flight time on slower hits
+        # This reduces the effective distance they need to travel
+        effective_fielder_pos = fielder_pos.copy()
+        if charge_bonus > 0 and position_name not in ['pitcher', 'catcher']:
+            # Charge direction is toward home plate (negative Y)
+            # But also slightly toward the ball's trajectory
+            charge_direction = np.array([0.0, -1.0])  # Toward home
+            effective_fielder_pos = fielder_pos + charge_direction * charge_bonus
 
         # Determine fielding strategy based on exit velocity
         # Hard-hit balls (> 85 mph): Let the ball come to you
@@ -238,13 +251,13 @@ class GroundBallInterceptor:
         
         # Calculate how close the ball path comes to the fielder (perpendicular distance)
         # Ball path: landing_pos + t * ball_direction
-        # Find closest point on ball path to fielder_pos
-        to_fielder = fielder_pos - landing_pos
+        # Find closest point on ball path to effective_fielder_pos (after charging)
+        to_fielder = effective_fielder_pos - landing_pos
         projection = np.dot(to_fielder, ball_direction)
         
         if projection > 0:  # Ball is moving toward fielder's direction
             closest_point_on_path = landing_pos + projection * ball_direction
-            lateral_offset = np.linalg.norm(fielder_pos - closest_point_on_path)
+            lateral_offset = np.linalg.norm(effective_fielder_pos - closest_point_on_path)
             
             # Calculate when ball reaches this closest point
             distance_ball_travels = projection
@@ -299,8 +312,8 @@ class GroundBallInterceptor:
         # =======================================================================
         # Test interception points along ball trajectory at different times
         min_test_time = 0.1   # Start testing immediately after landing
-        max_test_time = 1.5   # Realistic maximum for infield plays
-        time_step = 0.05      # Finer resolution for better accuracy
+        max_test_time = 2.5   # Extended for deeper infielder positions (y=144 for SS/2B)
+        time_step = 0.025     # Finer resolution for better interception detection
 
         test_time = min_test_time
         while test_time <= max_test_time:
@@ -331,7 +344,8 @@ class GroundBallInterceptor:
 
             # Calculate fielder time to reach this position using REALISTIC acceleration model
             # This is the key fix - fielders don't teleport at top speed!
-            distance_to_ball = np.linalg.norm(ball_pos - fielder_pos)
+            # Use effective_fielder_pos which accounts for charging on slower hits
+            distance_to_ball = np.linalg.norm(ball_pos - effective_fielder_pos)
             fielder_movement_time = self._calculate_fielder_travel_time(distance_to_ball, fielder_speed_fps)
             total_fielder_time = reaction_time + fielder_movement_time
 
@@ -375,6 +389,49 @@ class GroundBallInterceptor:
             test_time += time_step
 
         return best_option
+    
+    def _calculate_charge_bonus(self, exit_velocity_mph: float, position_name: str) -> float:
+        """
+        Calculate how much an infielder can charge forward on a ground ball.
+        
+        On slow/medium rollers, infielders charge aggressively (10-20 ft forward).
+        On hard-hit balls, they play back and let it come to them.
+        
+        Parameters
+        ----------
+        exit_velocity_mph : float
+            Exit velocity of the batted ball in mph
+        position_name : str
+            Position of the fielder (affects how aggressively they can charge)
+            
+        Returns
+        -------
+        float
+            Forward distance bonus (feet) that reduces effective distance to ball.
+            This represents how far the fielder can charge forward during flight time.
+        """
+        # Corner infielders (1B, 3B) can charge more aggressively
+        # Middle infielders (SS, 2B) stay back more to maintain range
+        is_corner = position_name in ['first_base', 'third_base']
+        is_middle = position_name in ['shortstop', 'second_base']
+        
+        if exit_velocity_mph < 70:
+            # Slow roller - aggressive charge
+            base_charge = 20.0 if is_corner else 15.0
+        elif exit_velocity_mph < 80:
+            # Medium-slow - moderate-aggressive charge
+            base_charge = 15.0 if is_corner else 10.0
+        elif exit_velocity_mph < 90:
+            # Medium - moderate charge
+            base_charge = 10.0 if is_corner else 6.0
+        elif exit_velocity_mph < 100:
+            # Hard hit - slight charge
+            base_charge = 5.0 if is_corner else 3.0
+        else:
+            # Rocket (>100 mph) - play back, let it come
+            base_charge = 0.0
+        
+        return base_charge
     
     def _get_ball_position_at_time(self, landing_pos: np.ndarray, direction: np.ndarray,
                                   initial_speed_fps: float, decel_fps2: float, time: float) -> np.ndarray:

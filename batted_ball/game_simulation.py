@@ -195,6 +195,10 @@ class GameState:
     away_line_drives: int = 0   # Launch angle 10-25 degrees
     away_exit_velocities: List[float] = field(default_factory=list)
     away_launch_angles: List[float] = field(default_factory=list)
+    # Out tracking by batted ball type (Phase 1.7 - for validating defense calibration)
+    away_ground_ball_outs: int = 0
+    away_fly_ball_outs: int = 0
+    away_line_drive_outs: int = 0
 
     # Per-team statistics - Home team
     home_hits: int = 0
@@ -211,6 +215,10 @@ class GameState:
     home_line_drives: int = 0
     home_exit_velocities: List[float] = field(default_factory=list)
     home_launch_angles: List[float] = field(default_factory=list)
+    # Out tracking by batted ball type (Phase 1.7)
+    home_ground_ball_outs: int = 0
+    home_fly_ball_outs: int = 0
+    home_line_drive_outs: int = 0
 
     def get_batting_team(self) -> str:
         """Returns which team is currently batting"""
@@ -894,26 +902,49 @@ class GameSimulator:
             }
 
             # Track exit velocity and launch angle for averages
+            # Normalize outcome to string for comparison (handles both enum and string types)
+            outcome_val = outcome.value if hasattr(outcome, 'value') else str(outcome)
+            
             if is_away_batting:
                 self.game_state.away_exit_velocities.append(exit_velocity)
                 self.game_state.away_launch_angles.append(launch_angle)
                 # Categorize by launch angle
                 if launch_angle < 10:
                     self.game_state.away_ground_balls += 1
+                    # Track outs by batted ball type (Phase 1.7)
+                    # Ground balls result in ground_out, force_out, or double_play
+                    if outcome_val in ['ground_out', 'force_out', 'double_play']:
+                        self.game_state.away_ground_ball_outs += 1
                 elif launch_angle < 25:
                     self.game_state.away_line_drives += 1
+                    # Line drives caught use fly_out outcome (not line_out which is unused)
+                    if outcome_val == 'fly_out':
+                        self.game_state.away_line_drive_outs += 1
                 else:
                     self.game_state.away_fly_balls += 1
+                    # Fly balls result in fly_out or infield_fly
+                    if outcome_val in ['fly_out', 'infield_fly']:
+                        self.game_state.away_fly_ball_outs += 1
             else:
                 self.game_state.home_exit_velocities.append(exit_velocity)
                 self.game_state.home_launch_angles.append(launch_angle)
                 # Categorize by launch angle
                 if launch_angle < 10:
                     self.game_state.home_ground_balls += 1
+                    # Track outs by batted ball type (Phase 1.7)
+                    # Ground balls result in ground_out, force_out, or double_play
+                    if outcome_val in ['ground_out', 'force_out', 'double_play']:
+                        self.game_state.home_ground_ball_outs += 1
                 elif launch_angle < 25:
                     self.game_state.home_line_drives += 1
+                    # Line drives caught use fly_out outcome (not line_out which is unused)
+                    if outcome_val == 'fly_out':
+                        self.game_state.home_line_drive_outs += 1
                 else:
                     self.game_state.home_fly_balls += 1
+                    # Fly balls result in fly_out or infield_fly
+                    if outcome_val in ['fly_out', 'infield_fly']:
+                        self.game_state.home_fly_ball_outs += 1
 
             # Get the last pitch (the one that was hit)
             last_pitch = at_bat_result.pitches[-1] if at_bat_result.pitches else {}
@@ -1452,6 +1483,26 @@ class GameSimulator:
             self.log(f"    FB%: {fb_pct:.1f}% (MLB ~33%){fb_flag}")
         else:
             self.log(f"    GB%: {gb_pct:.1f}% | LD%: {ld_pct:.1f}% | FB%: {fb_pct:.1f}% (sample size too small)")
+
+        # Phase 1.7: Out rates by batted ball type (MLB typical: GB ~72%, LD ~26%, FB ~79%)
+        total_gb_outs = gs.away_ground_ball_outs + gs.home_ground_ball_outs
+        total_ld_outs = gs.away_line_drive_outs + gs.home_line_drive_outs
+        total_fb_outs = gs.away_fly_ball_outs + gs.home_fly_ball_outs
+        
+        gb_out_rate = (total_gb_outs / total_gb * 100) if total_gb > 0 else 0.0
+        ld_out_rate = (total_ld_outs / total_ld * 100) if total_ld > 0 else 0.0
+        fb_out_rate = (total_fb_outs / total_fb * 100) if total_fb > 0 else 0.0
+        
+        self.log(f"  Out Rates by Type (MLB: GB ~72%, LD ~26%, FB ~79%):")
+        if total_contact >= 5:
+            gb_out_flag = " ok" if 65 <= gb_out_rate <= 80 else (" ⚠ too low" if gb_out_rate < 65 else " ⚠ too high")
+            ld_out_flag = " ok" if 20 <= ld_out_rate <= 35 else (" ⚠ too low" if ld_out_rate < 20 else " ⚠ too high")
+            fb_out_flag = " ok" if 72 <= fb_out_rate <= 86 else (" ⚠ too low" if fb_out_rate < 72 else " ⚠ too high")
+            self.log(f"    GB Out%: {gb_out_rate:.1f}% ({total_gb_outs}/{total_gb}){gb_out_flag}")
+            self.log(f"    LD Out%: {ld_out_rate:.1f}% ({total_ld_outs}/{total_ld}){ld_out_flag}")
+            self.log(f"    FB Out%: {fb_out_rate:.1f}% ({total_fb_outs}/{total_fb}){fb_out_flag}")
+        else:
+            self.log(f"    GB Out%: {gb_out_rate:.1f}% | LD Out%: {ld_out_rate:.1f}% | FB Out%: {fb_out_rate:.1f}% (sample size too small)")
 
 
 def create_test_team(name: str, team_quality: str = "average") -> Team:

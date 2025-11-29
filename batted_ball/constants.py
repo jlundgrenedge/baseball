@@ -597,21 +597,54 @@ CATCHER_Y = -2.0  # Behind home plate
 # Ground balls land at ~60 ft from home and roll at 60-90 mph (88-132 fps).
 # With friction deceleration of ~10 fps², balls reach y=80 in ~0.25s, y=90 in ~0.35s.
 # Fielders need ~1.2-1.5s reaction + movement to cover 15-20 ft laterally.
-# Solution: Position infielders shallower (70-80 ft) so they can intercept sooner.
+# MLB 2025 STATCAST INFIELDER POSITIONING DATA
+# Source: Baseball Savant positioning.csv (2025 data)
 #
 # GROUND BALL INTERCEPTION PHYSICS:
-# - Ball landing at y=60, rolling at 88 fps toward y=80: arrives in 0.25s
-# - Fielder at 80 ft needs 0.5-0.7s to react + move 10-15 ft laterally
-# - With flight_time ~0.5s, total ball time = 0.75s, fielder time = 0.7s → margin +0.05s
-# - This allows ~75-80% of ground balls to be fielded (target: ~75% for 0.25 BABIP)
-FIRST_BASEMAN_X = 60.0    # Near first base line, slightly pulled in
-FIRST_BASEMAN_Y = 75.0    # ~75 ft from home (standard infield depth)
-SECOND_BASEMAN_X = 20.0   # Toward 2B bag, tighter to middle
-SECOND_BASEMAN_Y = 80.0   # ~80 ft from home (shallow for GB coverage)
-SHORTSTOP_X = -20.0       # Toward 2B bag, tighter to middle  
-SHORTSTOP_Y = 80.0        # ~80 ft from home (shallow for GB coverage)
-THIRD_BASEMAN_X = -60.0   # Near third base line, slightly pulled in
-THIRD_BASEMAN_Y = 75.0    # ~75 ft from home (standard infield depth)
+# - Ground balls land at y=15-25, rolling at 88-132 fps toward outfield
+# - Infielders positioned at realistic MLB depths can charge on slow rollers
+# - Hard-hit balls (>95 mph EV) at 100 fps with 12 fps² decel reach y=144 in ~1.6s
+# - Fielders charge 5-20 ft forward on slower rollers, reducing effective distance
+# - Target: ~76% of ground balls fielded (0.24 BABIP on ground balls)
+#
+# Position calculations from distance/angle data:
+# - 1B: 111 ft at +35° → (111*sin(35°), 111*cos(35°)) = (64, 91)
+# - 2B: 147 ft at +12° → (147*sin(12°), 147*cos(12°)) = (31, 144)
+# - SS: 147 ft at -12° → (147*sin(-12°), 147*cos(-12°)) = (-31, 144)
+# - 3B: 120 ft at -32° → (120*sin(-32°), 120*cos(-32°)) = (-64, 102)
+FIRST_BASEMAN_X = 64.0    # 111 ft at +35° lateral angle
+FIRST_BASEMAN_Y = 91.0    # 111 ft at +35° depth from home
+SECOND_BASEMAN_X = 31.0   # 147 ft at +12° lateral angle (right of center)
+SECOND_BASEMAN_Y = 144.0  # 147 ft at +12° depth from home
+SHORTSTOP_X = -31.0       # 147 ft at -12° lateral angle (left of center)
+SHORTSTOP_Y = 144.0       # 147 ft at -12° depth from home
+THIRD_BASEMAN_X = -64.0   # 120 ft at -32° lateral angle
+THIRD_BASEMAN_Y = 102.0   # 120 ft at -32° depth from home
+
+# SITUATIONAL POSITIONING DEPTHS
+# These can be used for game-state-aware positioning
+INFIELD_DEPTH_NORMAL = {
+    'first_base': 91,
+    'second_base': 144,
+    'shortstop': 144,
+    'third_base': 102
+}
+
+# Double play depth (moved in ~15-20 ft to turn two faster)
+INFIELD_DEPTH_DOUBLE_PLAY = {
+    'first_base': 85,
+    'second_base': 130,
+    'shortstop': 130,
+    'third_base': 95
+}
+
+# Infield in (prevent runs, ~30-40 ft shallower, risky for ground balls)
+INFIELD_DEPTH_IN = {
+    'first_base': 65,
+    'second_base': 110,
+    'shortstop': 110,
+    'third_base': 75
+}
 
 # Outfielders - MLB 2025 STATCAST POSITIONING DATA
 # These are accurate from Statcast - outfielders play very deep

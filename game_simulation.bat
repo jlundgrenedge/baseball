@@ -6,7 +6,8 @@ echo.
 echo Choose simulation type:
 echo.
 echo   ** RECOMMENDED FOR TESTING **
-echo   8. MLB Database Teams (Real rosters, 5-10 games)
+echo   8. MLB Database Teams (Real rosters, pick teams)
+echo   R. Random Teams (Random matchups each game - best for neutral testing)
 echo.
 echo   Other options:
 echo   1. Single Game Demo (synthetic teams)
@@ -21,7 +22,7 @@ echo   4. Performance Test Suite
 echo   6. MLB Players: Individual Demo
 echo   7. MLB Quick Demo (Players only)
 echo.
-set /p choice="Enter your choice (0-9): "
+set /p choice="Enter your choice (0-9 or R): "
 
 if "%choice%"=="0" goto validation
 if "%choice%"=="1" goto single_game
@@ -33,6 +34,8 @@ if "%choice%"=="6" goto mlb_player_demo
 if "%choice%"=="7" goto mlb_quick_demo
 if "%choice%"=="8" goto db_teams
 if "%choice%"=="9" goto quick_mlb
+if "%choice%"=="r" goto random_teams
+if "%choice%"=="R" goto random_teams
 goto invalid
 
 :validation
@@ -205,6 +208,28 @@ echo.
 pause
 echo.
 python examples\simulate_db_teams.py
+goto end
+
+:random_teams
+echo.
+echo ========================================
+echo Randomized Team Simulation
+echo ========================================
+echo.
+echo Each game randomly selects:
+echo   - Random away team from all 30 MLB teams
+echo   - Random home team (different from away)
+echo   - Random starting pitcher from each rotation
+echo   - Home team's ballpark with wind effects
+echo.
+echo This provides unbiased testing across the full range
+echo of player attributes in the database.
+echo.
+echo Output is saved to game_logs/ just like option 8.
+echo.
+pause
+echo.
+python examples\simulate_random_teams.py
 goto end
 
 :invalid

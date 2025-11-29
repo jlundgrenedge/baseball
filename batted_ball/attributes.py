@@ -187,23 +187,31 @@ class HitterAttributes:
         """
         Convert ATTACK_ANGLE_CONTROL to mean swing plane angle (degrees).
 
-        Anchors (RECALIBRATED 2025-11-25 for HR production + GB/LD balance):
-        - 0: -5° (extreme downward chop - ground ball machine)
-        - 50k: 11° (average MLB - produces ~45% GB with 15° variance)
-        - 85k: 20° (elite uppercut / power hitter - more fly balls)
-        - 100k: 30° (extreme uppercut - mostly fly balls)
+        Anchors (RECALIBRATED 2025-11-28 for LD/FB distribution - Phase 1.7.6):
+        - 0: -12° (extreme downward chop - ground ball machine)
+        - 50k: ~2° (average MLB - centers distribution lower to reduce LD%)
+        - 85k: 10° (elite uppercut / power hitter - more fly balls)
+        - 100k: 18° (extreme uppercut - mostly fly balls)
 
-        Note: With 15° natural variance in player.py, an 11° mean at 50k produces
-        ~45% GB, ~37% LD, ~18% FB. While LD% is higher than MLB's 21%, this combined
-        with increased collision efficiency enables realistic HR/FB rate (~12%).
+        Phase 1.7.5 FAILED: Avg launch angle was 14.7° (right in LD zone 10-25°)
+        which produced 38.7% LD (target 21%) - WORSE than before!
         
-        Previous 7° mean produced 55% GB but insufficient fly balls for HR production.
+        Phase 1.7.6 FIX: Lower the mean substantially so that:
+        - Attack angle ~2° at 50k rating
+        - With collision ratio 0.95, launch angle ≈ attack angle
+        - Mean launch angle ~2° centers distribution in GB zone (<10°)
+        - With 19.5° std dev, tail extends into LD and FB zones naturally
+        
+        Expected outcome with mean ~2° and 19.5° variance:
+        - GB: ~48-52% (more balls below 10°)
+        - LD: ~20-24% (fewer balls in 10-25° range)
+        - FB: ~28-32% (moderate balls above 25°)
         """
         return piecewise_logistic_map(
             self.ATTACK_ANGLE_CONTROL,
-            human_min=-5.0,
-            human_cap=20.0,  # Raised from 17.0 to enable more FB for HRs
-            super_cap=30.0   # Raised from 28.0
+            human_min=-12.0,  # Lower to shift distribution toward GBs
+            human_cap=10.0,   # Lowered to produce ~2° at 50k rating
+            super_cap=18.0    # Lowered proportionally
         )
 
     def get_attack_angle_variance_deg(self) -> float:

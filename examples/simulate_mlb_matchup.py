@@ -133,9 +133,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s "New York Yankees" "Los Angeles Dodgers" 2024
-  %(prog)s "Boston Red Sox" "New York Yankees" 2024 --games 10
-  %(prog)s "Houston Astros" "Atlanta Braves" 2024 --quiet --games 100
+  %(prog)s "New York Yankees" "Los Angeles Dodgers" 2025
+  %(prog)s "Boston Red Sox" "New York Yankees" 2025 --games 10
+  %(prog)s "Houston Astros" "Atlanta Braves" 2025 --quiet --games 100
         """
     )
 
@@ -153,8 +153,8 @@ Examples:
         'season',
         type=int,
         nargs='?',
-        default=2024,
-        help='Season year (default: 2024)'
+        default=2025,
+        help='Season year (default: 2025)'
     )
 
     parser.add_argument(

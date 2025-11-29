@@ -532,11 +532,12 @@ class Hitter:
         mean_angle = self.attributes.get_attack_angle_mean_deg()
         base_variance = self.attributes.get_attack_angle_variance_deg()
         
-        # CRITICAL: Add much larger natural variance to create realistic outcome distribution
-        # Even the best hitters have huge variance in launch angle (15-20° std dev)
+        # CRITICAL: Natural variance creates realistic outcome distribution
+        # Even the best hitters have variance in launch angle (15-20° std dev)
         # This is what creates the ground ball / line drive / fly ball distribution
-        # 19.5° balances FB rate improvement while maintaining reasonable HR/FB rate
-        natural_variance = 19.5  # Standard deviation in degrees
+        # Phase 1.7.8: Moderate increase from 19.5° to 23° (28° was too aggressive)
+        # Math: with mean ~14° and std 23°, expect GB 43%, LD 25%, FB 26%
+        natural_variance = 23.0  # Standard deviation in degrees
         
         # Adjust mean based on pitch location (if provided)
         location_adjustment = 0.0
@@ -1018,36 +1019,30 @@ class Hitter:
         """
         # Base whiff rates from MLB Statcast data
         # PHASE 2A SPRINT 1 2025-11-20: Reduced breaking ball base rates based on 10-game diagnostic
-        # PHASE 2A SPRINT 2 2025-11-20: Additional reductions based on Sprint 1 results
-        # Sprint 1 results: K% 14% (down from 16%), Whiff 43.6%, Chase 17.6%
-        # Analysis showed:
-        #   - Slider PERFECT at 64.0% contact (MLB ~63%) → KEEP at 0.24 ✓
-        #   - Curveball TERRIBLE at 23.1% contact (MLB ~70%) → 0.30→0.21 (-30%)
-        #   - Changeup still low at 51.6% contact (MLB ~68%) → 0.22→0.18 (-18%)
-        #   - Splitter likely similar to curveball → 0.38→0.27 (-29%, preventative)
-        # Expected impact: Whiff rate 43.6%→30-34%, K% 14%→20-22% (close to 22% target)
+        # PHASE 1.6 (2025-11-28): 33% reduction to fix K% from 31.5% to ~22%
+        # 162-game validation showed K/9 at 12.4 vs MLB 8.5 (46% too high)
+        # This produces batting avg 0.193 vs 0.248 target and runs/game 3.62 vs 4.5
+        # Root cause: Effective whiff per swing ~25-45%, need ~15-20%
+        # Solution: Reduce all base whiff rates by ~33%
         pitch_type_lower = pitch_type.lower()
         if 'fastball' in pitch_type_lower or '4-seam' in pitch_type_lower:
-            base_whiff_rate = 0.15  # Sprint 3 fix: REDUCED from 0.20 (-25%)
-            # Sprint 3 test showed 37.2% whiff (62.8% contact) vs MLB ~23% whiff (~77% contact)
-            # With multipliers (VISION + velocity + put-away), 0.20 base → 37% actual whiff
-            # Need 0.15 base → ~23% actual whiff to reach MLB 77% contact target
+            base_whiff_rate = 0.10  # PHASE 1.6: Reduced from 0.15 (-33%)
         elif '2-seam' in pitch_type_lower or 'sinker' in pitch_type_lower:
-            base_whiff_rate = 0.18  # 18% for sinkers
+            base_whiff_rate = 0.12  # PHASE 1.6: Reduced from 0.18 (-33%)
         elif 'cutter' in pitch_type_lower:
-            base_whiff_rate = 0.18  # Sprint 1: REDUCED from 0.25 (-28%)
+            base_whiff_rate = 0.12  # PHASE 1.6: Reduced from 0.18 (-33%)
         elif 'slider' in pitch_type_lower:
-            base_whiff_rate = 0.24  # Sprint 1: REDUCED from 0.35 (-31%) → PERFECT, keep unchanged
+            base_whiff_rate = 0.16  # PHASE 1.6: Reduced from 0.24 (-33%)
         elif 'curve' in pitch_type_lower:
-            base_whiff_rate = 0.21  # Sprint 2: REDUCED from 0.30 (-30%) → was 76.9% whiff
+            base_whiff_rate = 0.14  # PHASE 1.6: Reduced from 0.21 (-33%)
         elif 'change' in pitch_type_lower:
-            base_whiff_rate = 0.18  # Sprint 2: REDUCED from 0.22 (-18%) → was 48.4% whiff
+            base_whiff_rate = 0.12  # PHASE 1.6: Reduced from 0.18 (-33%)
         elif 'splitter' in pitch_type_lower:
-            base_whiff_rate = 0.27  # Sprint 2: REDUCED from 0.38 (-29%) → preventative
+            base_whiff_rate = 0.18  # PHASE 1.6: Reduced from 0.27 (-33%)
         elif 'knuckle' in pitch_type_lower:
-            base_whiff_rate = 0.40  # 40% for knuckleballs
+            base_whiff_rate = 0.28  # PHASE 1.6: Reduced from 0.40 (-30%)
         else:
-            base_whiff_rate = 0.25  # Default
+            base_whiff_rate = 0.17  # PHASE 1.6: Reduced from 0.25 (-32%)
 
         # Velocity effect (faster = harder to hit)
         velocity_difficulty = (pitch_velocity - 85) / 15.0  # Normalized

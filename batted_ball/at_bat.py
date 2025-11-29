@@ -717,13 +717,15 @@ class AtBatSimulator:
         # MLB data shows ~30% higher whiff rate on 2-strike counts vs 0-1 strikes
         #
         # Variable put-away based on pitcher's stuff rating (Task 3.2):
-        # - Elite closer (stuff ~0.85): 1.0 + (0.3 × 0.85) = 1.255× multiplier
-        # - Average pitcher (stuff ~0.50): 1.0 + (0.3 × 0.50) = 1.15× multiplier
-        # - Poor stuff (stuff ~0.20): 1.0 + (0.3 × 0.20) = 1.06× multiplier
+        # PHASE 1.6 (2025-11-28): Reduced put-away multiplier from 0.3 to 0.15
+        # Combined with base whiff rate reduction to fix K% from 31.5% to ~22%
+        # - Elite closer (stuff ~0.85): 1.0 + (0.15 × 0.85) = 1.128× multiplier
+        # - Average pitcher (stuff ~0.50): 1.0 + (0.15 × 0.50) = 1.075× multiplier
+        # - Poor stuff (stuff ~0.20): 1.0 + (0.15 × 0.20) = 1.03× multiplier
         stuff_rating = self.pitcher.attributes.get_stuff_rating()  # 0.0-1.0
         put_away_multiplier = 1.0
         if pitch_data.get('strikes', 0) == 2:
-            put_away_multiplier = 1.0 + (0.3 * stuff_rating)  # 1.0-1.30× range
+            put_away_multiplier = 1.0 + (0.15 * stuff_rating)  # 1.0-1.15× range
             whiff_prob *= put_away_multiplier
 
         # Clip to reasonable bounds after applying multipliers
