@@ -3,7 +3,7 @@
 **Last Updated**: 2025-01-06
 **Repository**: Baseball Physics Simulation Engine
 **Purpose**: Guide AI assistants in understanding and working with this codebase
-**Version**: 1.3.0 (Rust Acceleration with Full Physics)
+**Version**: 1.3.1 (Rust Acceleration with Ground Ball Physics)
 
 ---
 
@@ -31,7 +31,7 @@ A **physics-based baseball simulation engine** (~25,600 lines of Python) that mo
 - **Validation**: 7/7 MLB benchmark tests passing
 - **Performance**: Optimized with Rust native code, Numba JIT, parallel processing
 - **Documentation**: 42 detailed guides, 8 research papers
-- **Version**: 1.3.0 - Rust acceleration with full physics (wind, sidespin)
+- **Version**: 1.3.1 - Rust acceleration with ground ball physics (Phases 7-8)
 
 ### Core Capabilities
 - Full 9-inning game simulation with realistic play-by-play
@@ -46,7 +46,7 @@ A **physics-based baseball simulation engine** (~25,600 lines of Python) that mo
 - **Simulation Metrics**: OOTP-style transparency with pitch-level tracking
 - **Ballpark System**: MLB stadium dimensions with fence distances and heights
 - **Fielding Realism**: Stochastic variance including route efficiency, reaction time, positioning
-- **Rust Acceleration**: 5x game speedup via native trajectory integration (Phase 7)
+- **Rust Acceleration**: 5x game speedup via native trajectory + ground ball integration (Phases 7-8)
 
 ---
 
@@ -947,9 +947,9 @@ if metrics.play_metrics:
 
 ## Performance Considerations
 
-### Rust Acceleration (Phase 7 - Primary Optimization)
+### Rust Acceleration (Phases 7-8 - Primary Optimization)
 
-The simulation uses native Rust code for trajectory calculations, achieving **5x game speedup**:
+The simulation uses native Rust code for trajectory and ground ball calculations, achieving **5x game speedup**:
 
 **Performance Results**:
 | Metric | Before Rust | After Rust | Speedup |
@@ -957,24 +957,31 @@ The simulation uses native Rust code for trajectory calculations, achieving **5x
 | Game (with wind) | ~30s | **6.2s** | **5x** |
 | Batted balls/sec | 4 | **1000+** | **250x** |
 | Pitch simulation | 22/sec | **158/sec** | **7x** |
+| Ground ball/sec | 154k | **645k** | **4.2x** |
 
 **Rust Library** (`trajectory_rs/`):
 - PyO3 bindings for Python integration
 - Rayon for parallel batch processing
-- Full physics: wind, backspin, topspin, sidespin
+- Full physics: wind, backspin, topspin, sidespin, ground ball rolling
 - Build: `cd trajectory_rs && maturin build --release && pip install target/wheels/*.whl`
 
 **Key Functions**:
 - `integrate_trajectory()`: Standard trajectory (no wind)
 - `integrate_trajectory_with_wind()`: Wind-aware trajectory
 - `integrate_trajectories_batch()`: Parallel batch processing
+- `simulate_ground_ball()`: Ground ball bouncing and rolling
+- `find_best_interception()`: Parallel multi-fielder interception
 
 **Checking Availability**:
 ```python
 from batted_ball.fast_trajectory import is_rust_available, get_rust_version
+from batted_ball.fast_ground_ball import is_rust_ground_ball_available
 
 if is_rust_available():
-    print(f"Rust: {get_rust_version()}")  # Auto-used by BattedBallSimulator
+    print(f"Rust trajectory: {get_rust_version()}")  # Auto-used by BattedBallSimulator
+    
+if is_rust_ground_ball_available():
+    print("Rust ground ball: available")  # Use FastGroundBallSimulator
 ```
 
 ### Performance Modes
@@ -1369,15 +1376,46 @@ rover = Fielder(name="Rover", position="Rover", ...)
 
 ---
 
-**Last Updated**: 2025-01-06
-**Version**: 1.3.0
+**Last Updated**: 2025-01-07
+**Version**: 1.3.1
 **Maintainer**: Baseball Physics Simulation Engine Project
-**Status**: Production-ready, all 5 phases complete + MLB database + series statistics + Rust acceleration
+**Status**: Production-ready, all 5 phases complete + MLB database + series statistics + Rust acceleration (Phases 7-8)
 **Validation**: 7/7 MLB benchmarks passing ✓
 
 ---
 
 ## Recent Changes
+
+### v1.3.1 - 2025-01-07 (Rust Ground Ball Acceleration)
+
+**Phase 8 Performance Improvement**: 4.2x speedup for ground ball physics via Rust
+
+1. **Rust Ground Ball Library Extension**
+   - `simulate_ground_ball()`: Bouncing and rolling phases
+   - `get_ball_position_at_time()`: Position during rolling
+   - `calculate_fielder_travel_time()`: Acceleration model
+   - `find_interception_point()`: Single fielder interception
+   - `find_best_interception()`: Parallel multi-fielder interception
+
+2. **Python API** (`batted_ball/fast_ground_ball.py`)
+   - `FastGroundBallSimulator`: High-level interface with Rust/Python fallback
+   - `GroundBallResult`: Container for simulation results
+   - `InterceptionResult`: Container for interception analysis
+   - `is_rust_ground_ball_available()`: Check Rust availability
+   - `benchmark_ground_ball_speedup()`: Performance comparison
+
+3. **Performance Results**
+   | Metric | Before Rust | After Rust | Speedup |
+   |--------|-------------|------------|---------|
+   | Ground ball/sec | 154,000 | **645,000** | **4.2x** |
+
+4. **Files Created/Modified**
+   - `trajectory_rs/src/lib.rs`: Ground ball functions (~350 additional LOC)
+   - `batted_ball/fast_ground_ball.py`: Python wrapper (~450 LOC)
+   - `batted_ball/constants.py`: Added `GROUND_BALL_SPIN_EFFECT` constant
+   - `examples/test_rust_ground_ball.py`: Validation and benchmark script
+
+---
 
 ### v1.3.0 - 2025-01-06 (Rust Acceleration with Full Physics)
 

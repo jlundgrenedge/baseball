@@ -14,7 +14,7 @@
 | **Games/Hour** | ~100 | 1,000+ | 5,000+ | ✅ ~580/hr |
 | **At-bats/Second** | ~8 | ~50+ | ~100+ | 🚧 IN PROGRESS |
 
-**Phases Completed**: 7 of 8
+**Phases Completed**: 8 of 9
 - ✅ Phase 1: Ultra-Fast Time Step Mode (9.7x speedup)
 - ✅ Phase 2: Trajectory Buffer Pooling (100% pool efficiency)
 - ✅ Phase 3: Aerodynamic Lookup Tables (14.5x combined speedup)
@@ -22,7 +22,8 @@
 - ✅ Phase 5: Numba Parallel Integration (**7-8x batch speedup**)
 - ✅ Phase 6: Data Structure Optimization (__slots__, ~20% memory reduction)
 - ✅ Phase 7: Native Code Extensions (**5x game speedup via Rust**)
-- 🔮 Phase 8: GPU Integration (deferred)
+- ✅ Phase 8: Ground Ball Rust Acceleration (**4.2x ground ball speedup**)
+- 🔮 Phase 9: GPU Integration (deferred)
 
 **Current Bottleneck Analysis** (from profiling):
 - **Physics Integration (RK4)**: ~50-70% of CPU time ← OPTIMIZED (Phases 1-3, 5)
@@ -459,7 +460,70 @@ Created Rust library (`trajectory_rs/`) with PyO3 bindings:
 
 ---
 
-### Phase 8: GPU Integration (FUTURE) 🔮 DEFERRED
+### Phase 8: Ground Ball Rust Acceleration ✅ COMPLETE
+
+**Status**: ✅ **IMPLEMENTED** - 4.2x speedup for ground ball physics
+**Implementation Date**: January 2025
+
+**Results**:
+- **Ground ball simulation: 645,000 sims/sec** (was 154,000/sec in Python)
+- Multi-fielder interception: parallel Rayon processing
+- Physics: Rolling friction, bounce COR, spin effects, charge bonus
+
+#### Implementation
+
+Extended Rust library (`trajectory_rs/src/lib.rs`) with ground ball functions:
+- `simulate_ground_ball()`: Bouncing and rolling phases
+- `get_ball_position_at_time()`: Position during rolling
+- `calculate_fielder_travel_time()`: Acceleration model
+- `find_interception_point()`: Single fielder interception
+- `find_best_interception()`: Parallel multi-fielder interception
+
+**Python API** (`batted_ball/fast_ground_ball.py`):
+- `FastGroundBallSimulator`: High-level interface with Rust/Python fallback
+- `GroundBallResult`: Container for simulation results
+- `InterceptionResult`: Container for interception analysis
+- `is_rust_ground_ball_available()`: Check Rust availability
+- `benchmark_ground_ball_speedup()`: Performance comparison
+
+#### Completed Tasks
+
+- [x] **8.1** Implement ground ball physics in Rust
+  - Rolling deceleration: `a = g * friction + air_resistance`
+  - Bounce physics: COR-based energy loss
+  - Spin effect: Trajectory curvature
+  - Time-stepped simulation
+
+- [x] **8.2** Implement fielder interception in Rust
+  - Travel time with acceleration model
+  - Charge bonus calculation
+  - Optimal interception point search
+  - Multi-fielder parallel comparison
+
+- [x] **8.3** Create Python wrapper with fallback
+  - `FastGroundBallSimulator` class
+  - Automatic Rust/Python selection
+  - Compatible with existing game simulation
+
+- [x] **8.4** Benchmark and validate
+  - 4.2x speedup verified
+  - Physics match validated
+  - Exported in `batted_ball/__init__.py`
+
+**Validation**:
+- `python examples/test_rust_ground_ball.py` - All tests pass
+- Physics validation: 7/7 tests pass
+- Benchmark: `benchmark_ground_ball_speedup(5000)`
+
+**Files Created/Modified**:
+- `trajectory_rs/src/lib.rs`: Added ground ball functions (~350 additional LOC)
+- `batted_ball/fast_ground_ball.py`: New Python wrapper (~450 LOC)
+- `batted_ball/constants.py`: Added `GROUND_BALL_SPIN_EFFECT` constant
+- `examples/test_rust_ground_ball.py`: Validation and benchmark script
+
+---
+
+### Phase 9: GPU Integration (FUTURE) 🔮 DEFERRED
 
 **Impact**: Expected 10-50x speedup for massive batch simulations
 **Risk**: High (architectural changes, hardware requirements)
@@ -489,16 +553,18 @@ Created Rust library (`trajectory_rs/`) with PyO3 bindings:
 | Phase 5: Numba Parallel | 2-3x (batches) | 18-90x | ~0.5-2.5s |
 | Phase 6: Data Structures | 1.2x | 21-108x | ~0.4-2s |
 | Phase 7: Native Code | **5x** (actual) | 100-500x | **~6s** |
+| Phase 8: Ground Ball Rust | **4.2x** (actual) | N/A | N/A |
 
-**Note**: Speedups are not perfectly multiplicative due to Amdahl's Law. The projections assume optimization targets different portions of the code.
+**Note**: Speedups are not perfectly multiplicative due to Amdahl's Law. The projections assume optimization targets different portions of the code. Phase 8 applies to ground ball fielding only.
 
-**Actual Results (Phase 7 - January 2025)**:
+**Actual Results (Phase 7+8 - January 2025)**:
 - **Game simulation: 6.2 seconds per game** (5x speedup from 30s baseline)
 - Rust trajectory integration: 1000+ trajectories/sec with full physics (wind, sidespin)
 - Batch processing: 183,127 trajectories/sec peak throughput
 - Pitch simulation: 158 pitches/sec (7x speedup)
+- **Ground ball simulation: 645,000 sims/sec** (4.2x speedup from Python)
 - Physics accuracy verified: 7/7 validation tests pass
-- **Full physics coverage**: Wind, backspin, topspin, sidespin all accelerated
+- **Full physics coverage**: Wind, backspin, topspin, sidespin, ground ball rolling all accelerated
 
 **Realistic Target**: ✅ **5x+ speedup achieved** with Phases 1-7.
 

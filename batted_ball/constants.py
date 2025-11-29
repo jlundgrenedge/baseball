@@ -1026,6 +1026,10 @@ ROLLING_FRICTION_DEFAULT = 0.30    # Default to grass
 # Additional to rolling friction
 GROUND_BALL_AIR_RESISTANCE = 2.0   # ft/s² (minor effect)
 
+# Ground ball spin effect on trajectory curvature
+# Higher values cause more curve from sidespin
+GROUND_BALL_SPIN_EFFECT = 0.08     # Multiplier for spin rate effect
+
 # Bounce height threshold (feet)
 # Below this height, ball is considered rolling (no more bounces)
 BOUNCE_HEIGHT_THRESHOLD = 0.5      # ft - below this, transitions to pure rolling

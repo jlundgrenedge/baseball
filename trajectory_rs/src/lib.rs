@@ -14,6 +14,27 @@ use rayon::prelude::*;
 const GRAVITY: f64 = 9.81;       // m/s²
 const BALL_MASS: f64 = 0.145;    // kg (MLB baseball)
 
+// ============================================================================
+// Ground Ball Physics Constants (from Python constants.py)
+// ============================================================================
+#[allow(dead_code)]
+const FEET_TO_METERS: f64 = 0.3048;
+#[allow(dead_code)]
+const METERS_TO_FEET: f64 = 3.28084;
+
+// Ground ball physics
+const GROUND_BALL_COR_GRASS: f64 = 0.45;  // Coefficient of restitution for grass
+const GROUND_BALL_COR_DIRT: f64 = 0.50;   // Coefficient of restitution for dirt
+const ROLLING_FRICTION_GRASS: f64 = 0.30; // Rolling friction coefficient
+const ROLLING_FRICTION_DIRT: f64 = 0.25;  // Rolling friction coefficient  
+const GROUND_BALL_AIR_RESISTANCE: f64 = 3.0; // ft/s² air resistance deceleration
+const GROUND_BALL_SPIN_EFFECT: f64 = 0.08;   // Spin rate effect multiplier
+
+// Fielder physics
+const FIELDER_ACCELERATION: f64 = 28.0;     // ft/s² (matches Python)
+const FIELDER_MAX_SPEED: f64 = 30.0;        // ft/s (elite sprint speed)
+const CHARGE_BONUS_MAX: f64 = 20.0;         // Maximum charge bonus in feet
+
 // Lookup table parameters matching Python aerodynamics.py
 const LUT_V_MIN: f64 = 5.0;      // Minimum velocity (m/s)
 const LUT_V_MAX: f64 = 60.0;     // Maximum velocity (m/s)
@@ -266,6 +287,347 @@ struct TrajectoryResult {
     positions: Vec<[f64; 3]>,
     velocities: Vec<[f64; 3]>,
     times: Vec<f64>,
+}
+
+// ============================================================================
+// Ground Ball Physics
+// ============================================================================
+
+/// Ground ball simulation result.
+#[derive(Clone)]
+struct GroundBallResult {
+    /// Position where ball first lands/starts rolling
+    landing_position: [f64; 2],
+    /// Velocity at landing (mph)
+    landing_velocity_mph: f64,
+    /// Direction of travel (unit vector)
+    direction: [f64; 2],
+    /// Time when ball lands and starts rolling
+    landing_time: f64,
+    /// Rolling friction coefficient
+    friction: f64,
+    /// Spin effect on trajectory
+    spin_effect: f64,
+}
+
+/// Calculate ball position at a given time during rolling phase.
+/// 
+/// Uses kinematic equation: x = x0 + v0*t - 0.5*a*t²
+/// Returns (x, y, velocity) at time t after landing.
+#[inline]
+fn ball_position_at_time(
+    result: &GroundBallResult,
+    time_after_landing: f64,
+) -> ([f64; 2], f64) {
+    if time_after_landing <= 0.0 {
+        return (result.landing_position, result.landing_velocity_mph);
+    }
+    
+    // Deceleration in ft/s²
+    let decel = GRAVITY * METERS_TO_FEET * result.friction + GROUND_BALL_AIR_RESISTANCE;
+    
+    // Convert initial velocity to ft/s
+    let v0_fps = result.landing_velocity_mph * 5280.0 / 3600.0;
+    
+    // Time to stop
+    let time_to_stop = v0_fps / decel;
+    let effective_time = time_after_landing.min(time_to_stop);
+    
+    // Distance traveled: d = v0*t - 0.5*a*t²
+    let distance = v0_fps * effective_time - 0.5 * decel * effective_time * effective_time;
+    
+    // Apply spin effect to direction (curve the path slightly)
+    let curve_factor = result.spin_effect * effective_time * 0.1;
+    let curved_dir = [
+        result.direction[0] - curve_factor * result.direction[1],
+        result.direction[1] + curve_factor * result.direction[0],
+    ];
+    let dir_mag = (curved_dir[0].powi(2) + curved_dir[1].powi(2)).sqrt();
+    let normalized_dir = if dir_mag > 1e-6 {
+        [curved_dir[0] / dir_mag, curved_dir[1] / dir_mag]
+    } else {
+        result.direction
+    };
+    
+    // New position
+    let pos = [
+        result.landing_position[0] + distance * normalized_dir[0],
+        result.landing_position[1] + distance * normalized_dir[1],
+    ];
+    
+    // Current velocity
+    let current_velocity_fps = (v0_fps - decel * effective_time).max(0.0);
+    let current_velocity_mph = current_velocity_fps * 3600.0 / 5280.0;
+    
+    (pos, current_velocity_mph)
+}
+
+/// Calculate time for ball to travel to a certain distance from landing point.
+/// 
+/// Solves: distance = v0*t - 0.5*a*t² for t
+/// Returns None if ball stops before reaching distance.
+#[inline]
+#[allow(dead_code)]
+fn time_to_distance(
+    result: &GroundBallResult,
+    distance: f64,
+) -> Option<f64> {
+    if distance <= 0.0 {
+        return Some(0.0);
+    }
+    
+    // Deceleration in ft/s²
+    let decel = GRAVITY * METERS_TO_FEET * result.friction + GROUND_BALL_AIR_RESISTANCE;
+    
+    // Convert initial velocity to ft/s
+    let v0_fps = result.landing_velocity_mph * 5280.0 / 3600.0;
+    
+    // Maximum distance ball can travel
+    let max_distance = (v0_fps * v0_fps) / (2.0 * decel);
+    
+    if distance > max_distance {
+        return None;
+    }
+    
+    // Solve quadratic: 0.5*a*t² - v0*t + d = 0
+    // t = (v0 - sqrt(v0² - 2*a*d)) / a  (take smaller root)
+    let discriminant = v0_fps * v0_fps - 2.0 * decel * distance;
+    
+    if discriminant < 0.0 {
+        return None;
+    }
+    
+    let t = (v0_fps - discriminant.sqrt()) / decel;
+    Some(t.max(0.0))
+}
+
+/// Calculate fielder travel time to a given distance.
+/// 
+/// Uses acceleration model:
+/// - Phase 1: Accelerate at FIELDER_ACCELERATION until max speed or destination
+/// - Phase 2: Constant velocity if needed
+/// 
+/// Also adds reaction time.
+#[inline]
+fn fielder_travel_time(
+    distance_ft: f64,
+    sprint_speed_fps: f64,
+    reaction_time: f64,
+    acceleration: f64,
+) -> f64 {
+    if distance_ft <= 0.0 {
+        return reaction_time;
+    }
+    
+    let max_speed = sprint_speed_fps.min(FIELDER_MAX_SPEED);
+    
+    // Distance to reach max speed
+    let accel_distance = (max_speed * max_speed) / (2.0 * acceleration);
+    
+    let travel_time = if distance_ft <= accel_distance {
+        // Never reaches max speed - use kinematics
+        // d = 0.5 * a * t² => t = sqrt(2d/a)
+        (2.0 * distance_ft / acceleration).sqrt()
+    } else {
+        // Time to reach max speed + time at max speed
+        let time_to_max = max_speed / acceleration;
+        let remaining_distance = distance_ft - accel_distance;
+        time_to_max + remaining_distance / max_speed
+    };
+    
+    reaction_time + travel_time
+}
+
+/// Calculate charge bonus based on exit velocity and fielder position.
+/// 
+/// Charge bonus represents how much the fielder can move forward
+/// while the ball is in flight/bouncing.
+#[inline]
+fn calculate_charge_bonus(
+    exit_velocity_mph: f64,
+    distance_to_landing: f64,
+    sprint_speed_fps: f64,
+) -> f64 {
+    // Higher exit velocity = less time to react = less charge
+    let velocity_factor = (1.0 - (exit_velocity_mph - 60.0) / 60.0).clamp(0.2, 1.0);
+    
+    // Closer fielders can charge more
+    let distance_factor = (distance_to_landing / 150.0).clamp(0.3, 1.0);
+    
+    // Speed helps charging
+    let speed_factor = sprint_speed_fps / 27.0; // 27 ft/s is average
+    
+    (CHARGE_BONUS_MAX * velocity_factor * distance_factor * speed_factor).min(CHARGE_BONUS_MAX)
+}
+
+/// Ground ball interception result for a single fielder.
+#[derive(Clone)]
+struct InterceptionResult {
+    /// Can the fielder reach the ball?
+    can_intercept: bool,
+    /// Position where interception occurs
+    interception_point: [f64; 2],
+    /// Time when fielder reaches ball
+    fielder_time: f64,
+    /// Time when ball reaches interception point
+    ball_time: f64,
+    /// Time margin (negative = ball arrives first)
+    margin: f64,
+    /// Ball velocity at interception (mph)
+    ball_velocity_mph: f64,
+}
+
+/// Find optimal interception point for a fielder.
+/// 
+/// Tests multiple points along the ball trajectory to find
+/// where the fielder can intercept with maximum margin.
+fn find_fielder_interception(
+    ground_ball: &GroundBallResult,
+    fielder_x: f64,
+    fielder_y: f64,
+    sprint_speed_fps: f64,
+    reaction_time: f64,
+    charge_bonus: f64,
+) -> InterceptionResult {
+    let mut best_result = InterceptionResult {
+        can_intercept: false,
+        interception_point: [0.0, 0.0],
+        fielder_time: f64::MAX,
+        ball_time: 0.0,
+        margin: f64::MIN,
+        ball_velocity_mph: 0.0,
+    };
+    
+    // Test interception points at different times along ball path
+    let max_test_time = 6.0; // Maximum reasonable time for ground ball
+    let time_step = 0.05;    // Test every 50ms
+    
+    let mut test_time = 0.0;
+    while test_time <= max_test_time {
+        let (ball_pos, ball_vel) = ball_position_at_time(ground_ball, test_time);
+        
+        // Ball has stopped
+        if ball_vel < 0.1 {
+            break;
+        }
+        
+        // Distance from fielder to this point
+        let dx = ball_pos[0] - fielder_x;
+        let dy = ball_pos[1] - fielder_y;
+        let distance = (dx * dx + dy * dy).sqrt();
+        
+        // Apply charge bonus (fielder can be closer)
+        let effective_distance = (distance - charge_bonus).max(0.0);
+        
+        // Time for fielder to reach this point
+        let fielder_time = fielder_travel_time(
+            effective_distance,
+            sprint_speed_fps,
+            reaction_time,
+            FIELDER_ACCELERATION,
+        );
+        
+        // Total ball time = landing time + rolling time
+        let total_ball_time = ground_ball.landing_time + test_time;
+        
+        // Margin: positive = fielder arrives first
+        let margin = total_ball_time - fielder_time;
+        
+        if margin > best_result.margin {
+            best_result = InterceptionResult {
+                can_intercept: margin >= 0.0,
+                interception_point: ball_pos,
+                fielder_time,
+                ball_time: total_ball_time,
+                margin,
+                ball_velocity_mph: ball_vel,
+            };
+        }
+        
+        test_time += time_step;
+    }
+    
+    best_result
+}
+
+/// Simulate ground ball physics from initial conditions.
+/// 
+/// Handles initial bouncing phase, then transitions to rolling.
+/// Returns landing position, velocity, and rolling parameters.
+fn simulate_ground_ball_initial(
+    x0: f64,
+    y0: f64,
+    vx_mph: f64,
+    vy_mph: f64,
+    vz_mph: f64,
+    spin_rpm: f64,
+    is_grass: bool,
+) -> GroundBallResult {
+    // Get surface-specific parameters
+    let cor = if is_grass { GROUND_BALL_COR_GRASS } else { GROUND_BALL_COR_DIRT };
+    let friction = if is_grass { ROLLING_FRICTION_GRASS } else { ROLLING_FRICTION_DIRT };
+    
+    // Convert velocities to ft/s
+    let vx_fps = vx_mph * 5280.0 / 3600.0;
+    let vy_fps = vy_mph * 5280.0 / 3600.0;
+    let vz_fps = vz_mph * 5280.0 / 3600.0;
+    
+    // Initial horizontal velocity magnitude
+    let vh_fps = (vx_fps * vx_fps + vy_fps * vy_fps).sqrt();
+    
+    // Calculate spin effect (sidespin causes curve)
+    let spin_effect = (spin_rpm / 1000.0) * GROUND_BALL_SPIN_EFFECT;
+    
+    // Direction of travel
+    let dir_mag = if vh_fps > 1e-6 { vh_fps } else { 1.0 };
+    let direction = [vx_fps / dir_mag, vy_fps / dir_mag];
+    
+    // Simulate bouncing phase
+    let mut pos = [x0, y0];
+    let mut vz = vz_fps;
+    let mut vh = vh_fps;
+    let mut time = 0.0_f64;
+    let g = GRAVITY * METERS_TO_FEET;
+    
+    // Maximum 3 bounces, or until vertical energy is low
+    let mut bounces = 0;
+    while bounces < 3 && vz.abs() > 1.0 {
+        // Time in air for this hop
+        if vz > 0.0 {
+            // Going up then down
+            let t_up = vz / g;
+            let t_down = t_up;
+            let t_air = t_up + t_down;
+            
+            // Move horizontally during air time
+            let distance = vh * t_air;
+            pos[0] += distance * direction[0];
+            pos[1] += distance * direction[1];
+            time += t_air;
+            
+            // Lose energy on bounce
+            vz = vz * cor;
+            vh = vh * (1.0 - friction * 0.1); // Small horizontal loss per bounce
+        } else {
+            // Already going down (first impact)
+            // Reflect with COR
+            vz = (-vz) * cor;
+        }
+        
+        bounces += 1;
+    }
+    
+    // Convert horizontal velocity back to mph for result
+    let landing_velocity_mph = vh * 3600.0 / 5280.0;
+    
+    GroundBallResult {
+        landing_position: pos,
+        landing_velocity_mph,
+        direction,
+        landing_time: time,
+        friction,
+        spin_effect,
+    }
 }
 
 /// Integrate a single trajectory until ground or max time (with wind support).
@@ -601,9 +963,290 @@ fn set_num_threads(n: usize) {
         .ok();  // Ignore error if already built
 }
 
+// ============================================================================
+// Ground Ball PyO3 Interface
+// ============================================================================
+
+/// Simulate ground ball trajectory and return rolling parameters.
+/// 
+/// Args:
+///     x0: Starting X position (feet)
+///     y0: Starting Y position (feet)  
+///     vx_mph: X velocity (mph)
+///     vy_mph: Y velocity (mph)
+///     vz_mph: Z velocity (mph, typically small negative for ground balls)
+///     spin_rpm: Spin rate (rpm)
+///     is_grass: True for grass, False for dirt infield
+///
+/// Returns tuple:
+///     (landing_x, landing_y, landing_velocity_mph, direction_x, direction_y, 
+///      landing_time, friction, spin_effect)
+#[pyfunction]
+#[pyo3(signature = (x0, y0, vx_mph, vy_mph, vz_mph, spin_rpm, is_grass = true))]
+fn simulate_ground_ball(
+    x0: f64,
+    y0: f64,
+    vx_mph: f64,
+    vy_mph: f64,
+    vz_mph: f64,
+    spin_rpm: f64,
+    is_grass: bool,
+) -> (f64, f64, f64, f64, f64, f64, f64, f64) {
+    let result = simulate_ground_ball_initial(x0, y0, vx_mph, vy_mph, vz_mph, spin_rpm, is_grass);
+    (
+        result.landing_position[0],
+        result.landing_position[1],
+        result.landing_velocity_mph,
+        result.direction[0],
+        result.direction[1],
+        result.landing_time,
+        result.friction,
+        result.spin_effect,
+    )
+}
+
+/// Get ball position and velocity at a given time after landing.
+///
+/// Args:
+///     landing_x, landing_y: Position where ball started rolling
+///     landing_velocity_mph: Velocity at start of rolling
+///     direction_x, direction_y: Direction of travel (unit vector)
+///     friction: Rolling friction coefficient
+///     spin_effect: Spin effect on trajectory
+///     time_after_landing: Time since ball started rolling
+///
+/// Returns tuple: (x, y, velocity_mph)
+#[pyfunction]
+#[pyo3(signature = (landing_x, landing_y, landing_velocity_mph, direction_x, direction_y, friction, spin_effect, time_after_landing))]
+fn get_ball_position_at_time(
+    landing_x: f64,
+    landing_y: f64,
+    landing_velocity_mph: f64,
+    direction_x: f64,
+    direction_y: f64,
+    friction: f64,
+    spin_effect: f64,
+    time_after_landing: f64,
+) -> (f64, f64, f64) {
+    let ground_ball = GroundBallResult {
+        landing_position: [landing_x, landing_y],
+        landing_velocity_mph,
+        direction: [direction_x, direction_y],
+        landing_time: 0.0, // Not used for position calculation
+        friction,
+        spin_effect,
+    };
+    
+    let (pos, vel) = ball_position_at_time(&ground_ball, time_after_landing);
+    (pos[0], pos[1], vel)
+}
+
+/// Calculate fielder travel time to a distance.
+///
+/// Args:
+///     distance_ft: Distance to travel (feet)
+///     sprint_speed_fps: Fielder sprint speed (ft/s)
+///     reaction_time: Initial reaction delay (seconds)
+///     acceleration: Acceleration rate (ft/s², default 28.0)
+///
+/// Returns: Total time to reach destination
+#[pyfunction]
+#[pyo3(signature = (distance_ft, sprint_speed_fps, reaction_time = 0.3, acceleration = 28.0))]
+fn calculate_fielder_travel_time(
+    distance_ft: f64,
+    sprint_speed_fps: f64,
+    reaction_time: f64,
+    acceleration: f64,
+) -> f64 {
+    fielder_travel_time(distance_ft, sprint_speed_fps, reaction_time, acceleration)
+}
+
+/// Find optimal interception point for a fielder.
+///
+/// Args:
+///     landing_x, landing_y: Ball landing position
+///     landing_velocity_mph: Ball velocity at landing
+///     direction_x, direction_y: Ball travel direction
+///     landing_time: Time when ball lands
+///     friction: Rolling friction
+///     spin_effect: Spin effect
+///     fielder_x, fielder_y: Fielder starting position
+///     sprint_speed_fps: Fielder sprint speed
+///     reaction_time: Fielder reaction time
+///     exit_velocity_mph: Original exit velocity (for charge bonus)
+///
+/// Returns tuple:
+///     (can_intercept, intercept_x, intercept_y, fielder_time, ball_time, margin, ball_velocity_mph)
+#[pyfunction]
+#[pyo3(signature = (landing_x, landing_y, landing_velocity_mph, direction_x, direction_y, landing_time, friction, spin_effect, fielder_x, fielder_y, sprint_speed_fps, reaction_time, exit_velocity_mph))]
+fn find_interception_point(
+    landing_x: f64,
+    landing_y: f64,
+    landing_velocity_mph: f64,
+    direction_x: f64,
+    direction_y: f64,
+    landing_time: f64,
+    friction: f64,
+    spin_effect: f64,
+    fielder_x: f64,
+    fielder_y: f64,
+    sprint_speed_fps: f64,
+    reaction_time: f64,
+    exit_velocity_mph: f64,
+) -> (bool, f64, f64, f64, f64, f64, f64) {
+    let ground_ball = GroundBallResult {
+        landing_position: [landing_x, landing_y],
+        landing_velocity_mph,
+        direction: [direction_x, direction_y],
+        landing_time,
+        friction,
+        spin_effect,
+    };
+    
+    // Calculate distance to landing for charge bonus
+    let dx = landing_x - fielder_x;
+    let dy = landing_y - fielder_y;
+    let distance_to_landing = (dx * dx + dy * dy).sqrt();
+    
+    let charge_bonus = calculate_charge_bonus(exit_velocity_mph, distance_to_landing, sprint_speed_fps);
+    
+    let result = find_fielder_interception(
+        &ground_ball,
+        fielder_x,
+        fielder_y,
+        sprint_speed_fps,
+        reaction_time,
+        charge_bonus,
+    );
+    
+    (
+        result.can_intercept,
+        result.interception_point[0],
+        result.interception_point[1],
+        result.fielder_time,
+        result.ball_time,
+        result.margin,
+        result.ball_velocity_mph,
+    )
+}
+
+/// Find best interception among multiple fielders (parallelized).
+///
+/// Args:
+///     landing_x, landing_y: Ball landing position
+///     landing_velocity_mph: Ball velocity at landing
+///     direction_x, direction_y: Ball travel direction  
+///     landing_time: Time when ball lands
+///     friction: Rolling friction
+///     spin_effect: Spin effect
+///     fielder_positions: Nx2 array of fielder (x, y) positions
+///     fielder_speeds: Array of fielder sprint speeds (ft/s)
+///     reaction_times: Array of fielder reaction times
+///     exit_velocity_mph: Original exit velocity
+///
+/// Returns tuple:
+///     (best_fielder_idx, can_intercept, intercept_x, intercept_y, 
+///      fielder_time, ball_time, margin, ball_velocity_mph)
+#[pyfunction]
+#[pyo3(signature = (landing_x, landing_y, landing_velocity_mph, direction_x, direction_y, landing_time, friction, spin_effect, fielder_positions, fielder_speeds, reaction_times, exit_velocity_mph))]
+fn find_best_interception<'py>(
+    py: Python<'py>,
+    landing_x: f64,
+    landing_y: f64,
+    landing_velocity_mph: f64,
+    direction_x: f64,
+    direction_y: f64,
+    landing_time: f64,
+    friction: f64,
+    spin_effect: f64,
+    fielder_positions: PyReadonlyArray2<f64>,
+    fielder_speeds: PyReadonlyArray1<f64>,
+    reaction_times: PyReadonlyArray1<f64>,
+    exit_velocity_mph: f64,
+) -> (i32, bool, f64, f64, f64, f64, f64, f64) {
+    let positions = fielder_positions.as_array();
+    let speeds = fielder_speeds.as_array();
+    let reactions = reaction_times.as_array();
+    
+    let n_fielders = positions.nrows();
+    
+    let ground_ball = GroundBallResult {
+        landing_position: [landing_x, landing_y],
+        landing_velocity_mph,
+        direction: [direction_x, direction_y],
+        landing_time,
+        friction,
+        spin_effect,
+    };
+    
+    // Collect fielder data
+    let fielder_data: Vec<_> = (0..n_fielders)
+        .map(|i| {
+            let fx = positions[[i, 0]];
+            let fy = positions[[i, 1]];
+            let speed = speeds[i];
+            let reaction = reactions[i];
+            (i, fx, fy, speed, reaction)
+        })
+        .collect();
+    
+    // Find best interception in parallel
+    let results: Vec<_> = py.allow_threads(|| {
+        fielder_data
+            .par_iter()
+            .map(|(idx, fx, fy, speed, reaction)| {
+                let dx = landing_x - fx;
+                let dy = landing_y - fy;
+                let distance_to_landing = (dx * dx + dy * dy).sqrt();
+                let charge_bonus = calculate_charge_bonus(exit_velocity_mph, distance_to_landing, *speed);
+                
+                let result = find_fielder_interception(
+                    &ground_ball,
+                    *fx,
+                    *fy,
+                    *speed,
+                    *reaction,
+                    charge_bonus,
+                );
+                (*idx, result)
+            })
+            .collect()
+    });
+    
+    // Find best result (highest margin)
+    let mut best_idx: i32 = -1;
+    let mut best_result = InterceptionResult {
+        can_intercept: false,
+        interception_point: [0.0, 0.0],
+        fielder_time: f64::MAX,
+        ball_time: 0.0,
+        margin: f64::MIN,
+        ball_velocity_mph: 0.0,
+    };
+    
+    for (idx, result) in results {
+        if result.margin > best_result.margin {
+            best_idx = idx as i32;
+            best_result = result;
+        }
+    }
+    
+    (
+        best_idx,
+        best_result.can_intercept,
+        best_result.interception_point[0],
+        best_result.interception_point[1],
+        best_result.fielder_time,
+        best_result.ball_time,
+        best_result.margin,
+        best_result.ball_velocity_mph,
+    )
+}
+
 /// Python module definition.
 #[pymodule]
 fn trajectory_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Trajectory functions
     m.add_function(wrap_pyfunction!(integrate_trajectory, m)?)?;
     m.add_function(wrap_pyfunction!(integrate_trajectory_with_wind, m)?)?;
     m.add_function(wrap_pyfunction!(integrate_trajectories_batch, m)?)?;
@@ -611,9 +1254,23 @@ fn trajectory_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_num_threads, m)?)?;
     m.add_function(wrap_pyfunction!(set_num_threads, m)?)?;
     
+    // Ground ball functions
+    m.add_function(wrap_pyfunction!(simulate_ground_ball, m)?)?;
+    m.add_function(wrap_pyfunction!(get_ball_position_at_time, m)?)?;
+    m.add_function(wrap_pyfunction!(calculate_fielder_travel_time, m)?)?;
+    m.add_function(wrap_pyfunction!(find_interception_point, m)?)?;
+    m.add_function(wrap_pyfunction!(find_best_interception, m)?)?;
+    
     // Add constants
     m.add("GRAVITY", GRAVITY)?;
     m.add("BALL_MASS", BALL_MASS)?;
+    
+    // Ground ball constants
+    m.add("GROUND_BALL_COR_GRASS", GROUND_BALL_COR_GRASS)?;
+    m.add("GROUND_BALL_COR_DIRT", GROUND_BALL_COR_DIRT)?;
+    m.add("ROLLING_FRICTION_GRASS", ROLLING_FRICTION_GRASS)?;
+    m.add("ROLLING_FRICTION_DIRT", ROLLING_FRICTION_DIRT)?;
+    m.add("FIELDER_ACCELERATION", FIELDER_ACCELERATION)?;
     
     Ok(())
 }

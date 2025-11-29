@@ -141,7 +141,7 @@ try:
 except ImportError:
     _PYBASEBALL_INTEGRATION_AVAILABLE = False
 
-__version__ = '1.1.0'
+__version__ = '1.3.1'
 __author__ = 'Baseball Physics Team'
 
 __all__ = [
@@ -265,3 +265,23 @@ if _PYBASEBALL_INTEGRATION_AVAILABLE:
         'create_fielder_from_mlb_stats',
         'create_pitcher_from_mlb_stats',
     ])
+
+# Fast ground ball module (Rust-accelerated, Phase 8)
+try:
+    from .fast_ground_ball import (
+        FastGroundBallSimulator,
+        GroundBallResult as FastGroundBallResult,
+        InterceptionResult as FastInterceptionResult,
+        is_rust_ground_ball_available,
+        benchmark_ground_ball_speedup,
+    )
+    _FAST_GROUND_BALL_AVAILABLE = True
+    __all__.extend([
+        'FastGroundBallSimulator',
+        'FastGroundBallResult',
+        'FastInterceptionResult',
+        'is_rust_ground_ball_available',
+        'benchmark_ground_ball_speedup',
+    ])
+except ImportError:
+    _FAST_GROUND_BALL_AVAILABLE = False

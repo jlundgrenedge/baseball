@@ -237,9 +237,9 @@ This consistency is maintained across trajectory, fielding, and baserunning modu
 
 The simulation includes extensive performance optimizations achieving **5x speedup** with full physics.
 
-### Rust Acceleration (Phase 7)
+### Rust Acceleration (Phases 7-8)
 
-The core trajectory integration is accelerated via native Rust code using PyO3:
+The core trajectory integration and ground ball physics are accelerated via native Rust code using PyO3:
 
 ```bash
 # Build and install (one-time setup)
@@ -254,8 +254,9 @@ pip install target/wheels/*.whl
 | Game (with wind) | ~30s | **6.2s** | **5x** |
 | Batted balls/sec | 4 | **1000+** | **250x** |
 | Pitch simulation | 22/sec | **158/sec** | **7x** |
+| Ground ball/sec | 154k | **645k** | **4.2x** |
 
-**Full Physics Support**: Wind, backspin, topspin, and sidespin all use the Rust path.
+**Full Physics Support**: Wind, backspin, topspin, sidespin, and ground ball rolling all use the Rust path.
 
 ### Simulation Modes
 
@@ -297,11 +298,15 @@ with UltraFastMode():
 
 ```python
 from batted_ball.fast_trajectory import is_rust_available, get_rust_version
+from batted_ball.fast_ground_ball import is_rust_ground_ball_available
 
 if is_rust_available():
-    print(f"Rust acceleration enabled: {get_rust_version()}")
+    print(f"Rust trajectory acceleration enabled: {get_rust_version()}")
+    
+if is_rust_ground_ball_available():
+    print("Rust ground ball acceleration enabled")
 else:
-    print("Falling back to Python/Numba")
+    print("Falling back to Python for ground balls")
 ```
 
 ## Validation & Benchmarks
