@@ -8,6 +8,7 @@ echo.
 echo   ** RECOMMENDED FOR TESTING **
 echo   8. MLB Database Teams (Real rosters, pick teams)
 echo   R. Random Teams (Random matchups each game - best for neutral testing)
+echo   U. Ultra-Fast Random (5x speed, summary stats only)
 echo.
 echo   Other options:
 echo   1. Single Game Demo (synthetic teams)
@@ -22,7 +23,7 @@ echo   4. Performance Test Suite
 echo   6. MLB Players: Individual Demo
 echo   7. MLB Quick Demo (Players only)
 echo.
-set /p choice="Enter your choice (0-9 or R): "
+set /p choice="Enter your choice (0-9, R, or U): "
 
 if "%choice%"=="0" goto validation
 if "%choice%"=="1" goto single_game
@@ -36,6 +37,8 @@ if "%choice%"=="8" goto db_teams
 if "%choice%"=="9" goto quick_mlb
 if "%choice%"=="r" goto random_teams
 if "%choice%"=="R" goto random_teams
+if "%choice%"=="u" goto ultrafast_random
+if "%choice%"=="U" goto ultrafast_random
 goto invalid
 
 :validation
@@ -230,6 +233,31 @@ echo.
 pause
 echo.
 python examples\simulate_random_teams.py
+goto end
+
+:ultrafast_random
+echo.
+echo ========================================
+echo Ultra-Fast Random Simulation
+echo ========================================
+echo.
+echo Uses ULTRA_FAST physics mode (5x faster trajectories)
+echo for high-volume simulation testing.
+echo.
+echo Features:
+echo   - Random team matchups (same as option R)
+echo   - 5x faster trajectory calculations
+echo   - Summary statistics only (no play-by-play)
+echo   - Supports up to 1000 games
+echo.
+echo Use for:
+echo   - Statistical validation with large samples
+echo   - Quick regression testing
+echo   - Performance testing
+echo.
+pause
+echo.
+python examples\simulate_random_ultrafast.py
 goto end
 
 :invalid
