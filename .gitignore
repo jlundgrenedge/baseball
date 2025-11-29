@@ -59,3 +59,8 @@ QUICK_REFERENCE.md
 
 # Game simulation logs
 game_logs/
+
+# Rust build artifacts
+trajectory_rs/target/
+*.pyd
+*.dll

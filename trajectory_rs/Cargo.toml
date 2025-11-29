@@ -1,0 +1,20 @@
+[package]
+name = "trajectory_rs"
+version = "0.1.0"
+edition = "2021"
+description = "High-performance RK4 trajectory integration for baseball simulation"
+license = "MIT"
+
+[lib]
+name = "trajectory_rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py39"] }
+numpy = "0.23"
+rayon = "1.10"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
