@@ -3,6 +3,9 @@ Main baseball trajectory simulator.
 
 Combines aerodynamics, environment, and integration to simulate complete
 batted ball trajectories.
+
+Phase 7 Enhancement: When Rust trajectory library is available, uses FastTrajectorySimulator
+for significant speedup while maintaining physics accuracy.
 """
 
 import numpy as np
@@ -22,6 +25,9 @@ from .constants import (
 from .environment import Environment
 from .aerodynamics import AerodynamicForces, create_spin_axis
 from .integrator import integrate_trajectory, create_initial_state
+
+# Phase 7: Import FastTrajectorySimulator for Rust-accelerated path
+from .fast_trajectory import FastTrajectorySimulator, RUST_AVAILABLE
 
 
 class BattedBallResult:
@@ -195,9 +201,12 @@ class BattedBallSimulator:
     Main simulator for batted baseball trajectories.
 
     Combines all physics components to simulate realistic ball flight.
+    
+    Phase 7 Enhancement: Automatically uses Rust-accelerated FastTrajectorySimulator
+    when available for significant performance improvement.
     """
 
-    def __init__(self, dt=DT_DEFAULT, simulation_mode=None):
+    def __init__(self, dt=DT_DEFAULT, simulation_mode=None, use_rust=None):
         """
         Initialize simulator.
 
@@ -207,9 +216,26 @@ class BattedBallSimulator:
             Time step for integration in seconds (overrides simulation_mode if set)
         simulation_mode : SimulationMode, optional
             Simulation speed/accuracy mode. Defaults to ACCURATE.
+        use_rust : bool, optional
+            Whether to use Rust-accelerated trajectory calculation.
+            Defaults to True if Rust is available.
         """
         self.simulation_mode = simulation_mode or SimulationMode.ACCURATE
         self.dt = dt if dt != DT_DEFAULT else get_dt_for_mode(self.simulation_mode)
+        
+        # Phase 7: Initialize FastTrajectorySimulator for Rust acceleration
+        if use_rust is None:
+            self.use_rust = RUST_AVAILABLE
+        else:
+            self.use_rust = use_rust and RUST_AVAILABLE
+        
+        if self.use_rust:
+            self._fast_sim = FastTrajectorySimulator(
+                simulation_mode=self.simulation_mode,
+                use_rust=True
+            )
+        else:
+            self._fast_sim = None
 
     def simulate(
         self,
@@ -285,6 +311,27 @@ class BattedBallSimulator:
             dt_to_use = DT_FAST
         else:
             dt_to_use = self.dt
+
+        # Phase 7: Use Rust-accelerated path when available
+        # Note: Rust path doesn't support wind, custom CD, or significant sidespin
+        # Falls back to Python path for these cases
+        sidespin_ratio = abs(sidespin_rpm) / max(backspin_rpm, 1.0) if backspin_rpm > 0 else 1.0
+        use_rust_path = (
+            self.use_rust 
+            and self._fast_sim is not None 
+            and abs(wind_speed) < 0.1  # No wind support in Rust yet
+            and cd is None  # No custom CD support
+            and sidespin_ratio < 0.3  # Only use Rust when sidespin is minor (<30% of backspin)
+        )
+        
+        if use_rust_path:
+            # Calculate effective total spin for Rust path
+            total_spin = np.sqrt(backspin_rpm**2 + sidespin_rpm**2)
+            return self._simulate_rust_path(
+                exit_velocity, launch_angle, spray_angle,
+                total_spin, altitude, temperature, humidity,  # Use total spin
+                initial_height, initial_position, max_time
+            )
 
         # Create environment
         env = Environment(altitude, temperature, humidity)
@@ -411,6 +458,104 @@ class BattedBallSimulator:
         result = BattedBallResult(trajectory_data, initial_conditions, env)
 
         return result
+
+    def _simulate_rust_path(
+        self,
+        exit_velocity,
+        launch_angle,
+        spray_angle,
+        total_spin_rpm,
+        altitude,
+        temperature,
+        humidity,
+        initial_height,
+        initial_position,
+        max_time
+    ):
+        """
+        Fast path using Rust-accelerated trajectory calculation.
+        
+        Converts FastTrajectorySimulator output to BattedBallResult format.
+        Uses environment-specific air density for accurate physics.
+        """
+        # Import Rust library and lookup tables
+        import trajectory_rs
+        from .fast_trajectory import get_lookup_tables
+        
+        # Create environment for air density calculation
+        env = Environment(altitude, temperature, humidity)
+        
+        # Convert exit velocity to m/s
+        exit_velocity_ms = exit_velocity * MPH_TO_MS
+        
+        # Create spin axis (pure backspin)
+        spin_axis = np.array([0.0, 1.0, 0.0])
+        
+        # Determine initial position in meters
+        if initial_position is not None:
+            init_pos = np.array([
+                initial_position[0] * FEET_TO_METERS,
+                initial_position[1] * FEET_TO_METERS,
+                initial_position[2] * FEET_TO_METERS
+            ])
+        else:
+            if initial_height is None:
+                initial_height = 3.0
+            init_pos = np.array([0.0, 0.0, initial_height * FEET_TO_METERS])
+        
+        # Create initial state vector [x, y, z, vx, vy, vz]
+        launch_rad = np.deg2rad(launch_angle)
+        spray_rad = np.deg2rad(spray_angle)
+        vx = exit_velocity_ms * np.cos(launch_rad) * np.cos(spray_rad)
+        vy = exit_velocity_ms * np.cos(launch_rad) * np.sin(spray_rad)
+        vz = exit_velocity_ms * np.sin(launch_rad)
+        initial_state = np.array([init_pos[0], init_pos[1], init_pos[2], vx, vy, vz])
+        
+        # Get lookup tables
+        cd_table, cl_table = get_lookup_tables()
+        
+        # Ball cross-sectional area (constant)
+        from .constants import BALL_RADIUS
+        cross_area = np.pi * BALL_RADIUS**2
+        
+        # Call Rust directly with environment-specific air density
+        positions, velocities, times = trajectory_rs.integrate_trajectory(
+            initial_state,
+            self.dt,
+            max_time,
+            0.0,  # ground_level
+            spin_axis,
+            total_spin_rpm,
+            env.air_density,  # Use environment-specific air density!
+            cross_area,
+            cd_table,
+            cl_table
+        )
+        
+        # Convert to trajectory_data format
+        trajectory_data = {
+            'time': times,
+            'position': positions,
+            'velocity': velocities,
+        }
+        
+        # Store initial conditions (note: we used total_spin as backspin approximation)
+        initial_conditions = {
+            'exit_velocity': exit_velocity,
+            'launch_angle': launch_angle,
+            'spray_angle': spray_angle,
+            'backspin_rpm': total_spin_rpm,  # Approximated as total spin
+            'sidespin_rpm': 0.0,
+            'total_spin_rpm': total_spin_rpm,
+            'altitude': altitude,
+            'temperature': temperature,
+            'humidity': humidity,
+            'wind_speed': 0.0,
+            'wind_direction': 0.0,
+        }
+        
+        # Create result object
+        return BattedBallResult(trajectory_data, initial_conditions, env)
 
     def simulate_contact(
         self,

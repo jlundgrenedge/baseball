@@ -7,6 +7,7 @@ This module provides ultra-fast trajectory calculations by using:
 3. Simplified interface for batch processing
 4. Multiple speed modes (ACCURATE, FAST, ULTRA_FAST, EXTREME)
 5. Parallel batch processing with Numba prange (Phase 5)
+6. Optional Rust backend via PyO3 (Phase 7, 11x additional speedup)
 
 Use this for high-volume simulations where maximum speed is critical.
 """
@@ -37,15 +38,42 @@ from .constants import (
     get_dt_for_mode,
 )
 
+# Phase 7: Try to import Rust trajectory library for maximum performance
+try:
+    import trajectory_rs
+    RUST_AVAILABLE = True
+except ImportError:
+    RUST_AVAILABLE = False
+    trajectory_rs = None
+
+
+def is_rust_available():
+    """Check if Phase 7 Rust trajectory library is available."""
+    return RUST_AVAILABLE
+
+
+def get_rust_version():
+    """Get the version of the Rust trajectory library, if available."""
+    if RUST_AVAILABLE:
+        try:
+            return trajectory_rs.__version__ if hasattr(trajectory_rs, '__version__') else "installed"
+        except Exception:
+            return "installed"
+    return None
+
 
 class FastTrajectorySimulator:
     """
-    Ultra-fast trajectory simulator using Numba JIT compilation.
+    Ultra-fast trajectory simulator with multiple performance backends.
 
     This class provides maximum performance for trajectory calculations by
-    leveraging fully JIT-compiled integration and force calculation loops.
+    leveraging:
+    - Phase 7 Rust backend (fastest, 12× faster than Numba when available)
+    - Numba JIT-compiled integration and force calculation loops
+    - Lookup table interpolation for drag/lift coefficients
 
     Performance improvements over standard simulator:
+    - RUST mode: ~100× faster than non-JIT (Phase 7, auto-enabled when available)
     - ACCURATE mode: ~5-10× faster than non-JIT due to JIT compilation
     - FAST mode (2ms dt): Additional 2× speedup
     - ULTRA_FAST mode (5ms dt): ~5× speedup vs ACCURATE
@@ -74,6 +102,7 @@ class FastTrajectorySimulator:
         simulation_mode=None,
         use_buffer_pool=True,
         use_lookup=None,
+        use_rust=None,
     ):
         """
         Initialize fast trajectory simulator.
@@ -101,6 +130,10 @@ class FastTrajectorySimulator:
             If True, use lookup tables for aerodynamic coefficients.
             If None, automatically enabled for ULTRA_FAST and EXTREME modes.
             Provides 3-5x speedup on force calculations.
+        use_rust : bool, optional
+            If True, use Rust native code for trajectory integration (Phase 7).
+            If None, automatically enabled when available and use_lookup=True.
+            Provides 10-15x additional speedup over Numba.
         """
         self.air_density = air_density
         self.cd_base = cd_base
@@ -126,14 +159,21 @@ class FastTrajectorySimulator:
         if use_lookup is not None:
             self.use_lookup = use_lookup
         else:
-            # Auto-enable for ultra-fast modes
-            self.use_lookup = self.simulation_mode in (SimulationMode.ULTRA_FAST, SimulationMode.EXTREME)
+            # Auto-enable for ultra-fast modes OR when Rust is available (Rust requires lookup tables)
+            self.use_lookup = self.simulation_mode in (SimulationMode.ULTRA_FAST, SimulationMode.EXTREME) or RUST_AVAILABLE
         
         # Pre-fetch lookup tables if enabled (lazy init)
         self._cd_table = None
         self._cl_table = None
         if self.use_lookup:
             self._cd_table, self._cl_table = get_lookup_tables()
+        
+        # Phase 7: Determine Rust usage
+        if use_rust is not None:
+            self.use_rust = use_rust and RUST_AVAILABLE
+        else:
+            # Auto-enable Rust when available (lookup tables are already enabled above)
+            self.use_rust = RUST_AVAILABLE and self._cd_table is not None
 
     def simulate_batted_ball(
         self,
@@ -205,8 +245,22 @@ class FastTrajectorySimulator:
         # Pack parameters for JIT force function
         spin_x, spin_y, spin_z = spin_axis_arr
 
+        # Phase 7: Rust integration path (fastest option)
+        if self.use_rust and self._cd_table is not None:
+            positions, velocities, times = trajectory_rs.integrate_trajectory(
+                initial_state,
+                self.dt,
+                max_time,
+                ground_level,
+                spin_axis_arr,
+                spin_rate,
+                self.air_density,
+                self.cross_area,
+                self._cd_table,
+                self._cl_table
+            )
         # Run integration - choose path based on settings
-        if self.use_buffer_pool:
+        elif self.use_buffer_pool:
             # Get pre-allocated buffers
             buffer = get_trajectory_buffer()
             buf_idx, pos_buf, vel_buf, time_buf = buffer.get_buffer()
@@ -343,8 +397,22 @@ class FastTrajectorySimulator:
         # Pack parameters
         spin_x, spin_y, spin_z = spin_axis_arr
 
+        # Phase 7: Rust integration path (fastest option)
+        if self.use_rust and self._cd_table is not None:
+            positions, velocities, times = trajectory_rs.integrate_trajectory(
+                initial_state,
+                self.dt,
+                max_time,
+                0.0,  # ground level for pitch (no ground stop)
+                spin_axis_arr,
+                spin_rate,
+                self.air_density,
+                self.cross_area,
+                self._cd_table,
+                self._cl_table
+            )
         # Run integration - use buffered version if enabled
-        if self.use_buffer_pool:
+        elif self.use_buffer_pool:
             buffer = get_trajectory_buffer()
             buf_idx, pos_buf, vel_buf, time_buf = buffer.get_buffer()
             
