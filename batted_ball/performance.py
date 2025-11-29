@@ -24,6 +24,7 @@ class TrajectoryBuffer:
     Pre-allocated buffers for trajectory calculations to avoid repeated allocation.
     
     Reduces memory allocation overhead by reusing arrays across simulations.
+    Track hit/miss statistics for monitoring pool efficiency.
     """
     
     def __init__(self, max_steps: int = 15000, buffer_count: int = 10):
@@ -48,6 +49,15 @@ class TrajectoryBuffer:
         # Track which buffers are in use
         self.buffer_available = [True] * buffer_count
         self.next_buffer_index = 0
+        
+        # Statistics tracking
+        self.stats = {
+            'hits': 0,
+            'misses': 0,
+            'total_acquisitions': 0,
+            'peak_concurrent': 0,
+        }
+        self._current_in_use = 0
     
     def get_buffer(self):
         """
@@ -58,12 +68,20 @@ class TrajectoryBuffer:
         tuple
             (buffer_index, position_array, velocity_array, time_array)
         """
+        self.stats['total_acquisitions'] += 1
+        
         # Find next available buffer
         for i in range(self.buffer_count):
             buffer_idx = (self.next_buffer_index + i) % self.buffer_count
             if self.buffer_available[buffer_idx]:
                 self.buffer_available[buffer_idx] = False
                 self.next_buffer_index = (buffer_idx + 1) % self.buffer_count
+                self.stats['hits'] += 1
+                
+                # Track concurrent usage
+                self._current_in_use += 1
+                if self._current_in_use > self.stats['peak_concurrent']:
+                    self.stats['peak_concurrent'] = self._current_in_use
                 
                 return (
                     buffer_idx,
@@ -73,6 +91,7 @@ class TrajectoryBuffer:
                 )
         
         # All buffers in use - allocate new ones (should be rare)
+        self.stats['misses'] += 1
         return (
             -1,  # Indicates temporary allocation
             np.zeros((self.max_steps, 3), dtype=np.float64),
@@ -84,6 +103,33 @@ class TrajectoryBuffer:
         """Release a buffer back to the pool."""
         if buffer_index >= 0:  # Only release pooled buffers
             self.buffer_available[buffer_index] = True
+            self._current_in_use = max(0, self._current_in_use - 1)
+    
+    def get_efficiency(self) -> float:
+        """Get pool efficiency (hit rate)."""
+        total = self.stats['hits'] + self.stats['misses']
+        if total == 0:
+            return 1.0
+        return self.stats['hits'] / total
+    
+    def get_stats(self) -> Dict:
+        """Get pool statistics."""
+        return {
+            **self.stats,
+            'efficiency': self.get_efficiency(),
+            'buffer_count': self.buffer_count,
+            'max_steps': self.max_steps,
+            'current_in_use': self._current_in_use,
+        }
+    
+    def reset_stats(self):
+        """Reset statistics counters."""
+        self.stats = {
+            'hits': 0,
+            'misses': 0,
+            'total_acquisitions': 0,
+            'peak_concurrent': 0,
+        }
 
 
 class ResultObjectPool:
@@ -587,3 +633,74 @@ def get_performance_tracker() -> PerformanceTracker:
     if _performance_tracker is None:
         _performance_tracker = PerformanceTracker()
     return _performance_tracker
+
+
+def get_all_pool_stats() -> Dict[str, Any]:
+    """
+    Get statistics from all memory pools.
+    
+    Useful for monitoring pool efficiency and detecting allocation overhead.
+    
+    Returns
+    -------
+    dict
+        Dictionary with stats from trajectory buffer and other pools
+    """
+    stats = {}
+    
+    # Trajectory buffer stats
+    if _trajectory_buffer is not None:
+        stats['trajectory_buffer'] = _trajectory_buffer.get_stats()
+    else:
+        stats['trajectory_buffer'] = {'status': 'not initialized'}
+    
+    # Result pool stats (basic, pools don't have detailed tracking yet)
+    if _result_pool is not None:
+        stats['result_pool'] = {
+            'result_pool_size': len(_result_pool.result_pool),
+            'pitch_data_pool_size': len(_result_pool.pitch_data_pool),
+            'max_size': _result_pool.pool_size,
+        }
+    else:
+        stats['result_pool'] = {'status': 'not initialized'}
+    
+    return stats
+
+
+def reset_all_pool_stats():
+    """Reset statistics for all memory pools."""
+    if _trajectory_buffer is not None:
+        _trajectory_buffer.reset_stats()
+
+
+def print_pool_stats():
+    """Print formatted pool statistics for debugging."""
+    stats = get_all_pool_stats()
+    
+    print("\n" + "=" * 60)
+    print("MEMORY POOL STATISTICS")
+    print("=" * 60)
+    
+    # Trajectory buffer
+    tb = stats.get('trajectory_buffer', {})
+    if 'status' not in tb:
+        print(f"\n📦 Trajectory Buffer:")
+        print(f"   Buffers: {tb.get('buffer_count', 0)} x {tb.get('max_steps', 0)} steps")
+        print(f"   Acquisitions: {tb.get('total_acquisitions', 0)}")
+        print(f"   Hits: {tb.get('hits', 0)} | Misses: {tb.get('misses', 0)}")
+        print(f"   Efficiency: {tb.get('efficiency', 0):.1%}")
+        print(f"   Peak concurrent: {tb.get('peak_concurrent', 0)}")
+        print(f"   Current in use: {tb.get('current_in_use', 0)}")
+    else:
+        print(f"\n📦 Trajectory Buffer: {tb.get('status')}")
+    
+    # Result pool
+    rp = stats.get('result_pool', {})
+    if 'status' not in rp:
+        print(f"\n📦 Result Pool:")
+        print(f"   Result dicts available: {rp.get('result_pool_size', 0)}/{rp.get('max_size', 0)}")
+        print(f"   Pitch data available: {rp.get('pitch_data_pool_size', 0)}/{rp.get('max_size', 0)}")
+    else:
+        print(f"\n📦 Result Pool: {rp.get('status')}")
+    
+    print("=" * 60)
