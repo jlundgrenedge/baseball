@@ -313,15 +313,13 @@ class BattedBallSimulator:
             dt_to_use = self.dt
 
         # Phase 7: Use Rust-accelerated path when available
-        # Note: Rust path doesn't support wind, custom CD, or significant sidespin
-        # Falls back to Python path for these cases
+        # Rust now supports wind! Only falls back for custom CD or significant sidespin
         # Use abs() on backspin to handle topspin (negative backspin) correctly
         abs_backspin = abs(backspin_rpm)
         sidespin_ratio = abs(sidespin_rpm) / max(abs_backspin, 1.0) if abs_backspin > 0 else 0.0
         use_rust_path = (
             self.use_rust 
             and self._fast_sim is not None 
-            and abs(wind_speed) < 0.1  # No wind support in Rust yet
             and cd is None  # No custom CD support
             and sidespin_ratio < 0.3  # Only use Rust when sidespin is minor (<30% of backspin)
         )
@@ -329,9 +327,10 @@ class BattedBallSimulator:
         if use_rust_path:
             # Calculate effective total spin for Rust path
             total_spin = np.sqrt(backspin_rpm**2 + sidespin_rpm**2)
-            return self._simulate_rust_path(
+            return self._simulate_rust_path_with_wind(
                 exit_velocity, launch_angle, spray_angle,
-                total_spin, altitude, temperature, humidity,  # Use total spin
+                total_spin, altitude, temperature, humidity,
+                wind_speed, wind_direction,  # Pass wind parameters
                 initial_height, initial_position, max_time
             )
 
@@ -559,6 +558,117 @@ class BattedBallSimulator:
         # Create result object
         return BattedBallResult(trajectory_data, initial_conditions, env)
 
+    def _simulate_rust_path_with_wind(
+        self,
+        exit_velocity,
+        launch_angle,
+        spray_angle,
+        total_spin_rpm,
+        altitude,
+        temperature,
+        humidity,
+        wind_speed,
+        wind_direction,
+        initial_height,
+        initial_position,
+        max_time
+    ):
+        """
+        Fast path using Rust-accelerated trajectory calculation with wind support.
+        
+        Converts FastTrajectorySimulator output to BattedBallResult format.
+        Uses environment-specific air density for accurate physics.
+        """
+        # Import Rust library and lookup tables
+        import trajectory_rs
+        from .fast_trajectory import get_lookup_tables
+        
+        # Create environment for air density calculation
+        env = Environment(altitude, temperature, humidity)
+        
+        # Convert exit velocity to m/s
+        exit_velocity_ms = exit_velocity * MPH_TO_MS
+        
+        # Create spin axis (pure backspin)
+        spin_axis = np.array([0.0, 1.0, 0.0])
+        
+        # Determine initial position in meters
+        if initial_position is not None:
+            init_pos = np.array([
+                initial_position[0] * FEET_TO_METERS,
+                initial_position[1] * FEET_TO_METERS,
+                initial_position[2] * FEET_TO_METERS
+            ])
+        else:
+            if initial_height is None:
+                initial_height = 3.0
+            init_pos = np.array([0.0, 0.0, initial_height * FEET_TO_METERS])
+        
+        # Create initial state vector [x, y, z, vx, vy, vz]
+        launch_rad = np.deg2rad(launch_angle)
+        spray_rad = np.deg2rad(spray_angle)
+        vx = exit_velocity_ms * np.cos(launch_rad) * np.cos(spray_rad)
+        vy = exit_velocity_ms * np.cos(launch_rad) * np.sin(spray_rad)
+        vz = exit_velocity_ms * np.sin(launch_rad)
+        initial_state = np.array([init_pos[0], init_pos[1], init_pos[2], vx, vy, vz])
+        
+        # Calculate wind velocity in m/s (field coordinates)
+        # wind_direction: 0° = toward center field (tailwind), 180° = headwind
+        # x-component: toward outfield (positive = tailwind)
+        # y-component: lateral (positive = left-to-right crosswind)
+        wind_velocity_ms = wind_speed * MPH_TO_MS
+        wind_angle_rad = np.deg2rad(wind_direction)
+        wind_vx = wind_velocity_ms * np.cos(wind_angle_rad)
+        wind_vy = wind_velocity_ms * np.sin(wind_angle_rad)
+        wind_vz = 0.0  # Assume horizontal wind
+        wind_velocity = np.array([wind_vx, wind_vy, wind_vz])
+        
+        # Get lookup tables
+        cd_table, cl_table = get_lookup_tables()
+        
+        # Ball cross-sectional area (constant)
+        from .constants import BALL_RADIUS
+        cross_area = np.pi * BALL_RADIUS**2
+        
+        # Call Rust with wind support
+        positions, velocities, times = trajectory_rs.integrate_trajectory_with_wind(
+            initial_state,
+            self.dt,
+            max_time,
+            0.0,  # ground_level
+            wind_velocity,
+            spin_axis,
+            total_spin_rpm,
+            env.air_density,
+            cross_area,
+            cd_table,
+            cl_table
+        )
+        
+        # Convert to trajectory_data format
+        trajectory_data = {
+            'time': times,
+            'position': positions,
+            'velocity': velocities,
+        }
+        
+        # Store initial conditions
+        initial_conditions = {
+            'exit_velocity': exit_velocity,
+            'launch_angle': launch_angle,
+            'spray_angle': spray_angle,
+            'backspin_rpm': total_spin_rpm,
+            'sidespin_rpm': 0.0,
+            'total_spin_rpm': total_spin_rpm,
+            'altitude': altitude,
+            'temperature': temperature,
+            'humidity': humidity,
+            'wind_speed': wind_speed,
+            'wind_direction': wind_direction,
+        }
+        
+        # Create result object
+        return BattedBallResult(trajectory_data, initial_conditions, env)
     def simulate_contact(
         self,
         exit_velocity,

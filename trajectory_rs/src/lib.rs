@@ -80,9 +80,11 @@ fn lookup_cd_cl(
 /// Calculate aerodynamic forces (drag + Magnus) using lookup tables.
 ///
 /// Returns force components (fx, fy, fz) in Newtons.
+/// Wind velocity is subtracted from ball velocity to get relative velocity.
 #[inline(always)]
-fn aerodynamic_force(
+fn aerodynamic_force_with_wind(
     velocity: &[f64; 3],
+    wind_velocity: &[f64; 3],
     spin_axis: &[f64; 3],
     spin_rpm: f64,
     air_density: f64,
@@ -90,22 +92,35 @@ fn aerodynamic_force(
     cd_table: &ArrayView2<f64>,
     cl_table: &ArrayView2<f64>,
 ) -> [f64; 3] {
-    // Calculate velocity magnitude
-    let v_mag = (velocity[0].powi(2) + velocity[1].powi(2) + velocity[2].powi(2)).sqrt();
+    // Calculate relative velocity (ball velocity relative to air)
+    // When there's a tailwind, relative velocity is reduced
+    let rel_velocity = [
+        velocity[0] - wind_velocity[0],
+        velocity[1] - wind_velocity[1],
+        velocity[2] - wind_velocity[2],
+    ];
     
-    if v_mag < 1e-6 {
+    // Calculate relative velocity magnitude
+    let v_rel_mag = (rel_velocity[0].powi(2) + rel_velocity[1].powi(2) + rel_velocity[2].powi(2)).sqrt();
+    
+    if v_rel_mag < 1e-6 {
         return [0.0, 0.0, 0.0];
     }
     
-    // Normalize velocity
-    let v_unit = [velocity[0] / v_mag, velocity[1] / v_mag, velocity[2] / v_mag];
+    // Normalize relative velocity
+    let v_rel_unit = [
+        rel_velocity[0] / v_rel_mag, 
+        rel_velocity[1] / v_rel_mag, 
+        rel_velocity[2] / v_rel_mag
+    ];
     
-    // Get coefficients from lookup tables
-    let (cd, cl) = lookup_cd_cl(v_mag, spin_rpm, cd_table, cl_table);
+    // Get coefficients from lookup tables (based on relative velocity)
+    let (cd, cl) = lookup_cd_cl(v_rel_mag, spin_rpm, cd_table, cl_table);
     
-    // Drag force: F_d = 0.5 * C_d * rho * A * v²
-    let drag_mag = 0.5 * cd * air_density * cross_area * v_mag * v_mag;
-    let drag = [-drag_mag * v_unit[0], -drag_mag * v_unit[1], -drag_mag * v_unit[2]];
+    // Drag force: F_d = 0.5 * C_d * rho * A * v_rel²
+    // Drag opposes relative motion (not absolute motion)
+    let drag_mag = 0.5 * cd * air_density * cross_area * v_rel_mag * v_rel_mag;
+    let drag = [-drag_mag * v_rel_unit[0], -drag_mag * v_rel_unit[1], -drag_mag * v_rel_unit[2]];
     
     // Magnus force
     let mut magnus = [0.0, 0.0, 0.0];
@@ -120,14 +135,14 @@ fn aerodynamic_force(
                 spin_axis[2] / spin_mag,
             ];
             
-            // Magnus force magnitude
-            let magnus_mag = 0.5 * cl * air_density * cross_area * v_mag * v_mag;
+            // Magnus force magnitude (based on relative velocity)
+            let magnus_mag = 0.5 * cl * air_density * cross_area * v_rel_mag * v_rel_mag;
             
-            // Direction: cross product of velocity and spin axis
+            // Direction: cross product of relative velocity and spin axis
             let force_dir = [
-                v_unit[1] * spin_unit[2] - v_unit[2] * spin_unit[1],
-                v_unit[2] * spin_unit[0] - v_unit[0] * spin_unit[2],
-                v_unit[0] * spin_unit[1] - v_unit[1] * spin_unit[0],
+                v_rel_unit[1] * spin_unit[2] - v_rel_unit[2] * spin_unit[1],
+                v_rel_unit[2] * spin_unit[0] - v_rel_unit[0] * spin_unit[2],
+                v_rel_unit[0] * spin_unit[1] - v_rel_unit[1] * spin_unit[0],
             ];
             
             let force_dir_mag = (force_dir[0].powi(2) + force_dir[1].powi(2) + force_dir[2].powi(2)).sqrt();
@@ -144,6 +159,32 @@ fn aerodynamic_force(
     
     // Total force
     [drag[0] + magnus[0], drag[1] + magnus[1], drag[2] + magnus[2]]
+}
+
+/// Calculate aerodynamic forces (drag + Magnus) using lookup tables.
+///
+/// Returns force components (fx, fy, fz) in Newtons.
+/// No wind version for backwards compatibility.
+#[inline(always)]
+fn aerodynamic_force(
+    velocity: &[f64; 3],
+    spin_axis: &[f64; 3],
+    spin_rpm: f64,
+    air_density: f64,
+    cross_area: f64,
+    cd_table: &ArrayView2<f64>,
+    cl_table: &ArrayView2<f64>,
+) -> [f64; 3] {
+    aerodynamic_force_with_wind(
+        velocity,
+        &[0.0, 0.0, 0.0],  // No wind
+        spin_axis,
+        spin_rpm,
+        air_density,
+        cross_area,
+        cd_table,
+        cl_table,
+    )
 }
 
 /// Calculate derivative of state vector.
@@ -165,13 +206,14 @@ fn derivative(state: &[f64; 6], force: &[f64; 3]) -> [f64; 6] {
     [vx, vy, vz, ax, ay, az]
 }
 
-/// Perform one RK4 integration step.
+/// Perform one RK4 integration step with wind.
 ///
 /// This is the critical hot path - optimized for maximum performance.
 #[inline(always)]
-fn step_rk4(
+fn step_rk4_with_wind(
     state: &[f64; 6],
     dt: f64,
+    wind_velocity: &[f64; 3],
     spin_axis: &[f64; 3],
     spin_rpm: f64,
     air_density: f64,
@@ -194,25 +236,25 @@ fn step_rk4(
     
     // k1: derivative at beginning
     let velocity1 = [state[3], state[4], state[5]];
-    let force1 = aerodynamic_force(&velocity1, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+    let force1 = aerodynamic_force_with_wind(&velocity1, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
     let k1 = derivative(state, &force1);
     
     // k2: derivative at midpoint using k1
     let state2 = add_scaled(state, &k1, 0.5 * dt);
     let velocity2 = [state2[3], state2[4], state2[5]];
-    let force2 = aerodynamic_force(&velocity2, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+    let force2 = aerodynamic_force_with_wind(&velocity2, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
     let k2 = derivative(&state2, &force2);
     
     // k3: derivative at midpoint using k2
     let state3 = add_scaled(state, &k2, 0.5 * dt);
     let velocity3 = [state3[3], state3[4], state3[5]];
-    let force3 = aerodynamic_force(&velocity3, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+    let force3 = aerodynamic_force_with_wind(&velocity3, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
     let k3 = derivative(&state3, &force3);
     
     // k4: derivative at end using k3
     let state4 = add_scaled(state, &k3, dt);
     let velocity4 = [state4[3], state4[4], state4[5]];
-    let force4 = aerodynamic_force(&velocity4, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+    let force4 = aerodynamic_force_with_wind(&velocity4, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
     let k4 = derivative(&state4, &force4);
     
     // Weighted average: new = old + (dt/6) * (k1 + 2*k2 + 2*k3 + k4)
@@ -227,6 +269,23 @@ fn step_rk4(
     ]
 }
 
+/// Perform one RK4 integration step (no wind).
+///
+/// This is the critical hot path - optimized for maximum performance.
+#[inline(always)]
+fn step_rk4(
+    state: &[f64; 6],
+    dt: f64,
+    spin_axis: &[f64; 3],
+    spin_rpm: f64,
+    air_density: f64,
+    cross_area: f64,
+    cd_table: &ArrayView2<f64>,
+    cl_table: &ArrayView2<f64>,
+) -> [f64; 6] {
+    step_rk4_with_wind(state, dt, &[0.0, 0.0, 0.0], spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table)
+}
+
 /// Single trajectory integration result.
 struct TrajectoryResult {
     positions: Vec<[f64; 3]>,
@@ -234,12 +293,13 @@ struct TrajectoryResult {
     times: Vec<f64>,
 }
 
-/// Integrate a single trajectory until ground or max time.
-fn integrate_single_trajectory(
+/// Integrate a single trajectory until ground or max time (with wind support).
+fn integrate_single_trajectory_with_wind(
     initial_state: [f64; 6],
     dt: f64,
     max_time: f64,
     ground_level: f64,
+    wind_velocity: [f64; 3],
     spin_axis: [f64; 3],
     spin_rpm: f64,
     air_density: f64,
@@ -263,8 +323,8 @@ fn integrate_single_trajectory(
     
     // Integration loop
     while current_time < max_time && positions.len() < max_steps - 1 {
-        // Take RK4 step
-        state = step_rk4(&state, dt, &spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+        // Take RK4 step with wind
+        state = step_rk4_with_wind(&state, dt, &wind_velocity, &spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
         current_time += dt;
         
         // Store state
@@ -305,6 +365,27 @@ fn integrate_single_trajectory(
     TrajectoryResult { positions, velocities, times }
 }
 
+/// Integrate a single trajectory until ground or max time (no wind).
+fn integrate_single_trajectory(
+    initial_state: [f64; 6],
+    dt: f64,
+    max_time: f64,
+    ground_level: f64,
+    spin_axis: [f64; 3],
+    spin_rpm: f64,
+    air_density: f64,
+    cross_area: f64,
+    cd_table: &ArrayView2<f64>,
+    cl_table: &ArrayView2<f64>,
+) -> TrajectoryResult {
+    integrate_single_trajectory_with_wind(
+        initial_state, dt, max_time, ground_level,
+        [0.0, 0.0, 0.0],  // No wind
+        spin_axis, spin_rpm, air_density, cross_area,
+        cd_table, cl_table,
+    )
+}
+
 // ============================================================================
 // PyO3 Python Interface
 // ============================================================================
@@ -341,6 +422,63 @@ fn integrate_trajectory<'py>(
     let result = integrate_single_trajectory(
         init_state, dt, max_time, ground_level,
         spin_ax, spin_rpm, air_density, cross_area,
+        &cd, &cl,
+    );
+    
+    // Convert results to numpy arrays
+    let n = result.positions.len();
+    let mut positions = Array2::<f64>::zeros((n, 3));
+    let mut velocities = Array2::<f64>::zeros((n, 3));
+    let mut times = Array1::<f64>::zeros(n);
+    
+    for i in 0..n {
+        positions[[i, 0]] = result.positions[i][0];
+        positions[[i, 1]] = result.positions[i][1];
+        positions[[i, 2]] = result.positions[i][2];
+        velocities[[i, 0]] = result.velocities[i][0];
+        velocities[[i, 1]] = result.velocities[i][1];
+        velocities[[i, 2]] = result.velocities[i][2];
+        times[i] = result.times[i];
+    }
+    
+    Ok((positions.to_pyarray(py), velocities.to_pyarray(py), times.to_pyarray(py)))
+}
+
+/// Integrate a single trajectory with wind and return numpy arrays.
+#[pyfunction]
+#[pyo3(signature = (initial_state, dt, max_time, ground_level, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table))]
+fn integrate_trajectory_with_wind<'py>(
+    py: Python<'py>,
+    initial_state: PyReadonlyArray1<f64>,
+    dt: f64,
+    max_time: f64,
+    ground_level: f64,
+    wind_velocity: PyReadonlyArray1<f64>,
+    spin_axis: PyReadonlyArray1<f64>,
+    spin_rpm: f64,
+    air_density: f64,
+    cross_area: f64,
+    cd_table: PyReadonlyArray2<f64>,
+    cl_table: PyReadonlyArray2<f64>,
+) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>, Bound<'py, PyArray1<f64>>)> {
+    // Convert input arrays
+    let initial = initial_state.as_array();
+    let wind = wind_velocity.as_array();
+    let spin = spin_axis.as_array();
+    let cd = cd_table.as_array();
+    let cl = cl_table.as_array();
+    
+    let init_state = [
+        initial[0], initial[1], initial[2],
+        initial[3], initial[4], initial[5],
+    ];
+    let wind_vel = [wind[0], wind[1], wind[2]];
+    let spin_ax = [spin[0], spin[1], spin[2]];
+    
+    // Run integration with wind
+    let result = integrate_single_trajectory_with_wind(
+        init_state, dt, max_time, ground_level,
+        wind_vel, spin_ax, spin_rpm, air_density, cross_area,
         &cd, &cl,
     );
     
@@ -492,6 +630,7 @@ fn set_num_threads(n: usize) {
 #[pymodule]
 fn trajectory_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(integrate_trajectory, m)?)?;
+    m.add_function(wrap_pyfunction!(integrate_trajectory_with_wind, m)?)?;
     m.add_function(wrap_pyfunction!(integrate_trajectories_batch, m)?)?;
     m.add_function(wrap_pyfunction!(calculate_endpoints_batch, m)?)?;
     m.add_function(wrap_pyfunction!(get_num_threads, m)?)?;
