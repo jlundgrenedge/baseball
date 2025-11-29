@@ -353,22 +353,23 @@ BALL_DEFORMATION_ENERGY_LOSS = 0.70      # Energy lost in ball deformation (~70%
 TRAMPOLINE_ENERGY_RECOVERY = 0.95        # Energy recovery from bat barrel flex
 
 # Contact Offset Effects (Research-Based)
-# RECALIBRATED 2025-11-27 (v3): Final tuning at 0.052 for balanced EV variance
+# RECALIBRATED 2025-11-29 (v4): Reduced penalty for better hard-hit distribution
 # 
-# This creates the right spread between good contact (HRs) and poor contact (weak hits)
+# Phase 1.8b showed avg EV=89 mph but only 31% hard-hit rate (target 40%)
+# The offset penalty was too steep, compressing the distribution
 #
-# With TRUE bat speeds (~71 mph) and q_base=0.175:
+# With bat speed=73 mph at 50k and q_base=0.175:
 # Average offset ~1.3" (barrel error + timing + location difficulty)
 # 
-# With offset_penalty=0.052 per inch:
+# With offset_penalty=0.040 per inch (reduced from 0.052):
 # - Perfect contact (0"): q=0.175 → 99 mph EV (enables HRs)
-# - Good contact (0.5"): q=0.149 → 95 mph EV (hard hit)
-# - Typical contact (1.0"): q=0.123 → 91 mph EV
-# - Average contact (1.5"): q=0.097 → 86 mph EV
-# - Poor contact (2.0"): q=0.071 → 82 mph EV
+# - Good contact (0.5"): q=0.155 → 96 mph EV (hard hit)
+# - Typical contact (1.0"): q=0.135 → 93 mph EV (hard hit edge)
+# - Average contact (1.5"): q=0.115 → 89 mph EV
+# - Poor contact (2.0"): q=0.095 → 86 mph EV
 #
-# Target: ~38% hard-hit rate (95+ mph), avg EV ~88 mph, HR/FB ~12%
-OFFSET_EFFICIENCY_DEGRADATION = 0.052   # Efficiency loss per inch of offset
+# Target: ~40% hard-hit rate (95+ mph), avg EV ~88-89 mph, HR/FB ~12%
+OFFSET_EFFICIENCY_DEGRADATION = 0.040   # Efficiency loss per inch of offset (reduced from 0.052)
 HORIZONTAL_OFFSET_SPIN_FACTOR = 400.0    # rpm per inch of horizontal offset
 VERTICAL_OFFSET_SPIN_FACTOR = 500.0      # rpm per inch of vertical offset
 SPIN_INDEPENDENCE_FACTOR = 0.95          # How much bat overwrites pitch spin

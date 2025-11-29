@@ -4,51 +4,46 @@
 
 ---
 
-## ⚠️ PAUSED FOR PERFORMANCE OPTIMIZATION
+## 📊 CURRENT STATUS: Phase 1.8b Implemented
 
-**Status**: This implementation plan was paused after Phase 1.7.8 to pursue critical performance optimizations.
+**Status**: Phase 1.8b (Exit Velocity Fine-Tuning) implemented 2025-11-29.
 
-**Performance Work Completed** (December 2024 - January 2025):
-- ✅ **Phase 7: Rust Acceleration** - 5x game speedup (30s → 6.2s per game)
-  - Trajectory integration via native Rust code (PyO3 bindings)
-  - Full physics support: wind, backspin, topspin, sidespin
-  - 1000+ trajectories/sec, 158 pitches/sec
-  - Build: `cd trajectory_rs && maturin build --release && pip install target/wheels/*.whl`
-- ✅ Physics validation: 7/7 tests still passing
-- ✅ All prior BABIP fixes preserved and working
+**Phase 1.8 History**:
+| Version | Bat Speed (50k) | Avg EV | Hard Hit% | HR/FB | Runs/Game | Status |
+|---------|-----------------|--------|-----------|-------|-----------|--------|
+| Pre-1.8 | 75 mph | 93 mph | 46% | 16% | 5.67 | 🚨 Too high |
+| 1.8a | 71 mph | 86.5 mph | 19% | 6% | 3.96 | 🚨 Too low |
+| **1.8b** | **73 mph** | ~89 mph | ~35-40% | ~11-13% | ~4.3-4.7 | ⏳ Testing |
 
-**Impact on BABIP Work**:
-- Faster iteration cycles: 5-10 game tests now complete in ~30-60 seconds (was 3-5 minutes)
-- 162-game validation now takes ~17 minutes (was ~80+ minutes)
-- No changes to game physics or BABIP-related code
+**Phase 1.8b Change**: Split the difference - 73 mph at 50k rating
+- human_cap: 78 → 81 mph (produces 73 mph at 50k rating)
+- Expected: EV ~88-89 mph, Hard Hit ~35-40%, HR/FB ~11-13%
+- Physics validation: 7/7 tests passing ✅
 
-**Ready to Resume**: The simulation is now much faster for testing. When resuming BABIP work:
-1. Start with Phase 1.7.8 validation (162-game test with 23° variance)
-2. Expected: GB ~43%, LD ~25%, FB ~26%
-3. If LD% still too high, consider Phase 1.8 (Exit Velocity / Barrel Rate)
+**Ready for Validation**: Run 100+ game test to verify Phase 1.8b results.
 
 ---
 
 ## Executive Summary
 
-| Metric | Baseline | After Phase 1.5 | After Phase 1.6 (162 games) | After Phase 1.7 | Target | Status |
-|--------|----------|-----------------|----------------------------|-----------------|--------|--------|
-| **Overall BABIP** | ~0.45 | 0.265 | **0.273** | ⏳ PENDING | 0.295 | ⚠️ -0.02 low |
-| **Ground Ball Fielding %** | ~33% | ~75-80% | ~75-80% | ⏳ PENDING | ~76% | ✅ On target |
-| **K Rate** | ~32% | 31.5% | **21.5%** | ⏳ PENDING | 22% | ✅ **FIXED!** |
-| **BB Rate** | Unknown | 8.9% | **9.3%** | ⏳ PENDING | 8.5% | ✅ On target |
-| **Runs/Game** | ~7.3 | 3.62 | **4.84** | ⏳ PENDING | 4.5 | ✅ **FIXED!** |
-| **Batting Average** | Unknown | 0.193 | **0.230** | ⏳ PENDING | 0.248 | ⚠️ -18 pts low |
-| **GB%** | Unknown | 43% | **42%** | ⏳ PENDING | 45% | ✅ Close |
-| **LD%** | Unknown | 31% | **32%** | ⏳ PENDING | 21% | ❌ +11% high |
-| **FB%** | Unknown | 26% | **26%** | ⏳ PENDING | 34% | ❌ -8% low |
-| **K/9** | Unknown | 12.4 | **8.9** | ⏳ PENDING | 8.5 | ✅ **FIXED!** |
-| **Avg Exit Velocity** | Unknown | 93.3 mph | **93.2 mph** | ⏳ PENDING | 88 mph | ⚠️ +5 mph high |
-| **ERA** | Unknown | 3.62 | **4.84** | ⏳ PENDING | 4.25 | ✅ In range |
-| **ISO** | Unknown | Unknown | **0.161** | ⏳ PENDING | 0.150 | ✅ On target |
-| **HR/FB** | Unknown | Unknown | **15.0%** | ⏳ PENDING | 12.5% | ⚠️ +2.5% high |
+| Metric | Baseline | After Phase 1.6 | After 1000-game (Phase 1.7.8) | Target | Status |
+|--------|----------|-----------------|------------------------------|--------|--------|
+| **Overall BABIP** | ~0.45 | 0.273 | **0.283** | 0.295 | ✅ Close |
+| **K Rate** | ~32% | 21.5% | **22.4%** | 22% | ✅ **PERFECT!** |
+| **BB Rate** | Unknown | 9.3% | **9.0%** | 8.5% | ✅ On target |
+| **Runs/Game** | ~7.3 | 4.84 | **5.67** | 4.5 | 🚨 +1.17 high |
+| **Batting Average** | Unknown | 0.230 | **0.238** | 0.248 | ✅ Close |
+| **GB%** | Unknown | 42% | **41.6%** | 45% | ✅ Close |
+| **LD%** | Unknown | 32% | **29.7%** | 21% | ⚠️ +9% high |
+| **FB%** | Unknown | 26% | **28.7%** | 34% | ⚠️ -5% low |
+| **Avg Exit Velocity** | Unknown | 93.2 mph | **93.0 mph** | 88 mph | ⚠️ +5 mph high |
+| **ERA** | Unknown | 4.84 | **5.67** | 4.25 | 🚨 +1.42 high |
+| **ISO** | Unknown | 0.161 | **0.170** | 0.150 | ⚠️ +0.02 high |
+| **HR/FB** | Unknown | 15.0% | **15.9%** | 12.5% | ⚠️ +3.4% high |
+| **Hard Hit Rate** | Unknown | 46% | **45.8%** | 40% | ⚠️ +6% high |
+| **Barrel Rate** | Unknown | 35% | **34.1%** | 8% | 🚨 4x too high |
 
-**PHASE 1.6 VALIDATION COMPLETE** (2025-11-28): 162 games with random MLB teams - **MAJOR SUCCESS!**
+**1000-GAME VALIDATION** (2025-11-29): Major metrics stabilized, but runs/ERA too high due to exit velocity.
 
 **Summary: 7/10 MLB realism metrics now passing** ✅
 
@@ -202,10 +197,56 @@ Solution: Increase variance to spread more balls out of the narrow LD zone.
 
 **Physics Validation**: ✅ 7/7 tests passed
 
-### Phase 1.8: Exit Velocity / Barrel Rate Calibration (MEDIUM)
+### Phase 1.8: Exit Velocity / Barrel Rate Calibration ✅ IMPLEMENTED
+**Status**: ✅ IMPLEMENTED (2025-11-29)
 **Impact**: EV at 93 mph vs 88 mph (+5 mph), Barrel% at 34% vs 8% (+26%)
-**Root Cause**: Contact physics producing too much quality contact
-**Note**: This is driving high ISO (.185 vs .150) and high runs (5.39 vs 4.5)
+**Root Cause**: Bat speed mapping was 4 mph too high (75 mph at 50k vs MLB actual 71 mph)
+
+**1000-Game Validation Results (Before Phase 1.8)**:
+| Metric | Actual | Target | Gap | Status |
+|--------|--------|--------|-----|--------|
+| Exit Velocity | 93.0 mph | 88 mph | +5 mph | 🚨 |
+| Hard Hit Rate | 45.8% | 40% | +6% | ⚠️ |
+| Barrel Rate | 34.1% | 8% | +26% | 🚨 |
+| Runs/Game | 5.67 | 4.5 | +1.17 | 🚨 |
+| ERA | 5.67 | 4.25 | +1.42 | 🚨 |
+| HR/FB | 15.9% | 12.5% | +3.4% | ⚠️ |
+
+**Root Cause Analysis**:
+The exit velocity formula is: BBS = q × pitch_speed + (1 + q) × bat_speed
+
+With bat speed at 75 mph (old), average EV was ~93 mph.
+With bat speed at 71 mph (new), average EV should be ~88-89 mph.
+
+Each 1 mph increase in bat speed adds ~1.1 mph to exit velocity.
+Reducing bat speed from 75→71 mph should reduce EV by ~4-5 mph.
+
+**Changes Made** (2025-11-29):
+Modified `get_bat_speed_mph()` in `attributes.py`:
+```python
+# BEFORE:
+human_min=60.0, human_cap=85.0, super_cap=95.0
+# At 50k: 75 mph bat speed
+
+# AFTER:
+human_min=58.0, human_cap=78.0, super_cap=88.0
+# At 50k: 71 mph bat speed (matches true MLB Statcast average)
+```
+
+**Expected Outcomes After Phase 1.8**:
+| Metric | Before | Expected After | Target |
+|--------|--------|----------------|--------|
+| Exit Velocity | 93.0 mph | ~88-89 mph | 88 mph |
+| Hard Hit Rate | 45.8% | ~38-42% | 40% |
+| Runs/Game | 5.67 | ~4.3-4.8 | 4.5 |
+| ERA | 5.67 | ~4.0-4.5 | 4.25 |
+| HR/FB | 15.9% | ~12-14% | 12.5% |
+
+**Physics Validation**: ✅ 7/7 tests passing
+
+**Next Step**: Run 100+ game validation to verify Phase 1.8 results
+
+---
 
 ### Phase 2: Player Attribute Pipeline (LOW - After tuning complete)
 **Impact**: Use actual Statcast data (bat speed, squared-up rate) instead of derived values
@@ -1219,6 +1260,43 @@ python -c "from batted_ball.ground_ball_interception import *; test_interception
 | 2025-01 | PERF | Physics validation: 7/7 tests still passing | ✅ |
 | 2025-01 | PERF | Updated documentation (PERFORMANCE_IMPLEMENTATION_PLAN.md, README.md, CLAUDE.md) | ✅ |
 | 2025-01 | - | **Ready to resume BABIP work with faster testing** | ⏳ |
+| **2025-11-29** | **1.7.8** | **1000-game validation completed** | ✅ |
+| 2025-11-29 | 1.7.8 | Results: K% 22.4%, BB% 9.0%, BABIP 0.283, Runs/Game 5.67 | ✅ |
+| 2025-11-29 | 1.7.8 | Identified: EV 93 mph (target 88), Hard Hit 45.8% (target 40%) | ✅ |
+| 2025-11-29 | 1.8 | Root cause: Bat speed mapping 4 mph too high (75 vs 71 mph at 50k) | ✅ |
+| 2025-11-29 | 1.8 | **Reduced bat speed mapping**: human_cap 85→78, produces 71 mph at 50k | ✅ |
+| 2025-11-29 | 1.8 | Physics validation: 7/7 tests passing | ✅ |
+| 2025-11-29 | 1.8 | Expected: EV ~88 mph, Runs/Game ~4.5 | ⏳ PENDING |
+| 2025-11-29 | 1.8 | Awaiting validation test (100+ games) | ⏳ |
+
+---
+
+### 1000-Game Validation Results (Phase 1.7.8, 2025-11-29) ⚠️ EV TOO HIGH
+
+**Test Configuration**:
+- 1000 games with random MLB teams
+- Total time: 4077 seconds (67.9 minutes)
+- Speed: 14.7 games/minute
+
+**Results Summary**:
+| Metric | Actual | Target | Gap | Status |
+|--------|--------|--------|-----|--------|
+| K% | 22.4% | 22% | +0.4% | ✅ |
+| BB% | 9.0% | 8.5% | +0.5% | ✅ |
+| BABIP | 0.283 | 0.295 | -0.012 | ✅ |
+| Batting Avg | 0.238 | 0.248 | -0.010 | ✅ |
+| Runs/Game | 5.67 | 4.5 | +1.17 | 🚨 |
+| ERA | 5.67 | 4.25 | +1.42 | 🚨 |
+| Exit Velocity | 93.0 mph | 88 mph | +5 mph | 🚨 |
+| Hard Hit Rate | 45.8% | 40% | +5.8% | ⚠️ |
+| Barrel Rate | 34.1% | 8% | +26% | 🚨 |
+| HR/FB | 15.9% | 12.5% | +3.4% | ⚠️ |
+| GB% | 41.6% | 45% | -3.4% | ⚠️ |
+| LD% | 29.7% | 21% | +8.7% | ⚠️ |
+| FB% | 28.7% | 34% | -5.3% | ⚠️ |
+| ISO | 0.170 | 0.150 | +0.020 | ⚠️ |
+
+**Phase 1.8 Fix Applied**: Reduced bat speed from 75→71 mph at 50k rating
 
 ---
 
@@ -1901,6 +1979,7 @@ These additional stats would help diagnose specific issues and validate fixes mo
 
 ---
 
-*Last Updated: 2025-01-06 (Added performance optimization notes)*
-*BABIP Work Paused: 2025-11-28 at Phase 1.7.8*
-*Performance Work Completed: 2025-01-06 (Phase 7 Rust acceleration)*
+*Last Updated: 2025-11-29 (Phase 1.8 implemented - bat speed reduction for EV calibration)*
+*BABIP Work Resumed: 2025-11-29*
+*1000-Game Validation: K% 22.4%, BB% 9.0%, BABIP 0.283, Runs/Game 5.67*
+*Phase 1.8: Reduced bat speed 75→71 mph to target 88 mph avg EV*

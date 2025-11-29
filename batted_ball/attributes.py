@@ -161,15 +161,20 @@ class HitterAttributes:
         PHASE 3 UPDATE: If actual_bat_speed_mph was provided (from Statcast bat tracking),
         use that directly instead of deriving from rating. This uses real measured data.
 
-        Anchors (recalibrated 2025-11-19 to fix low exit velocities):
-        - 0: 60 mph (minimum MLB capability - raised from 52 mph)
-        - 50k: 75 mph (average MLB - raised from 70 mph for realistic exit velos)
-        - 85k: 85 mph (elite MLB - top 10%, raised from 80 mph)
-        - 100k: 95 mph (superhuman - raised from 92 mph)
+        Anchors (RECALIBRATED 2025-11-29 Phase 1.8d for MLB-realistic EV):
+        - 0: 59 mph (minimum MLB capability)
+        - 50k: 72 mph (average MLB - final tuning)
+        - 85k: 80 mph (elite MLB - top 10%)
+        - 100k: 90 mph (superhuman)
 
-        Rationale: Previous mapping produced exit velocities of 60-85 mph with q=0.05-0.12,
-        far below MLB average of 88 mph. New mapping produces 85-95 mph exit velocities
-        with same collision efficiencies, enabling realistic power hitting and home runs.
+        Phase 1.8 History:
+        - v1 (75 mph at 50k): EV=93 mph, HHR=46%, HR/FB=16% → too high
+        - v2 (71 mph at 50k): EV=86.5 mph, HHR=19%, HR/FB=6% → too low
+        - v3 (73 mph at 50k): EV=89.4 mph, HHR=31%, HR/FB=8.4% → power too low
+        - v3+offset fix (73 mph, 0.040 offset): EV=90.7 mph, HHR=36%, HR/FB=9.3% → EV slightly high
+        - v4 (72 mph at 50k): Target EV=89 mph, HHR=~36%, HR/FB=~9-10%
+        
+        Each 1 mph bat speed ≈ 1.6 mph exit velocity change (from observed data).
         """
         # PHASE 3: Use actual Statcast bat speed if available
         if self._actual_bat_speed_mph is not None:
@@ -178,9 +183,9 @@ class HitterAttributes:
         # Fallback: derive from BAT_SPEED rating
         return piecewise_logistic_map(
             self.BAT_SPEED,
-            human_min=60.0,  # Raised from 52.0
-            human_cap=85.0,  # Raised from 80.0
-            super_cap=95.0   # Raised from 92.0
+            human_min=59.0,  # Adjusted
+            human_cap=80.0,  # Produces 72 mph at 50k rating
+            super_cap=90.0   # Adjusted
         )
 
     def get_attack_angle_mean_deg(self) -> float:
