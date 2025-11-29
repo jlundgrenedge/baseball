@@ -313,24 +313,19 @@ class BattedBallSimulator:
             dt_to_use = self.dt
 
         # Phase 7: Use Rust-accelerated path when available
-        # Rust now supports wind! Only falls back for custom CD or significant sidespin
-        # Use abs() on backspin to handle topspin (negative backspin) correctly
-        abs_backspin = abs(backspin_rpm)
-        sidespin_ratio = abs(sidespin_rpm) / max(abs_backspin, 1.0) if abs_backspin > 0 else 0.0
+        # Rust now supports wind and sidespin! Only falls back for custom CD
         use_rust_path = (
             self.use_rust 
             and self._fast_sim is not None 
             and cd is None  # No custom CD support
-            and sidespin_ratio < 0.3  # Only use Rust when sidespin is minor (<30% of backspin)
         )
         
         if use_rust_path:
-            # Calculate effective total spin for Rust path
-            total_spin = np.sqrt(backspin_rpm**2 + sidespin_rpm**2)
             return self._simulate_rust_path_with_wind(
                 exit_velocity, launch_angle, spray_angle,
-                total_spin, altitude, temperature, humidity,
-                wind_speed, wind_direction,  # Pass wind parameters
+                backspin_rpm, sidespin_rpm,  # Pass both spin components
+                altitude, temperature, humidity,
+                wind_speed, wind_direction,
                 initial_height, initial_position, max_time
             )
 
@@ -563,7 +558,8 @@ class BattedBallSimulator:
         exit_velocity,
         launch_angle,
         spray_angle,
-        total_spin_rpm,
+        backspin_rpm,
+        sidespin_rpm,
         altitude,
         temperature,
         humidity,
@@ -574,7 +570,7 @@ class BattedBallSimulator:
         max_time
     ):
         """
-        Fast path using Rust-accelerated trajectory calculation with wind support.
+        Fast path using Rust-accelerated trajectory calculation with wind and sidespin.
         
         Converts FastTrajectorySimulator output to BattedBallResult format.
         Uses environment-specific air density for accurate physics.
@@ -589,8 +585,15 @@ class BattedBallSimulator:
         # Convert exit velocity to m/s
         exit_velocity_ms = exit_velocity * MPH_TO_MS
         
-        # Create spin axis (pure backspin)
-        spin_axis = np.array([0.0, 1.0, 0.0])
+        # Create spin axis from backspin and sidespin (matching Python physics)
+        # Backspin axis: [0, 1, 0] (y-axis)
+        # Sidespin axis: [0, 0, 1] (z-axis)
+        spin_vector = np.array([0.0, backspin_rpm, sidespin_rpm])
+        total_spin_rpm = np.linalg.norm(spin_vector)
+        if total_spin_rpm > 0.1:
+            spin_axis = spin_vector / total_spin_rpm
+        else:
+            spin_axis = np.array([0.0, 1.0, 0.0])  # Default to backspin axis
         
         # Determine initial position in meters
         if initial_position is not None:
@@ -657,8 +660,8 @@ class BattedBallSimulator:
             'exit_velocity': exit_velocity,
             'launch_angle': launch_angle,
             'spray_angle': spray_angle,
-            'backspin_rpm': total_spin_rpm,
-            'sidespin_rpm': 0.0,
+            'backspin_rpm': backspin_rpm,
+            'sidespin_rpm': sidespin_rpm,
             'total_spin_rpm': total_spin_rpm,
             'altitude': altitude,
             'temperature': temperature,
@@ -669,6 +672,7 @@ class BattedBallSimulator:
         
         # Create result object
         return BattedBallResult(trajectory_data, initial_conditions, env)
+
     def simulate_contact(
         self,
         exit_velocity,
