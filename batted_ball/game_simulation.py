@@ -7,7 +7,7 @@ a full 9-inning game with detailed tracking and output.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Union
 from enum import Enum
 import random
 import sys
@@ -20,6 +20,7 @@ from .play_simulation import PlaySimulator
 from .play_outcome import PlayResult, PlayOutcome
 from .defense_factory import create_standard_defense
 from .at_bat import AtBatSimulator
+from .constants import SimulationMode
 from .attributes import (
     create_power_hitter,
     create_balanced_hitter,
@@ -27,7 +28,6 @@ from .attributes import (
     create_starter_pitcher,
     create_reliever_pitcher
 )
-
 
 class BaseState(Enum):
     """Represents which bases have runners"""
@@ -447,7 +447,18 @@ class PlayByPlayEvent:
 class GameSimulator:
     """Simulates a complete baseball game"""
 
-    def __init__(self, away_team: Team, home_team: Team, verbose: bool = True, log_file: str = None, ballpark: str = 'generic', debug_metrics: int = 0, wind_enabled: bool = True, starter_innings: int = 0):
+    def __init__(
+        self,
+        away_team: Team,
+        home_team: Team,
+        verbose: bool = True,
+        log_file: str = None,
+        ballpark: str = 'generic',
+        debug_metrics: int = 0,
+        wind_enabled: bool = True,
+        starter_innings: int = 0,
+        simulation_mode: Union[SimulationMode, str] = None,
+    ):
         """
         Initialize game simulator.
 
@@ -471,6 +482,11 @@ class GameSimulator:
             Number of innings for starting pitcher before bullpen.
             0 = no automatic changes (default, traditional behavior)
             5 = starter goes 5 innings, then random relievers each inning
+        simulation_mode : SimulationMode or str, optional
+            Simulation speed/accuracy mode. Can be:
+            - SimulationMode enum value (ACCURATE, FAST, ULTRA_FAST, EXTREME)
+            - String: "accurate", "fast", "ultra_fast", "extreme"
+            Defaults to ACCURATE for single games, ULTRA_FAST recommended for bulk.
         """
         self.away_team = away_team
         self.home_team = home_team
@@ -480,6 +496,20 @@ class GameSimulator:
         self.game_state = GameState()
         self.play_by_play: List[PlayByPlayEvent] = []
         self.starter_innings = starter_innings  # When to switch to bullpen
+
+        # Parse simulation mode
+        if simulation_mode is None:
+            self.simulation_mode = SimulationMode.ACCURATE
+        elif isinstance(simulation_mode, str):
+            mode_map = {
+                "accurate": SimulationMode.ACCURATE,
+                "fast": SimulationMode.FAST,
+                "ultra_fast": SimulationMode.ULTRA_FAST,
+                "extreme": SimulationMode.EXTREME,
+            }
+            self.simulation_mode = mode_map.get(simulation_mode.lower(), SimulationMode.ACCURATE)
+        else:
+            self.simulation_mode = simulation_mode
 
         # Generate random wind conditions for this game (Phase 2C)
         # Realistic MLB wind distribution:
@@ -673,7 +703,8 @@ class GameSimulator:
             batter,
             wind_speed=self.wind_speed,
             wind_direction=self.wind_direction,
-            metrics_collector=self.metrics_collector
+            metrics_collector=self.metrics_collector,
+            simulation_mode=self.simulation_mode,
         )
 
         # Simulate the at-bat to get batted ball

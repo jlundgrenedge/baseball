@@ -16,6 +16,8 @@ from .constants import (
     DT_FAST,
     MAX_SIMULATION_TIME,
     GROUND_LEVEL,
+    SimulationMode,
+    get_dt_for_mode,
 )
 from .environment import Environment
 from .aerodynamics import AerodynamicForces, create_spin_axis
@@ -195,16 +197,19 @@ class BattedBallSimulator:
     Combines all physics components to simulate realistic ball flight.
     """
 
-    def __init__(self, dt=DT_DEFAULT):
+    def __init__(self, dt=DT_DEFAULT, simulation_mode=None):
         """
         Initialize simulator.
 
         Parameters
         ----------
         dt : float
-            Time step for integration in seconds
+            Time step for integration in seconds (overrides simulation_mode if set)
+        simulation_mode : SimulationMode, optional
+            Simulation speed/accuracy mode. Defaults to ACCURATE.
         """
-        self.dt = dt
+        self.simulation_mode = simulation_mode or SimulationMode.ACCURATE
+        self.dt = dt if dt != DT_DEFAULT else get_dt_for_mode(self.simulation_mode)
 
     def simulate(
         self,
@@ -223,7 +228,8 @@ class BattedBallSimulator:
         cd=None,
         method='rk4',
         max_time=MAX_SIMULATION_TIME,
-        fast_mode=False
+        fast_mode=False,
+        simulation_mode=None
     ):
         """
         Simulate a batted ball trajectory.
@@ -261,16 +267,24 @@ class BattedBallSimulator:
         max_time : float
             Maximum simulation time in seconds
         fast_mode : bool
+            DEPRECATED: Use simulation_mode instead.
             If True, uses larger time step (2ms vs 1ms) for ~2x speedup
             with minimal accuracy loss (<1%). Recommended for bulk simulations.
+        simulation_mode : SimulationMode, optional
+            Simulation speed/accuracy mode. Overrides fast_mode if specified.
 
         Returns
         -------
         BattedBallResult
             Object containing trajectory and derived quantities
         """
-        # Use fast time step if fast_mode is enabled
-        dt_to_use = DT_FAST if fast_mode else self.dt
+        # Determine time step based on mode
+        if simulation_mode is not None:
+            dt_to_use = get_dt_for_mode(simulation_mode)
+        elif fast_mode:
+            dt_to_use = DT_FAST
+        else:
+            dt_to_use = self.dt
 
         # Create environment
         env = Environment(altitude, temperature, humidity)

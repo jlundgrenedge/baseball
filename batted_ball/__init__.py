@@ -103,6 +103,7 @@ from .ballpark import (
 )
 
 from .constants import *
+from .constants import SimulationMode, get_dt_for_mode
 
 # Performance optimization modules (optional imports)
 try:
@@ -144,6 +145,10 @@ __version__ = '1.1.0'
 __author__ = 'Baseball Physics Team'
 
 __all__ = [
+    # Simulation modes
+    'SimulationMode',
+    'get_dt_for_mode',
+    
     # Core trajectory simulation
     'BattedBallSimulator',
     'BattedBallResult',

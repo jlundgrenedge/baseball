@@ -3,6 +3,56 @@ Physical constants and baseball specifications for trajectory simulation.
 """
 
 import math
+from enum import Enum
+
+
+class SimulationMode(Enum):
+    """
+    Simulation accuracy/speed tradeoff modes.
+    
+    Higher speed modes use larger time steps, trading accuracy for performance.
+    Use ACCURATE for physics validation and research.
+    Use FAST for single games with full accuracy.
+    Use ULTRA_FAST for bulk simulations (162+ games).
+    Use EXTREME for massive Monte Carlo runs (1000+ games).
+    
+    Expected speedups (relative to ACCURATE):
+    - ACCURATE: 1x (baseline, 1ms timestep)
+    - FAST: ~2x (2ms timestep, <1% accuracy loss)
+    - ULTRA_FAST: ~5x (5ms timestep, <5% accuracy loss)
+    - EXTREME: ~10x (10ms timestep, ~10% accuracy loss)
+    """
+    ACCURATE = "accurate"      # DT_DEFAULT (1ms) - validation, research
+    FAST = "fast"              # DT_FAST (2ms) - single games
+    ULTRA_FAST = "ultra_fast"  # DT_ULTRA_FAST (5ms) - bulk sims  
+    EXTREME = "extreme"        # DT_EXTREME (10ms) - massive Monte Carlo
+
+
+# Time step mapping for each simulation mode
+SIMULATION_MODE_DT = {
+    SimulationMode.ACCURATE: 0.001,    # DT_DEFAULT
+    SimulationMode.FAST: 0.002,        # DT_FAST
+    SimulationMode.ULTRA_FAST: 0.005,  # DT_ULTRA_FAST
+    SimulationMode.EXTREME: 0.010,     # DT_EXTREME
+}
+
+
+def get_dt_for_mode(mode: SimulationMode) -> float:
+    """
+    Get the time step for a given simulation mode.
+    
+    Parameters
+    ----------
+    mode : SimulationMode
+        The simulation mode
+        
+    Returns
+    -------
+    float
+        Time step in seconds
+    """
+    return SIMULATION_MODE_DT.get(mode, 0.001)
+
 
 # ============================================================================
 # FUNDAMENTAL PHYSICAL CONSTANTS
@@ -131,6 +181,8 @@ DT_DEFAULT = 0.001  # 1 millisecond (good balance of accuracy and speed)
 DT_FINE = 0.0005    # 0.5 millisecond (higher accuracy)
 DT_COARSE = 0.005   # 5 milliseconds (faster, less accurate)
 DT_FAST = 0.002     # 2 milliseconds (for bulk simulations - 2x faster, <1% accuracy loss)
+DT_ULTRA_FAST = 0.005  # 5 milliseconds (for Monte Carlo - ~5x faster, <5% accuracy loss)
+DT_EXTREME = 0.010     # 10 milliseconds (for massive batches - ~10x faster, ~10% accuracy loss)
 
 # Maximum simulation time (to prevent infinite loops)
 MAX_SIMULATION_TIME = 10.0  # seconds

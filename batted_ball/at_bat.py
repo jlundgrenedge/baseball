@@ -30,6 +30,7 @@ from .constants import (
     STRIKE_ZONE_TOP,
     V2_PITCHER_CONTROL_MODULE_ENABLED,
     V2_UMPIRE_MODEL_ENABLED,
+    SimulationMode,
 )
 
 
@@ -86,6 +87,7 @@ class AtBatSimulator:
         wind_speed: float = 0.0,
         wind_direction: float = 0.0,
         fast_mode: bool = False,
+        simulation_mode: SimulationMode = None,
         metrics_collector=None,
         debug_collector=None,
         catcher_framing_rating: float = 50000.0,
@@ -112,8 +114,12 @@ class AtBatSimulator:
             Wind direction in degrees (default: 0 = straight to center field)
             0° = tailwind, 90° = left-to-right crosswind, 180° = headwind
         fast_mode : bool
+            DEPRECATED: Use simulation_mode instead.
             If True, uses faster simulation with larger time steps (~2x speedup)
             Recommended for bulk simulations (1000+ at-bats)
+        simulation_mode : SimulationMode, optional
+            Simulation speed/accuracy mode. Defaults to ACCURATE.
+            Use ULTRA_FAST or EXTREME for bulk simulations.
         metrics_collector : SimMetricsCollector, optional
             Metrics collector for debug output (default: None = no metrics)
         debug_collector : DebugMetricsCollector, optional
@@ -129,15 +135,25 @@ class AtBatSimulator:
         self.humidity = humidity
         self.wind_speed = wind_speed
         self.wind_direction = wind_direction
-        self.fast_mode = fast_mode
         self.metrics_collector = metrics_collector
         self.debug_collector = debug_collector
         self.catcher_framing_rating = catcher_framing_rating
+        
+        # Determine simulation mode
+        if simulation_mode is not None:
+            self.simulation_mode = simulation_mode
+        elif fast_mode:
+            self.simulation_mode = SimulationMode.FAST
+        else:
+            self.simulation_mode = SimulationMode.ACCURATE
+        
+        # Keep fast_mode for backward compatibility
+        self.fast_mode = self.simulation_mode in (SimulationMode.FAST, SimulationMode.ULTRA_FAST, SimulationMode.EXTREME)
 
         # Create physics simulators
         self.pitch_sim = PitchSimulator()
         self.contact_model = ContactModel()
-        self.batted_ball_sim = BattedBallSimulator()
+        self.batted_ball_sim = BattedBallSimulator(simulation_mode=self.simulation_mode)
 
         # V2 Phase 2B: Create pitcher control and umpire models
         if V2_PITCHER_CONTROL_MODULE_ENABLED:

@@ -5,6 +5,7 @@ This module provides ultra-fast trajectory calculations by using:
 1. Numba JIT-compiled integration (5-10× speedup)
 2. Pre-allocated buffers to reduce memory allocation
 3. Simplified interface for batch processing
+4. Multiple speed modes (ACCURATE, FAST, ULTRA_FAST, EXTREME)
 
 Use this for high-volume simulations where maximum speed is critical.
 """
@@ -18,7 +19,11 @@ from .constants import (
     CD_BASE,
     DT_DEFAULT,
     DT_FAST,
+    DT_ULTRA_FAST,
+    DT_EXTREME,
     RHO_SEA_LEVEL,
+    SimulationMode,
+    get_dt_for_mode,
 )
 
 
@@ -30,13 +35,15 @@ class FastTrajectorySimulator:
     leveraging fully JIT-compiled integration and force calculation loops.
 
     Performance improvements over standard simulator:
-    - Normal mode: ~5-10× faster due to JIT compilation
-    - Fast mode (larger dt): Additional 2× speedup
-    - Combined: Up to 20× faster than original implementation
+    - ACCURATE mode: ~5-10× faster than non-JIT due to JIT compilation
+    - FAST mode (2ms dt): Additional 2× speedup
+    - ULTRA_FAST mode (5ms dt): ~5× speedup vs ACCURATE
+    - EXTREME mode (10ms dt): ~10× speedup vs ACCURATE
 
     Example
     -------
-    >>> sim = FastTrajectorySimulator(fast_mode=True)
+    >>> from batted_ball.constants import SimulationMode
+    >>> sim = FastTrajectorySimulator(simulation_mode=SimulationMode.ULTRA_FAST)
     >>> result = sim.simulate_batted_ball(
     ...     exit_velocity=45.0,  # m/s
     ...     launch_angle=30.0,   # degrees
@@ -53,6 +60,7 @@ class FastTrajectorySimulator:
         cd_base=CD_BASE,
         fast_mode=False,
         dt=None,
+        simulation_mode=None,
     ):
         """
         Initialize fast trajectory simulator.
@@ -64,21 +72,33 @@ class FastTrajectorySimulator:
         cd_base : float
             Base drag coefficient (default from constants)
         fast_mode : bool
+            DEPRECATED: Use simulation_mode instead.
             If True, use larger time step for ~2× speedup with minimal accuracy loss
         dt : float, optional
-            Custom time step in seconds. If None, uses DT_DEFAULT or DT_FAST
+            Custom time step in seconds. If None, uses mode-appropriate default.
+            Overrides simulation_mode if specified.
+        simulation_mode : SimulationMode, optional
+            Simulation speed/accuracy mode. If None, defaults to ACCURATE
+            (or FAST if fast_mode=True for backward compatibility)
         """
         self.air_density = air_density
         self.cd_base = cd_base
         self.cross_area = BALL_CROSS_SECTIONAL_AREA
 
+        # Determine simulation mode
+        if simulation_mode is not None:
+            self.simulation_mode = simulation_mode
+        elif fast_mode:
+            # Backward compatibility: fast_mode=True -> FAST mode
+            self.simulation_mode = SimulationMode.FAST
+        else:
+            self.simulation_mode = SimulationMode.ACCURATE
+
         # Set time step
         if dt is not None:
             self.dt = dt
-        elif fast_mode:
-            self.dt = DT_FAST  # 2ms for ~2× speedup
         else:
-            self.dt = DT_DEFAULT  # 1ms for high accuracy
+            self.dt = get_dt_for_mode(self.simulation_mode)
 
     def simulate_batted_ball(
         self,
@@ -277,17 +297,27 @@ class BatchTrajectorySimulator:
     in a loop when batch size > 100.
     """
 
-    def __init__(self, fast_mode=False):
+    def __init__(self, fast_mode=False, simulation_mode=None):
         """
         Initialize batch simulator.
 
         Parameters
         ----------
         fast_mode : bool
+            DEPRECATED: Use simulation_mode instead.
             Use fast mode (larger time step) for all simulations
+        simulation_mode : SimulationMode, optional
+            Simulation speed/accuracy mode. Defaults to ULTRA_FAST for batches.
         """
-        self.fast_mode = fast_mode
-        self.base_simulator = FastTrajectorySimulator(fast_mode=fast_mode)
+        # Default to ULTRA_FAST for batch processing
+        if simulation_mode is not None:
+            self.simulation_mode = simulation_mode
+        elif fast_mode:
+            self.simulation_mode = SimulationMode.FAST
+        else:
+            self.simulation_mode = SimulationMode.ULTRA_FAST
+            
+        self.base_simulator = FastTrajectorySimulator(simulation_mode=self.simulation_mode)
 
     def simulate_batch(
         self,
@@ -343,7 +373,7 @@ class BatchTrajectorySimulator:
         return results
 
 
-def benchmark_jit_speedup(n_trajectories=100, fast_mode=False):
+def benchmark_jit_speedup(n_trajectories=100, fast_mode=False, simulation_mode=None):
     """
     Benchmark JIT speedup vs standard implementation.
 
@@ -352,7 +382,9 @@ def benchmark_jit_speedup(n_trajectories=100, fast_mode=False):
     n_trajectories : int
         Number of trajectories to simulate
     fast_mode : bool
-        Use fast mode (larger time step)
+        DEPRECATED: Use simulation_mode instead.
+    simulation_mode : SimulationMode, optional
+        Simulation speed/accuracy mode
 
     Returns
     -------
@@ -361,8 +393,12 @@ def benchmark_jit_speedup(n_trajectories=100, fast_mode=False):
     """
     import time
 
+    # Determine mode
+    if simulation_mode is None:
+        simulation_mode = SimulationMode.FAST if fast_mode else SimulationMode.ACCURATE
+
     # Create simulator
-    sim = FastTrajectorySimulator(fast_mode=fast_mode)
+    sim = FastTrajectorySimulator(simulation_mode=simulation_mode)
 
     # Test parameters
     exit_velocity = 45.0  # m/s
@@ -392,5 +428,6 @@ def benchmark_jit_speedup(n_trajectories=100, fast_mode=False):
         'total_time': elapsed,
         'per_trajectory': per_trajectory,
         'trajectories_per_second': n_trajectories / elapsed,
-        'fast_mode': fast_mode,
+        'simulation_mode': simulation_mode.value,
+        'dt': sim.dt,
     }
