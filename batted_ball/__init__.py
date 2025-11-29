@@ -141,7 +141,7 @@ try:
 except ImportError:
     _PYBASEBALL_INTEGRATION_AVAILABLE = False
 
-__version__ = '1.3.1'
+__version__ = '1.3.2'
 __author__ = 'Baseball Physics Team'
 
 __all__ = [
@@ -285,3 +285,23 @@ try:
     ])
 except ImportError:
     _FAST_GROUND_BALL_AVAILABLE = False
+
+# Ground ball physics with Rust integration (migrated in Phase 8)
+from .ground_ball_physics import (
+    GroundBallSimulator,
+    GroundBallResult,
+    is_rust_ground_ball_available as is_rust_physics_available,
+)
+from .ground_ball_interception import (
+    GroundBallInterceptor,
+    GroundBallInterceptionResult,
+    is_rust_ground_ball_interception_available,
+)
+__all__.extend([
+    'GroundBallSimulator',
+    'GroundBallResult',
+    'GroundBallInterceptor',
+    'GroundBallInterceptionResult',
+    'is_rust_physics_available',
+    'is_rust_ground_ball_interception_available',
+])

@@ -13,6 +13,11 @@ This module uses FIELD COORDINATES exclusively for positions and velocities:
 Velocities from BattedBallResult are converted from trajectory coordinates
 to field coordinates using convert_velocity_trajectory_to_field() at the entry
 point (find_best_interception) to ensure consistency throughout calculations.
+
+RUST ACCELERATION:
+When the trajectory_rs Rust library is available, this module automatically
+uses the native Rust implementation for significant performance gains (~4x).
+The Python implementation is kept as a fallback.
 """
 
 import numpy as np
@@ -22,9 +27,28 @@ from .field_layout import FieldPosition
 from .fielding import Fielder
 from .constants import (
     METERS_TO_FEET, FEET_TO_METERS, MPH_TO_MS, MS_TO_MPH,
-    GRAVITY, GROUND_BALL_AIR_RESISTANCE
+    GRAVITY, GROUND_BALL_AIR_RESISTANCE,
+    GROUND_BALL_COR_GRASS, GROUND_BALL_COR_TURF, GROUND_BALL_COR_DIRT,
+    ROLLING_FRICTION_GRASS, ROLLING_FRICTION_TURF, ROLLING_FRICTION_DIRT,
 )
 from .trajectory import convert_velocity_trajectory_to_field
+
+# Try to import Rust ground ball functions
+_RUST_GROUND_BALL_AVAILABLE = False
+try:
+    from trajectory_rs import (
+        find_best_interception as _rust_find_best_interception,
+        get_ball_position_at_time as _rust_get_ball_position_at_time,
+        calculate_fielder_travel_time as _rust_calculate_fielder_travel_time,
+    )
+    _RUST_GROUND_BALL_AVAILABLE = True
+except ImportError:
+    pass
+
+
+def is_rust_ground_ball_interception_available() -> bool:
+    """Check if Rust ground ball interception acceleration is available."""
+    return _RUST_GROUND_BALL_AVAILABLE
 
 
 class GroundBallInterceptionResult:
@@ -49,20 +73,24 @@ class GroundBallInterceptor:
     a ground ball along its rolling trajectory.
     """
     
-    def __init__(self, surface_type='grass'):
+    def __init__(self, surface_type='grass', use_rust=True):
         self.surface_type = surface_type
+        self.use_rust = use_rust and _RUST_GROUND_BALL_AVAILABLE
         
         # Ground ball deceleration parameters
         # Friction coefficients calibrated against MLB ground ball play times
         # A hard-hit ground ball should reach infielders in 1.5-2.5 seconds
         if surface_type == 'grass':
-            self.rolling_friction = 0.30  # Natural grass rolling friction
+            self.rolling_friction = ROLLING_FRICTION_GRASS
+            self.cor = GROUND_BALL_COR_GRASS
             self.bounce_loss = 0.85       # Velocity retention per bounce
         elif surface_type == 'turf':
-            self.rolling_friction = 0.22  # Faster on turf
+            self.rolling_friction = ROLLING_FRICTION_TURF
+            self.cor = GROUND_BALL_COR_TURF
             self.bounce_loss = 0.90
         else:  # dirt
-            self.rolling_friction = 0.35  # Slower on dirt
+            self.rolling_friction = ROLLING_FRICTION_DIRT
+            self.cor = GROUND_BALL_COR_DIRT
             self.bounce_loss = 0.75
     
     def find_best_interception(self, batted_ball_result, fielders: Dict[str, Fielder]) -> GroundBallInterceptionResult:
@@ -469,6 +497,8 @@ class GroundBallInterceptor:
         Fielders don't instantly hit top speed - they need to accelerate from a
         standing start. This model uses realistic acceleration physics.
         
+        Uses Rust implementation when available for ~4x speedup.
+        
         Research basis:
         - Elite athletes accelerate at ~10-15 ft/s² from standing start
         - MLB infielders typically accelerate at ~12 ft/s²
@@ -489,6 +519,14 @@ class GroundBallInterceptor:
         float
             Time in seconds to cover the distance
         """
+        # Use Rust implementation if available
+        if self.use_rust:
+            return _rust_calculate_fielder_travel_time(distance, max_speed_fps, 0.0)
+        
+        return self._calculate_fielder_travel_time_python(distance, max_speed_fps)
+    
+    def _calculate_fielder_travel_time_python(self, distance: float, max_speed_fps: float) -> float:
+        """Python implementation of fielder travel time calculation."""
         # Acceleration for infielder from ready position
         # Baseball players start from an athletic ready stance, allowing faster
         # acceleration than a cold start. Research suggests ~25-30 fps² is realistic.
