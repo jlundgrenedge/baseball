@@ -369,14 +369,15 @@ Micro-optimizations in Python code: `__slots__` for hot path classes.
 
 ### Phase 7: Native Code Extensions ✅ COMPLETE
 
-**Status**: ✅ **IMPLEMENTED** - 11.8x average speedup achieved (target: 2-3x)
+**Status**: ✅ **IMPLEMENTED & INTEGRATED** - 268x trajectory speedup, 11.8x batch speedup
 **Implementation Date**: December 2024
 
 **Results**:
-- Single trajectory: 7.18x faster than Numba
+- Single trajectory: 268x faster than Python baseline (via BattedBallSimulator)
+- FastTrajectorySimulator: 7.18x faster than Numba
 - Batch processing: 11.8x average, up to 14.6x faster than Numba
 - Peak throughput: 183,127 trajectories/sec (vs ~11,000 with Numba)
-- Physics: Exact match with Numba implementation
+- Physics: Exact match with Python implementation, 7/7 validation tests pass
 
 #### Implementation
 
@@ -384,6 +385,12 @@ Created Rust library (`trajectory_rs/`) with PyO3 bindings:
 - `src/lib.rs`: RK4 integrator with Rayon parallel processing
 - Python API: `integrate_trajectory()`, `integrate_trajectories_batch()`
 - Build: `cd trajectory_rs && maturin build --release` → `pip install wheel`
+
+**Game Simulation Integration**:
+- `BattedBallSimulator` now auto-uses Rust when available
+- Falls back to Python for: wind, significant sidespin (>30%), custom CD
+- `FastTrajectorySimulator` auto-enables Rust with lookup tables
+- Helper functions: `is_rust_available()`, `get_rust_version()`
 
 #### Completed Tasks
 
@@ -402,15 +409,22 @@ Created Rust library (`trajectory_rs/`) with PyO3 bindings:
   - Maintenance complexity acceptable (single Rust file)
   - Build works on Windows (tested), Linux/macOS expected
 
+- [x] **7.6** Integrate into game simulation
+  - BattedBallSimulator uses Rust path when conditions allow
+  - Uses environment-specific air density for accurate physics
+  - Validates with 7/7 physics tests
+
 **Validation**:
 - `python examples/test_phase7_rust.py` - 6/6 tests pass
-- Physics validation: 7/7 tests pass
+- Physics validation: 7/7 tests pass (`python -m batted_ball.validation`)
 - `python examples/benchmark_phase7_rust.py` for performance
 
 **Files Created/Modified**:
 - `trajectory_rs/Cargo.toml`: Rust project configuration
 - `trajectory_rs/pyproject.toml`: Python build configuration
 - `trajectory_rs/src/lib.rs`: Rust trajectory integrator (375 LOC)
+- `batted_ball/trajectory.py`: Added Rust acceleration path
+- `batted_ball/fast_trajectory.py`: Added Rust auto-enable, helper functions
 - `examples/benchmark_phase7_rust.py`: Performance benchmark
 - `examples/test_phase7_rust.py`: Validation test suite
 
