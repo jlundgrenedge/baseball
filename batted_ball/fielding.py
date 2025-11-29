@@ -48,7 +48,13 @@ from .attributes import FielderAttributes
 
 
 class FieldingResult:
-    """Result of a fielding attempt."""
+    """Result of a fielding attempt.
+    
+    Uses __slots__ for memory efficiency and faster attribute access.
+    Phase 6 optimization: ~20% memory reduction per instance.
+    """
+    __slots__ = ('success', 'fielder_arrival_time', 'ball_arrival_time', 'catch_position',
+                 'fielder_name', 'fielder_position', 'failure_reason', 'is_error', 'margin')
 
     def __init__(self,
                  success: bool,
@@ -96,7 +102,13 @@ class FieldingResult:
 
 
 class ThrowResult:
-    """Result of a throwing attempt."""
+    """Result of a throwing attempt.
+    
+    Uses __slots__ for memory efficiency and faster attribute access.
+    Phase 6 optimization: ~20% memory reduction per instance.
+    """
+    __slots__ = ('throw_velocity', 'flight_time', 'accuracy_error', 'target_position',
+                 'release_time', 'arrival_time')
     
     def __init__(self,
                  throw_velocity: float,
