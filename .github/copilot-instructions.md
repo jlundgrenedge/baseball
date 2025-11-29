@@ -1,14 +1,25 @@
 # Baseball Physics Simulator - AI Developer Guide
 
+**Version**: 1.3.2 | **Last Updated**: 2025-05-29
+
 > **⚠️ PHYSICS-FIRST**: All gameplay emerges from physical parameters (exit velocity, sprint speed, throw times), NOT statistical probabilities. Changes must preserve 7/7 validation tests against MLB data.
 >
 > **⚠️ TEST WITH MLB DATA**: Use real MLB teams from the database, NOT synthetic `create_test_team()`. The simulation's purpose is modeling real baseball.
 
-## Performance
+## Performance (Rust Acceleration)
 
-**Rust Acceleration**: Games complete in ~6 seconds (was 30s) with full physics (wind, spin).
-- Build: `cd trajectory_rs && maturin build --release && pip install target/wheels/*.whl`
-- Check: `python -c "from batted_ball.fast_trajectory import is_rust_available; print(is_rust_available())"`
+Games complete in **~6 seconds** (was 30s) with full physics via Rust backend.
+
+```bash
+# Build Rust extension
+cd trajectory_rs && maturin build --release && pip install target/wheels/*.whl
+
+# Check availability
+python -c "from batted_ball.fast_trajectory import is_rust_available; print(is_rust_available())"
+python -c "from batted_ball import is_rust_physics_available; print(is_rust_physics_available())"
+```
+
+**Rust modules**: `fast_trajectory.py` (5x fly balls), `fast_ground_ball.py` (22x ground balls), `ground_ball_physics.py`, `ground_ball_interception.py`
 
 ## Quick Start
 
@@ -38,16 +49,18 @@ See `TESTING_STRATEGY.md` for full details. Summary:
 
 **Layered Stack** (lower layers never import from higher):
 1. **Physics Core**: `constants.py` → `aerodynamics.py` → `integrator.py` → `trajectory.py`
-2. **Contact/Pitch**: `contact.py`, `pitch.py` (8 pitch types with spin)
-3. **Actions**: `at_bat.py`, `fielding.py`, `baserunning.py`
-4. **Play/Game**: `play_simulation.py` → `game_simulation.py`
-5. **Database**: `database/` (MLB data via pybaseball) - **PRIMARY data source**
+2. **Rust Acceleration**: `fast_trajectory.py`, `fast_ground_ball.py` (parallel physics with Rayon)
+3. **Contact/Pitch**: `contact.py`, `pitch.py` (8 pitch types with spin)
+4. **Actions**: `at_bat.py`, `fielding.py`, `baserunning.py`
+5. **Play/Game**: `play_simulation.py` → `game_simulation.py`
+6. **Database**: `database/` (MLB data via pybaseball) - **PRIMARY data source**
 
 **Key Files**:
 - `constants.py`: ALL empirical coefficients (MLB Statcast-calibrated) - modify here for physics tuning
 - `attributes.py`: 0-100,000 scale → physics via `piecewise_logistic_map()` (85k = elite human cap)
 - `validation.py`: 7 benchmark tests - exit velocity, launch angle, altitude, backspin, temperature effects
 - `database/`: Real MLB player data - **use this for testing**
+- `trajectory_rs/`: Rust library source (PyO3, Rayon) - rebuild after changes
 
 ## Critical Conventions
 
@@ -76,6 +89,10 @@ if play_result.outcome == PlayOutcome.SINGLE:  # ✓ Enum comparison
 
 # Method names
 result = simulator.simulate_at_bat()  # ✓ NOT .simulate()
+
+# Rust acceleration (auto-fallback to Python)
+from batted_ball import is_rust_physics_available
+simulator = GroundBallSimulator(use_rust=True)  # Uses Rust if available
 ```
 
 ## Expected Game Stats (per 9 innings, 2-team combined)
@@ -97,6 +114,7 @@ result = simulator.simulate_at_bat()  # ✓ NOT .simulate()
 | Runners not advancing | Margin calc from wrong base | Use `decide_runner_advancement()` |
 | 0 runs with many hits | Runner placement order | Get existing runners BEFORE placing batter |
 | Fielders running wrong way | Velocity coord mismatch | Use `convert_velocity_trajectory_to_field()` |
+| Rust not accelerating | Extension not built | Rebuild: `cd trajectory_rs && maturin build --release` |
 
 ## Development Workflow
 
@@ -110,6 +128,12 @@ result = simulator.simulate_at_bat()  # ✓ NOT .simulate()
 1. Make change in `game_simulation.py`, `at_bat.py`, etc.
 2. Run: `game_simulation.bat` → Option 8 → 5-10 games
 3. Review log output for expected behavior
+
+### For Rust Changes
+1. Make changes in `trajectory_rs/src/`
+2. Build: `cd trajectory_rs && maturin build --release && pip install target/wheels/*.whl`
+3. Test: `python -c "from batted_ball import is_rust_physics_available; print(is_rust_physics_available())"`
+4. Run: `game_simulation.bat` → Option 8 → 5 games
 
 ### For Bug Fixes
 1. Reproduce with MLB teams (5 games)
@@ -134,5 +158,6 @@ git push origin master
 
 - **Testing strategy**: `TESTING_STRATEGY.md` - How to test properly
 - **Full AI guide**: `CLAUDE.md` - Comprehensive reference
+- **Performance docs**: `docs/PERFORMANCE_IMPLEMENTATION_PLAN.md` - Rust acceleration details
 - **Physics research**: `research/` - Empirical basis for coefficients
 - **Game logs**: `game_logs/` - Output from test runs
