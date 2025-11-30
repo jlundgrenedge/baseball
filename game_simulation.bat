@@ -8,6 +8,7 @@ echo.
 echo   ** RECOMMENDED FOR TESTING **
 echo   8. MLB Database Teams (Real rosters, pick teams)
 echo   R. Random Teams (Random matchups each game - best for neutral testing)
+echo   P. Parallel Random (4-8x faster using multiple CPU cores)
 echo   U. Ultra-Fast Random (5x speed, summary stats only)
 echo.
 echo   Other options:
@@ -23,7 +24,7 @@ echo   4. Performance Test Suite
 echo   6. MLB Players: Individual Demo
 echo   7. MLB Quick Demo (Players only)
 echo.
-set /p choice="Enter your choice (0-9, R, or U): "
+set /p choice="Enter your choice (0-9, R, P, or U): "
 
 if "%choice%"=="0" goto validation
 if "%choice%"=="1" goto single_game
@@ -37,6 +38,8 @@ if "%choice%"=="8" goto db_teams
 if "%choice%"=="9" goto quick_mlb
 if "%choice%"=="r" goto random_teams
 if "%choice%"=="R" goto random_teams
+if "%choice%"=="p" goto parallel_random
+if "%choice%"=="P" goto parallel_random
 if "%choice%"=="u" goto ultrafast_random
 if "%choice%"=="U" goto ultrafast_random
 goto invalid
@@ -233,6 +236,32 @@ echo.
 pause
 echo.
 python examples\simulate_random_teams.py
+goto end
+
+:parallel_random
+echo.
+echo ========================================
+echo Parallel Random Simulation (FAST!)
+echo ========================================
+echo.
+echo Uses multiple CPU cores to simulate games in parallel.
+echo Typically 4-8x faster than sequential simulation!
+echo.
+echo Features:
+echo   - Random team matchups (same as option R)
+echo   - Parallel processing across CPU cores
+echo   - ULTRA_FAST physics mode
+echo   - Summary statistics with MLB benchmarks
+echo   - Supports up to 1000 games
+echo.
+echo Use for:
+echo   - High-volume statistical validation
+echo   - Quick regression testing after changes
+echo   - Performance benchmarking
+echo.
+pause
+echo.
+python examples\simulate_random_parallel.py
 goto end
 
 :ultrafast_random

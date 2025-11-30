@@ -32,6 +32,10 @@ from .constants import (
     V2_UMPIRE_MODEL_ENABLED,
     SimulationMode,
 )
+from .ev_la_distribution import (
+    get_spray_angle_for_launch_angle,
+    apply_ev_la_correlation_adjustment,
+)
 
 
 class AtBatResult:
@@ -840,26 +844,40 @@ class AtBatSimulator:
             distance_from_sweet_spot_inches=adjusted_offset  # Use adjusted offset for contact quality
         )
 
-        # Generate spray angle for this at-bat using hitter's spray tendency
-        # MLB hitters have individual spray patterns - some pull heavily, others use all fields
-        # Get hitter's spray tendency bias (pull vs. opposite field tendency)
+        # Phase 3: Apply EV-LA correlation adjustment
+        # Research: EV-LA correlation is weak (r ≈ -0.1) but hard hits cluster in LD zone
+        # This ensures hard-hit balls favor line-drive angles (10-25°)
+        # and weak contact can produce more extreme angles
+        exit_velocity = collision_result['exit_velocity']
+        launch_angle = collision_result['launch_angle']
+        contact_quality_val = 0.5  # Default contact quality
+        if total_offset < 0.35:
+            contact_quality_val = 0.9  # Solid contact
+        elif total_offset > 1.2:
+            contact_quality_val = 0.2  # Weak contact
+        else:
+            contact_quality_val = 0.5 - (total_offset - 0.35) / 2.0
+        
+        # Apply EV-LA correlation to adjust launch angle based on exit velocity
+        exit_velocity, launch_angle = apply_ev_la_correlation_adjustment(
+            exit_velocity, launch_angle, contact_quality_val
+        )
+        
+        # Phase 3: Generate spray angle using LA-spray correlation
+        # Research: Ground balls are pulled ~70%, line drives ~55%, fly balls ~50%
+        # This replaces the independent spray angle generation
         base_spray = self.hitter.attributes.get_spray_tendency_deg()
-        # Add realistic spray variance around the hitter's tendency
-        # Standard deviation increased to 27° for Phase 2C HR tuning
-        # Rationale: More extreme pulls/oppo hits reach short fences (330ft at ±45°)
-        # vs deep center (400ft at 0°). Creates more realistic HR distribution.
-        # 22° std dev only had ~1-5% of balls reaching ±40-45° range
-        # 27° std dev increases that to ~8-12%, boosting HR rate appropriately
-        spray_std_dev = 27.0  # degrees - INCREASED from 22° for HR rate tuning
-        spray_angle = np.random.normal(base_spray, spray_std_dev)
-        # Clamp to reasonable bounds (-45° to +45°, foul lines)
-        spray_angle = np.clip(spray_angle, -45.0, 45.0)
+        spray_angle = get_spray_angle_for_launch_angle(
+            launch_angle=launch_angle,
+            hitter_spray_tendency=base_spray
+        )
 
         # Simulate batted ball trajectory with environmental conditions including wind
+        # Use adjusted EV and LA from Phase 3 EV-LA correlation
         batted_ball_result = self.batted_ball_sim.simulate(
-            exit_velocity=collision_result['exit_velocity'],
-            launch_angle=collision_result['launch_angle'],
-            spray_angle=spray_angle,  # Use generated spray angle, not fixed tendency
+            exit_velocity=exit_velocity,  # Use adjusted exit velocity
+            launch_angle=launch_angle,    # Use adjusted launch angle
+            spray_angle=spray_angle,      # Use LA-correlated spray angle
             backspin_rpm=collision_result['backspin_rpm'],
             altitude=self.altitude,
             temperature=self.temperature,
@@ -873,9 +891,9 @@ class AtBatSimulator:
         
         return {
             'contact_quality': contact_quality,
-            'exit_velocity': collision_result['exit_velocity'],
-            'launch_angle': collision_result['launch_angle'],
-            'spray_angle': spray_angle,  # Return actual spray angle used
+            'exit_velocity': exit_velocity,    # Return adjusted exit velocity
+            'launch_angle': launch_angle,      # Return adjusted launch angle
+            'spray_angle': spray_angle,        # Return LA-correlated spray angle
             'distance': batted_ball_result.distance,
             'hang_time': batted_ball_result.flight_time,
             'peak_height': batted_ball_result.peak_height,

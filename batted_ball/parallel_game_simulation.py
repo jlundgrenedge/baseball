@@ -80,6 +80,37 @@ class GameResult:
     total_hits: int
     total_home_runs: int
     
+    # Per-team batting statistics (for SeriesMetrics)
+    away_hits: int = 0
+    away_singles: int = 0
+    away_doubles: int = 0
+    away_triples: int = 0
+    away_home_runs: int = 0
+    away_strikeouts: int = 0
+    away_walks: int = 0
+    away_errors: int = 0
+    away_at_bats: int = 0
+    away_ground_balls: int = 0
+    away_fly_balls: int = 0
+    away_line_drives: int = 0
+    away_exit_velocities: List[float] = field(default_factory=list)
+    away_launch_angles: List[float] = field(default_factory=list)
+    
+    home_hits: int = 0
+    home_singles: int = 0
+    home_doubles: int = 0
+    home_triples: int = 0
+    home_home_runs: int = 0
+    home_strikeouts: int = 0
+    home_walks: int = 0
+    home_errors: int = 0
+    home_at_bats: int = 0
+    home_ground_balls: int = 0
+    home_fly_balls: int = 0
+    home_line_drives: int = 0
+    home_exit_velocities: List[float] = field(default_factory=list)
+    home_launch_angles: List[float] = field(default_factory=list)
+    
     @property
     def total_runs(self) -> int:
         """Total runs scored by both teams."""
@@ -199,7 +230,7 @@ def _simulate_single_game(args: Tuple) -> GameResult:
     
     final_state = simulator.simulate_game(num_innings=num_innings)
     
-    # Convert to lightweight result object
+    # Convert to result object with full statistics for SeriesMetrics
     result = GameResult(
         game_number=game_number,
         away_team_name=away_team.name,
@@ -209,7 +240,36 @@ def _simulate_single_game(args: Tuple) -> GameResult:
         total_innings=final_state.inning - (0 if final_state.is_top else 1),
         total_pitches=final_state.total_pitches,
         total_hits=final_state.total_hits,
-        total_home_runs=final_state.total_home_runs
+        total_home_runs=final_state.total_home_runs,
+        # Per-team batting stats
+        away_hits=final_state.away_hits,
+        away_singles=final_state.away_singles,
+        away_doubles=final_state.away_doubles,
+        away_triples=final_state.away_triples,
+        away_home_runs=final_state.away_home_runs,
+        away_strikeouts=final_state.away_strikeouts,
+        away_walks=final_state.away_walks,
+        away_errors=final_state.away_errors,
+        away_at_bats=final_state.away_at_bats,
+        away_ground_balls=final_state.away_ground_balls,
+        away_fly_balls=final_state.away_fly_balls,
+        away_line_drives=final_state.away_line_drives,
+        away_exit_velocities=list(final_state.away_exit_velocities),
+        away_launch_angles=list(final_state.away_launch_angles),
+        home_hits=final_state.home_hits,
+        home_singles=final_state.home_singles,
+        home_doubles=final_state.home_doubles,
+        home_triples=final_state.home_triples,
+        home_home_runs=final_state.home_home_runs,
+        home_strikeouts=final_state.home_strikeouts,
+        home_walks=final_state.home_walks,
+        home_errors=final_state.home_errors,
+        home_at_bats=final_state.home_at_bats,
+        home_ground_balls=final_state.home_ground_balls,
+        home_fly_balls=final_state.home_fly_balls,
+        home_line_drives=final_state.home_line_drives,
+        home_exit_velocities=list(final_state.home_exit_velocities),
+        home_launch_angles=list(final_state.home_launch_angles),
     )
     
     return result
@@ -705,7 +765,7 @@ def _thread_simulate_game(
     # Run simulation
     final_state = simulator.simulate_game(num_innings=num_innings)
     
-    # Return lightweight result
+    # Return result with full statistics for SeriesMetrics
     return GameResult(
         game_number=game_number,
         away_team_name=away_team.name,
@@ -715,7 +775,36 @@ def _thread_simulate_game(
         total_innings=final_state.inning - (0 if final_state.is_top else 1),
         total_pitches=final_state.total_pitches,
         total_hits=final_state.total_hits,
-        total_home_runs=final_state.total_home_runs
+        total_home_runs=final_state.total_home_runs,
+        # Per-team batting stats
+        away_hits=final_state.away_hits,
+        away_singles=final_state.away_singles,
+        away_doubles=final_state.away_doubles,
+        away_triples=final_state.away_triples,
+        away_home_runs=final_state.away_home_runs,
+        away_strikeouts=final_state.away_strikeouts,
+        away_walks=final_state.away_walks,
+        away_errors=final_state.away_errors,
+        away_at_bats=final_state.away_at_bats,
+        away_ground_balls=final_state.away_ground_balls,
+        away_fly_balls=final_state.away_fly_balls,
+        away_line_drives=final_state.away_line_drives,
+        away_exit_velocities=list(final_state.away_exit_velocities),
+        away_launch_angles=list(final_state.away_launch_angles),
+        home_hits=final_state.home_hits,
+        home_singles=final_state.home_singles,
+        home_doubles=final_state.home_doubles,
+        home_triples=final_state.home_triples,
+        home_home_runs=final_state.home_home_runs,
+        home_strikeouts=final_state.home_strikeouts,
+        home_walks=final_state.home_walks,
+        home_errors=final_state.home_errors,
+        home_at_bats=final_state.home_at_bats,
+        home_ground_balls=final_state.home_ground_balls,
+        home_fly_balls=final_state.home_fly_balls,
+        home_line_drives=final_state.home_line_drives,
+        home_exit_velocities=list(final_state.home_exit_velocities),
+        home_launch_angles=list(final_state.home_launch_angles),
     )
 
 

@@ -58,6 +58,7 @@ class SavantCSVLoader:
         self._catch_prob_df: Optional[pd.DataFrame] = None
         self._positioning_df: Optional[pd.DataFrame] = None
         self._fielding_runs_df: Optional[pd.DataFrame] = None
+        self._bat_tracking_df: Optional[pd.DataFrame] = None
         
         # Name lookup cache (player_id -> normalized name)
         self._name_cache: Dict[int, str] = {}
@@ -473,6 +474,66 @@ class SavantCSVLoader:
             'throwing_runs': row.get('throwing_runs'),
             'blocking_runs': row.get('blocking_runs'),
         }
+    
+    # =========================================================================
+    # BAT TRACKING (bat speed, squared-up rate, swing length)
+    # =========================================================================
+    
+    @property
+    def bat_tracking_df(self) -> Optional[pd.DataFrame]:
+        """Load bat-tracking.csv lazily."""
+        if self._bat_tracking_df is None:
+            path = self.data_dir / "bat-tracking.csv"
+            if path.exists():
+                self._bat_tracking_df = pd.read_csv(path)
+        return self._bat_tracking_df
+    
+    def get_bat_tracking(self, player_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get bat tracking metrics for a hitter.
+        
+        Parameters
+        ----------
+        player_name : str
+            Player name (any format)
+            
+        Returns
+        -------
+        dict or None
+            Bat tracking data with keys:
+            - avg_bat_speed: Average bat speed in mph
+            - swing_length: Average swing length in feet
+            - squared_up_per_swing: Squared-up rate per swing (0-1)
+            - squared_up_per_contact: Squared-up rate per contact (0-1)
+            - hard_swing_rate: Percentage of hard swings (>75 mph)
+            - blast_per_swing: Blast rate per swing (0-1)
+            - swings: Number of competitive swings
+            - whiff_per_swing: Whiff rate per swing
+            - batter_run_value: Total run value from bat tracking
+        """
+        if self.bat_tracking_df is None:
+            return None
+            
+        row = self._match_player(self.bat_tracking_df, player_name, name_col='name')
+        if row is None:
+            return None
+            
+        return {
+            'avg_bat_speed': row.get('avg_bat_speed'),
+            'swing_length': row.get('swing_length'),
+            'squared_up_per_swing': row.get('squared_up_per_swing'),
+            'squared_up_per_contact': row.get('squared_up_per_bat_contact'),
+            'hard_swing_rate': row.get('hard_swing_rate'),
+            'blast_per_swing': row.get('blast_per_swing'),
+            'swings': row.get('swings_competitive'),
+            'contact': row.get('contact'),
+            'whiff_per_swing': row.get('whiff_per_swing'),
+            'batter_run_value': row.get('batter_run_value'),
+        }
+    
+    def get_all_bat_tracking_data(self) -> pd.DataFrame:
+        """Get the full bat tracking DataFrame for bulk operations."""
+        return self.bat_tracking_df
     
     # =========================================================================
     # BULK OPERATIONS

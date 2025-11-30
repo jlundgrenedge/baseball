@@ -706,3 +706,159 @@ class SeriesMetrics:
                 print(f"\n   ✓ All metrics within expected MLB ranges!")
 
         print("\n" + "="*80)
+
+    def get_summary_data(self) -> dict:
+        """
+        Return comprehensive series summary as a structured dictionary.
+        
+        This is useful for programmatic access (e.g., Streamlit dashboards)
+        instead of just printing to console.
+        
+        Returns
+        -------
+        dict
+            Nested dictionary with all series statistics
+        """
+        self.compute_realism_checks()
+        
+        def get_batting_stats(batting: AdvancedBattingMetrics, num_games: int) -> dict:
+            """Extract batting stats into a dictionary."""
+            total_bb = batting.ground_balls + batting.line_drives + batting.fly_balls
+            return {
+                'triple_slash': {
+                    'avg': batting.get_batting_avg(),
+                    'obp': batting.get_obp(),
+                    'slg': batting.get_slg(),
+                },
+                'ops': batting.get_ops(),
+                'woba': batting.get_woba(),
+                'plate_discipline': {
+                    'k_rate': batting.get_k_rate(),
+                    'bb_rate': batting.get_bb_rate(),
+                    'k_bb_ratio': batting.strikeouts / batting.walks if batting.walks > 0 else 0,
+                },
+                'power': {
+                    'iso': batting.get_iso(),
+                    'hr_fb': batting.get_hr_fb_rate(),
+                    'home_runs': batting.home_runs,
+                    'hr_per_game': batting.home_runs / num_games if num_games > 0 else 0,
+                },
+                'contact_quality': {
+                    'babip': batting.get_babip(),
+                    'avg_exit_velo': batting.get_avg_exit_velo(),
+                    'avg_launch_angle': batting.get_avg_launch_angle(),
+                    'hard_hit_rate': batting.get_hard_hit_rate(),
+                    'barrel_rate': batting.get_barrel_rate(),
+                },
+                'batted_ball_distribution': {
+                    'ground_balls': batting.ground_balls / total_bb if total_bb > 0 else 0,
+                    'line_drives': batting.line_drives / total_bb if total_bb > 0 else 0,
+                    'fly_balls': batting.fly_balls / total_bb if total_bb > 0 else 0,
+                    'ground_balls_count': batting.ground_balls,
+                    'line_drives_count': batting.line_drives,
+                    'fly_balls_count': batting.fly_balls,
+                },
+                'counting_stats': {
+                    'at_bats': batting.at_bats,
+                    'hits': batting.hits,
+                    'singles': batting.singles,
+                    'doubles': batting.doubles,
+                    'triples': batting.triples,
+                    'home_runs': batting.home_runs,
+                    'walks': batting.walks,
+                    'strikeouts': batting.strikeouts,
+                },
+            }
+        
+        def get_pitching_stats(pitching: PitchingMetrics) -> dict:
+            """Extract pitching stats into a dictionary."""
+            return {
+                'era': pitching.get_era(),
+                'whip': pitching.get_whip(),
+                'k_per_9': pitching.get_k_per_9(),
+                'bb_per_9': pitching.get_bb_per_9(),
+                'hr_per_9': pitching.get_hr_per_9(),
+                'k_bb_ratio': pitching.get_k_bb_ratio(),
+                'totals': {
+                    'innings_pitched': pitching.innings_pitched,
+                    'pitches_thrown': pitching.pitches_thrown,
+                    'pitches_per_inning': pitching.pitches_thrown / pitching.innings_pitched if pitching.innings_pitched > 0 else 0,
+                    'batters_faced': pitching.batters_faced,
+                    'hits_allowed': pitching.hits_allowed,
+                    'runs_allowed': pitching.runs_allowed,
+                    'walks': pitching.walks,
+                    'strikeouts': pitching.strikeouts,
+                    'home_runs_allowed': pitching.home_runs_allowed,
+                },
+            }
+        
+        def get_fielding_stats(fielding: FieldingMetrics, num_games: int) -> dict:
+            """Extract fielding stats into a dictionary."""
+            return {
+                'errors': fielding.errors,
+                'errors_per_game': fielding.errors / num_games if num_games > 0 else 0,
+                'fielding_percentage': fielding.get_fielding_percentage(),
+                'errors_by_position': dict(fielding.errors_by_position),
+            }
+        
+        def get_realism_check_data(check: RealismCheck) -> dict:
+            """Extract realism check into a dictionary."""
+            return {
+                'metric_name': check.metric_name,
+                'actual_value': check.actual_value,
+                'mlb_min': check.mlb_min,
+                'mlb_max': check.mlb_max,
+                'mlb_avg': check.mlb_avg,
+                'status': check.status,
+                'emoji': check.get_emoji(),
+            }
+        
+        # Build the complete data structure
+        return {
+            'overview': {
+                'games_played': self.num_games,
+                'away_team': self.away_team_name,
+                'home_team': self.home_team_name,
+                'away_wins': self.away_wins,
+                'home_wins': self.home_wins,
+            },
+            'run_production': {
+                'away': {
+                    'total': self.away_runs,
+                    'per_game': self.away_runs / self.num_games if self.num_games > 0 else 0,
+                    'min': min(self.away_runs_per_game) if self.away_runs_per_game else 0,
+                    'max': max(self.away_runs_per_game) if self.away_runs_per_game else 0,
+                    'std_dev': float(np.std(self.away_runs_per_game)) if self.away_runs_per_game else 0,
+                    'per_game_list': self.away_runs_per_game,
+                },
+                'home': {
+                    'total': self.home_runs,
+                    'per_game': self.home_runs / self.num_games if self.num_games > 0 else 0,
+                    'min': min(self.home_runs_per_game) if self.home_runs_per_game else 0,
+                    'max': max(self.home_runs_per_game) if self.home_runs_per_game else 0,
+                    'std_dev': float(np.std(self.home_runs_per_game)) if self.home_runs_per_game else 0,
+                    'per_game_list': self.home_runs_per_game,
+                },
+            },
+            'batting': {
+                'away': get_batting_stats(self.away_batting, self.num_games),
+                'home': get_batting_stats(self.home_batting, self.num_games),
+            },
+            'pitching': {
+                'away': get_pitching_stats(self.away_pitching),
+                'home': get_pitching_stats(self.home_pitching),
+            },
+            'fielding': {
+                'away': get_fielding_stats(self.away_fielding, self.num_games),
+                'home': get_fielding_stats(self.home_fielding, self.num_games),
+            },
+            'realism_checks': {
+                'checks': [get_realism_check_data(c) for c in self.realism_checks],
+                'summary': {
+                    'total': len(self.realism_checks),
+                    'ok': len([c for c in self.realism_checks if c.status == "OK"]),
+                    'warning': len([c for c in self.realism_checks if c.status == "WARNING"]),
+                    'critical': len([c for c in self.realism_checks if c.status == "CRITICAL"]),
+                },
+            },
+        }

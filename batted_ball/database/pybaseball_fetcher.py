@@ -426,11 +426,28 @@ class PybaseballFetcher:
                             if total_opp > 0:
                                 combined_pct = ((star3_made + star4_made) / total_opp) * 100
                                 hitters_df.at[idx, 'catch_34star_pct'] = combined_pct
+                        
+                        # Load Bat Tracking data (bat speed, squared-up rate, swing length)
+                        bat_tracking = savant.get_bat_tracking(player_name)
+                        if bat_tracking:
+                            if bat_tracking.get('avg_bat_speed') is not None:
+                                hitters_df.at[idx, 'bat_speed'] = bat_tracking['avg_bat_speed']
+                            if bat_tracking.get('swing_length') is not None:
+                                hitters_df.at[idx, 'swing_length'] = bat_tracking['swing_length']
+                            if bat_tracking.get('squared_up_per_swing') is not None:
+                                hitters_df.at[idx, 'squared_up_rate'] = bat_tracking['squared_up_per_swing']
+                            if bat_tracking.get('hard_swing_rate') is not None:
+                                hitters_df.at[idx, 'hard_swing_rate'] = bat_tracking['hard_swing_rate']
                     
                     if csv_jump_loaded > 0:
                         print(f"    Loaded Jump data for {csv_jump_loaded} players from CSV")
                     if csv_oaa_loaded > 0:
                         print(f"    Loaded OAA data for {csv_oaa_loaded} players from CSV")
+                    
+                    # Count bat tracking loaded
+                    csv_bat_loaded = hitters_df['bat_speed'].notna().sum()
+                    if csv_bat_loaded > 0:
+                        print(f"    Loaded Bat Tracking data for {csv_bat_loaded} players from CSV")
                         
             except Exception as e:
                 print(f"    Could not load from CSV files: {e}")

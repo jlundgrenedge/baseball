@@ -325,6 +325,7 @@ class TeamDatabase:
                     jump_reaction = ?, jump_burst = ?, jump_route = ?,
                     back_oaa = ?, in_oaa = ?,
                     catch_5star_pct = ?, catch_34star_pct = ?,
+                    bat_speed = ?, swing_length = ?, squared_up_rate = ?, hard_swing_rate = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE hitter_id = ?
             """, (
@@ -356,6 +357,8 @@ class TeamDatabase:
                 clean_value(stats.get('jump_route')),
                 clean_value(stats.get('back_oaa')), clean_value(stats.get('in_oaa')),  # directional OAA source
                 clean_value(stats.get('catch_5star_pct')), clean_value(stats.get('catch_34star_pct')),  # catch prob source
+                clean_value(stats.get('bat_speed')), clean_value(stats.get('swing_length')),  # bat tracking data
+                clean_value(stats.get('squared_up_rate')), clean_value(stats.get('hard_swing_rate')),  # bat tracking data
                 hitter_id
             ))
         else:
@@ -375,8 +378,9 @@ class TeamDatabase:
                     season, games_played, at_bats,
                     oaa, drs, arm_strength_mph, fielding_pct, jump, jump_oaa,
                     jump_reaction, jump_burst, jump_route, back_oaa, in_oaa,
-                    catch_5star_pct, catch_34star_pct
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    catch_5star_pct, catch_34star_pct,
+                    bat_speed, swing_length, squared_up_rate, hard_swing_rate
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stats.get('player_name'), attrs['contact'], attrs['power'],
                 attrs['discipline'], attrs['speed'],
@@ -406,7 +410,9 @@ class TeamDatabase:
                 clean_value(stats.get('jump_reaction')), clean_value(stats.get('jump_burst')),  # jump components
                 clean_value(stats.get('jump_route')),
                 clean_value(stats.get('back_oaa')), clean_value(stats.get('in_oaa')),  # directional OAA source
-                clean_value(stats.get('catch_5star_pct')), clean_value(stats.get('catch_34star_pct'))  # catch prob source
+                clean_value(stats.get('catch_5star_pct')), clean_value(stats.get('catch_34star_pct')),  # catch prob source
+                clean_value(stats.get('bat_speed')), clean_value(stats.get('swing_length')),  # bat tracking data
+                clean_value(stats.get('squared_up_rate')), clean_value(stats.get('hard_swing_rate'))  # bat tracking data
             ))
             hitter_id = cursor.lastrowid
 
