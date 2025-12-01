@@ -200,16 +200,9 @@ class HitterAttributes:
         sweet spot (which is faster due to rotational velocity).
         """
         # PHASE 2: Use actual Statcast bat speed if available
-        # Add calibration offset to align measurement points
-        # Statcast measures ~71.6 mph avg vs physics model calibrated to 73 mph at 50k rating
-        # PHASE 1.7.9 RECALIBRATION (2025-11-30):
-        # 1000-game test showed EV=92.2 mph (target 88), BABIP=.339 (target .295)
-        # Reducing offset from 4.0 to 2.0 mph to lower EV by ~2-3 mph
-        # Combined with increased degradation in constants.py for further EV reduction
-        # Target: EV ~88-89 mph, BABIP ~.295-.310
-        STATCAST_BAT_SPEED_CALIBRATION_OFFSET = 2.0  # mph (reduced from 4.0)
+        # No calibration offset - use raw Statcast bat speed directly
         if self._actual_bat_speed_mph is not None:
-            return self._actual_bat_speed_mph + STATCAST_BAT_SPEED_CALIBRATION_OFFSET
+            return self._actual_bat_speed_mph
         
         # Fallback: derive from BAT_SPEED rating
         return piecewise_logistic_map(
