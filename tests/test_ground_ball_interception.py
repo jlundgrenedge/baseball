@@ -42,14 +42,13 @@ class MockBattedBallResult:
         # Ground balls have low flight time and maintain most of exit velocity
         speed_ms = exit_velocity_mph * MPH_TO_MS
         
-        # Trajectory coordinates: x=outfield, y=lateral
-        # So we need to convert from spray angle
+        # Trajectory coordinates: x=outfield, y=lateral (positive = LEFT field / pull side for RHH)
+        # Physics convention: positive spray_angle = left field
         spray_rad = np.radians(spray_angle_deg)
         
         # Velocity pointing toward outfield with spray angle
-        # In trajectory coords: x is toward outfield (CF), y is lateral (positive = right field)
         vx_traj = speed_ms * np.cos(spray_rad)  # Forward component
-        vy_traj = speed_ms * np.sin(spray_rad)  # Lateral component
+        vy_traj = speed_ms * np.sin(spray_rad)  # Lateral component (positive = left field)
         vz_traj = speed_ms * np.sin(np.radians(launch_angle_deg))  # Vertical (small for GB)
         
         self.velocity = [np.array([vx_traj, vy_traj, vz_traj])]
@@ -194,12 +193,13 @@ class TestGroundBallInterception:
         interceptor = GroundBallInterceptor()
         fielders = create_test_fielders()
         
-        # Ground ball directly toward SS position (spray angle toward SS)
+        # Ground ball directly toward SS position (left of center, toward third base side)
+        # Physics convention: positive spray = left field (pull side for RHH)
         result = MockBattedBallResult(
-            landing_x=-5.0,  # Slight left of center
+            landing_x=-5.0,  # Slight left of center (field coords)
             landing_y=20.0,
             exit_velocity_mph=95.0,
-            spray_angle_deg=-10.0  # Spray toward SS/left-center
+            spray_angle_deg=10.0  # Slight pull/left field in physics convention
         )
         
         interception = interceptor.find_best_interception(result, fielders)

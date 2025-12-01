@@ -788,13 +788,33 @@ class AtBatSimulator:
         # Get bat speed from hitter attributes
         bat_speed_max = self.hitter.get_bat_speed_mph()
         
-        # Add bat speed variance - not every swing is max effort
-        # MLB hitters vary swing speed by ~5-10% based on pitch type, location, situation
-        # Standard deviation of 4% creates realistic variance
-        bat_speed_variance = 0.04 * bat_speed_max
-        bat_speed = np.random.normal(bat_speed_max, bat_speed_variance)
-        # Clamp to reasonable range (80-100% of max)
-        bat_speed = np.clip(bat_speed, bat_speed_max * 0.80, bat_speed_max * 1.0)
+        # PHASE 3.1: Use hard_swing_rate to create wider EV distribution
+        # Hard swing rate determines probability of max-effort "selling out" swings
+        # that can exceed normal bat speed, producing occasional 110+ mph exit velocities
+        hard_swing_rate = self.hitter.attributes._hard_swing_rate
+        if hard_swing_rate is None:
+            hard_swing_rate = 0.50  # Default to MLB average (~50%)
+        
+        # Determine if this is a "hard swing" attempt
+        is_hard_swing = np.random.random() < hard_swing_rate
+        
+        if is_hard_swing:
+            # Hard swing: swing at or above max bat speed
+            # This creates the upper tail of the EV distribution (95-115 mph shots)
+            # Elite power hitters with 80+ mph bat speed can reach 90+ mph on hard swings
+            bat_speed_boost = 1.0 + np.random.uniform(0.02, 0.16)  # 102-116% of max
+            bat_speed_variance = 0.02 * bat_speed_max  # Tighter variance on hard swings
+            bat_speed = np.random.normal(bat_speed_max * bat_speed_boost, bat_speed_variance)
+            # Hard swings can go up to 118% of max bat speed
+            bat_speed = np.clip(bat_speed, bat_speed_max * 0.98, bat_speed_max * 1.18)
+        else:
+            # Normal swing: varied effort levels from controlled to near-max
+            # Use a triangular distribution favoring higher effort
+            # This creates a more realistic spread with most swings near max
+            effort_factor = np.random.triangular(0.90, 0.99, 1.03)  # Mode at 99%
+            bat_speed_variance = 0.02 * bat_speed_max
+            bat_speed = np.random.normal(bat_speed_max * effort_factor, bat_speed_variance)
+            bat_speed = np.clip(bat_speed, bat_speed_max * 0.85, bat_speed_max * 1.04)
 
         # Get contact point offset
         h_offset, v_offset = self.hitter.get_contact_point_offset(pitch_location)
@@ -862,6 +882,18 @@ class AtBatSimulator:
         exit_velocity, launch_angle = apply_ev_la_correlation_adjustment(
             exit_velocity, launch_angle, contact_quality_val
         )
+        
+        # Phase 1.7.12: Apply EV penalty for high launch angles (fly balls)
+        # Physics rationale: steep uppercuts sacrifice some horizontal bat speed
+        # for vertical bat path, resulting in less energy transfer at contact.
+        # Target: reduce fly ball mean EV from ~95 to ~91 mph to get HR/FB from 23% to ~12.5%
+        # Penalty starts above 25° (fly ball territory) and increases with angle
+        if launch_angle > 25:
+            # Linear penalty: 0.5% EV reduction per degree above 25°
+            # At 35°: 5% penalty, at 45°: 10% penalty
+            penalty_factor = 1.0 - 0.005 * (launch_angle - 25)
+            penalty_factor = max(penalty_factor, 0.85)  # Cap at 15% penalty
+            exit_velocity *= penalty_factor
         
         # Phase 3: Generate spray angle using LA-spray correlation
         # Research: Ground balls are pulled ~70%, line drives ~55%, fly balls ~50%

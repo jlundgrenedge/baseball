@@ -535,9 +535,11 @@ class Hitter:
         # CRITICAL: Natural variance creates realistic outcome distribution
         # Even the best hitters have variance in launch angle (15-20° std dev)
         # This is what creates the ground ball / line drive / fly ball distribution
-        # Phase 1.7.8: Moderate increase from 19.5° to 23° (28° was too aggressive)
-        # Math: with mean ~14° and std 23°, expect GB 43%, LD 25%, FB 26%
-        natural_variance = 23.0  # Standard deviation in degrees
+        # Phase 1.7.11: Increased from 23° to 26° to spread distribution
+        # Higher variance moves balls from LD zone into both GB and FB zones
+        # With mean ~14° and std 26°, expect more balls at extreme angles (FB zone)
+        # This helps achieve the 34% FB target (currently 26.5%) for more HR opportunities
+        natural_variance = 26.0  # Standard deviation in degrees
         
         # Adjust mean based on pitch location (if provided)
         location_adjustment = 0.0

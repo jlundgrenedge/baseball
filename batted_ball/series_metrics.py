@@ -446,12 +446,25 @@ class SeriesMetrics:
         metrics.exit_velocities.extend(exit_velos)
         metrics.launch_angles.extend(launch_angles)
 
-        # Count barrels and hard hit (simplified - based on EV)
-        for ev in exit_velos:
+        # Count barrels and hard hit using BOTH EV and LA
+        # MLB Statcast barrel definition: EV >= 98 mph AND optimal LA range (26-30°)
+        # With EV-dependent LA range expansion (higher EV = wider LA acceptance)
+        for i, ev in enumerate(exit_velos):
             if ev >= 95.0:
                 metrics.hard_hit_balls += 1
-            if ev >= 98.0:  # Simplified barrel definition
-                metrics.barrels += 1
+            
+            # Barrel definition matches Statcast methodology:
+            # Base barrel zone: EV >= 98 mph AND LA between 26-30°
+            # LA range expands by 2° for each mph above 98 (up to 106 mph max)
+            if i < len(launch_angles):
+                la = launch_angles[i]
+                if ev >= 98.0:
+                    # Calculate LA tolerance based on EV
+                    ev_bonus = min(ev - 98.0, 8.0)  # Max 8 mph above 98
+                    la_tolerance = 2.0 + ev_bonus  # Base 2° + 1° per mph over 98
+                    la_center = 28.0  # Center of optimal LA zone
+                    if abs(la - la_center) <= la_tolerance:
+                        metrics.barrels += 1
 
     def compute_realism_checks(self):
         """Compute realism checks against MLB benchmarks"""

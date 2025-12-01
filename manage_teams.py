@@ -22,6 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from batted_ball.database import TeamDatabase, PybaseballFetcher
+from batted_ball.ballpark_effects import get_ballpark_for_team, get_ballpark_effects
 
 
 def add_team(db: TeamDatabase, team_abbr: str, season: int, min_innings: float, min_at_bats: int, overwrite: bool, export_csv: bool = True, csv_dir: str = "csv_exports"):
@@ -58,16 +59,27 @@ def list_teams(db: TeamDatabase, season: int = None):
         return
 
     print(f"\nTeams in database: {len(teams)}")
-    print("="*70)
+    print("="*100)
 
     current_season = None
     for team in teams:
         if team['season'] != current_season:
             current_season = team['season']
             print(f"\n{current_season} Season:")
-            print("-"*70)
+            print("-"*100)
+            print(f"  {'Team Name':<30s} {'Abbr':<5s} {'League':<4s} {'Division':<10s} {'Home Park':<18s} {'Effect'}")
+            print("-"*100)
 
-        print(f"  {team['team_name']:30s} ({team['team_abbr']})")
+        league = team.get('league', '') or ''
+        division = team.get('division', '') or ''
+        
+        # Get ballpark info for this team
+        team_abbr = team.get('team_abbr', '')
+        ballpark = get_ballpark_for_team(team_abbr) if team_abbr else ''
+        effects = get_ballpark_effects(ballpark) if ballpark else None
+        effect_str = f"{effects.total_distance_added:+.1f}%" if effects else ''
+        
+        print(f"  {team['team_name']:<30s} {team_abbr:<5s} {league:<4s} {division:<10s} {ballpark:<18s} {effect_str}")
 
     print()
 

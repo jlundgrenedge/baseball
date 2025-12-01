@@ -253,10 +253,14 @@ def get_spray_angle_for_launch_angle(
     - Ground balls are pulled most often (~70% pull for GB vs ~50% for FB)
     - LA-Spray correlation: r ≈ +0.20 (higher LA → less pull)
     
-    Pull direction convention:
-    - Positive spray angle = pulled (toward pull-side foul line)
-    - Negative spray angle = opposite field
+    **PHYSICS SPRAY ANGLE CONVENTION** (used by physics/trajectory):
+    - Positive spray angle = LEFT field (pull side for RHH)
+    - Negative spray angle = RIGHT field (opposite field for RHH)
     - 0 = straight to center field
+    
+    Note: This is OPPOSITE to the field/ballpark convention where:
+    - Negative = left field, Positive = right field
+    The BattedBallResult.spray_angle_landing is converted to field convention.
     
     IMPORTANT: Uses 27° std dev to match the Phase 2C HR rate tuning. 
     This variance was increased from 22° specifically to boost HR rate by
@@ -268,14 +272,14 @@ def get_spray_angle_for_launch_angle(
         Launch angle in degrees
     hitter_spray_tendency : float
         Hitter's base spray tendency in degrees
-        Positive = tends to pull, Negative = tends to go oppo
+        Positive = tends to pull (left field), Negative = tends to go oppo (right field)
     random_state : np.random.RandomState, optional
         Random state for reproducibility
         
     Returns
     -------
     float
-        Spray angle in degrees (-45 to +45)
+        Spray angle in degrees (-45 to +45) using PHYSICS convention
     """
     rng = random_state if random_state is not None else np.random
     

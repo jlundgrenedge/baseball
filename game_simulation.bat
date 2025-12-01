@@ -10,6 +10,7 @@ echo   8. MLB Database Teams (Real rosters, pick teams)
 echo   R. Random Teams (Random matchups each game - best for neutral testing)
 echo   P. Parallel Random (4-8x faster using multiple CPU cores)
 echo   U. Ultra-Fast Random (5x speed, summary stats only)
+echo   S. 2025 Season Simulation (Real schedule, day-by-day)
 echo.
 echo   Other options:
 echo   1. Single Game Demo (synthetic teams)
@@ -24,7 +25,7 @@ echo   4. Performance Test Suite
 echo   6. MLB Players: Individual Demo
 echo   7. MLB Quick Demo (Players only)
 echo.
-set /p choice="Enter your choice (0-9, R, P, or U): "
+set /p choice="Enter your choice (0-9, R, P, S, or U): "
 
 if "%choice%"=="0" goto validation
 if "%choice%"=="1" goto single_game
@@ -40,6 +41,8 @@ if "%choice%"=="r" goto random_teams
 if "%choice%"=="R" goto random_teams
 if "%choice%"=="p" goto parallel_random
 if "%choice%"=="P" goto parallel_random
+if "%choice%"=="s" goto season_sim
+if "%choice%"=="S" goto season_sim
 if "%choice%"=="u" goto ultrafast_random
 if "%choice%"=="U" goto ultrafast_random
 goto invalid
@@ -287,6 +290,33 @@ echo.
 pause
 echo.
 python examples\simulate_random_ultrafast.py
+goto end
+
+:season_sim
+echo.
+echo ========================================
+echo 2025 MLB Season Simulation
+echo ========================================
+echo.
+echo Simulate the 2025 MLB season using the real schedule!
+echo.
+echo Features:
+echo   - Day-by-day simulation following actual schedule
+echo   - Parallel processing for each day's games
+echo   - Full standings with W-L, Run Diff, Streak, L10
+echo   - Supports custom date ranges or full season
+echo.
+echo The simulation uses teams from baseball_teams.db.
+echo Make sure your teams are loaded (option 5 or manage_teams.py).
+echo.
+echo Interactive mode lets you choose:
+echo   - First week, first month, specific month
+echo   - Custom date range
+echo   - Full season simulation
+echo.
+pause
+echo.
+python examples\simulate_2025_season.py
 goto end
 
 :invalid

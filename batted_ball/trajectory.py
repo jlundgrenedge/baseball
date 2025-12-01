@@ -88,9 +88,11 @@ class BattedBallResult:
         final_vel = self.velocity[-1]
         self.final_velocity = np.linalg.norm(final_vel) * MS_TO_MPH
 
-        # Spray angle at landing
+        # Spray angle at landing (using FIELD coordinates for consistency)
+        # Convention: 0° = center field, positive = right field, negative = left field
+        # This matches ballpark.py which has left field fences at negative angles
         self.spray_angle_landing = np.rad2deg(
-            np.arctan2(landing_pos[1], landing_pos[0])
+            np.arctan2(self.landing_x, self.landing_y)
         )
 
     @property
@@ -267,7 +269,12 @@ class BattedBallSimulator:
         launch_angle : float
             Launch angle in degrees (0 = horizontal, 90 = straight up)
         spray_angle : float
-            Spray angle in degrees (0 = center field, + = pull, - = oppo)
+            Spray angle in degrees using PHYSICS convention:
+            - 0 = center field
+            - Positive = left field (pull side for RHH)
+            - Negative = right field (opposite field for RHH)
+            Note: The result's spray_angle_landing is converted to FIELD convention
+            (positive = right field) for compatibility with ballpark fence lookups.
         backspin_rpm : float
             Backspin rate in rpm (default: 1800)
         sidespin_rpm : float
@@ -382,18 +389,28 @@ class BattedBallSimulator:
         # Wind affects the relative velocity between ball and air
         has_wind = abs(wind_speed) > 0.1
         if has_wind:
-            wind_velocity_ms = wind_speed * MPH_TO_MS
+            wind_velocity_base_ms = wind_speed * MPH_TO_MS
             wind_angle_rad = np.deg2rad(wind_direction)
             # Wind vector components in field coordinates
             # wind_direction: 0° = toward center field (tailwind), 180° = headwind
             # x-component: toward outfield (positive = tailwind)
             # y-component: lateral (positive = left-to-right crosswind)
-            wind_vx = wind_velocity_ms * np.cos(wind_angle_rad)
-            wind_vy = wind_velocity_ms * np.sin(wind_angle_rad)
-            wind_vz = 0.0  # Assume horizontal wind (no updrafts/downdrafts)
-            wind_velocity = np.array([wind_vx, wind_vy, wind_vz])
+            wind_vx_base = wind_velocity_base_ms * np.cos(wind_angle_rad)
+            wind_vy_base = wind_velocity_base_ms * np.sin(wind_angle_rad)
+            
+            # ALTITUDE-DEPENDENT WIND (Wind Shear Model)
+            # Wind speed increases with height due to reduced surface friction
+            # Using power law: wind(z) = wind_ref * (z / z_ref)^alpha
+            # Reference height: 10m (~33 ft) - typical meteorological measurement height
+            # Alpha: 0.25 for enhanced shear effect (ballparks have varying terrain)
+            # With α=0.25: at 100 ft (30.5m) wind is ~1.35x stronger than at 33 ft
+            # At peak fly ball height (80-120 ft), balls "catch the wind" significantly more
+            WIND_REF_HEIGHT_M = 10.0  # 33 feet - reference height
+            WIND_SHEAR_EXPONENT = 0.25  # Enhanced shear (was 0.17, increased for HR boost)
+            MIN_HEIGHT_M = 1.0  # Minimum height to avoid division issues
         else:
-            wind_velocity = np.array([0.0, 0.0, 0.0])
+            wind_vx_base = 0.0
+            wind_vy_base = 0.0
 
         # Define force function for integration
         def force_function(position, velocity):
@@ -403,6 +420,9 @@ class BattedBallSimulator:
             Wind affects aerodynamic forces by changing the relative velocity
             between the ball and the air. The Magnus force and drag are both
             calculated based on this relative velocity.
+            
+            Wind speed increases with altitude (wind shear) - high fly balls
+            experience stronger wind, helping carry them further.
             """
             if use_simplified_physics:
                 # Ground ball: use minimal aerodynamics (mostly gravity + minimal drag)
@@ -410,6 +430,23 @@ class BattedBallSimulator:
                 return self._calculate_simplified_ground_ball_forces(velocity, env)
 
             # Regular aerodynamic physics
+            # Calculate altitude-adjusted wind velocity
+            if has_wind:
+                height_m = max(position[2], MIN_HEIGHT_M)  # Ball height in meters
+                # Wind shear multiplier: higher = stronger wind
+                wind_multiplier = (height_m / WIND_REF_HEIGHT_M) ** WIND_SHEAR_EXPONENT
+                # Cap multiplier to reasonable range (1.0 to 1.7)
+                # Higher cap allows peak fly balls to catch more wind
+                wind_multiplier = min(max(wind_multiplier, 1.0), 1.7)
+                
+                wind_velocity = np.array([
+                    wind_vx_base * wind_multiplier,
+                    wind_vy_base * wind_multiplier,
+                    0.0  # No vertical wind component
+                ])
+            else:
+                wind_velocity = np.array([0.0, 0.0, 0.0])
+            
             # Calculate relative velocity (ball velocity minus wind velocity)
             # This is the velocity of the ball through the air mass
             relative_velocity = velocity - wind_velocity
@@ -422,6 +459,8 @@ class BattedBallSimulator:
                 total_spin_rpm,
                 cd=cd
             )
+
+            return total_force
 
             return total_force
 

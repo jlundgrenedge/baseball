@@ -17,6 +17,7 @@ import numpy as np
 from .db_schema import DatabaseSchema
 from .stats_converter import StatsConverter
 from .pybaseball_fetcher import PybaseballFetcher
+from .team_mappings import get_team_division, get_db_abbr, TEAM_DIVISIONS
 
 
 def clean_value(value):
@@ -134,17 +135,27 @@ class TeamDatabase:
             self.conn.commit()
             existing_team = None
 
+        # Get league and division from mappings
+        division_info = get_team_division(team_abbr)
+        league = division_info[0] if division_info else None
+        division = division_info[1] if division_info else None
+
         # Create or get team
         if existing_team:
             team_id = existing_team[0]
             print(f"  Using existing team (ID: {team_id})")
+            # Update league/division if they were NULL
+            cursor.execute("""
+                UPDATE teams SET league = ?, division = ?
+                WHERE team_id = ? AND (league IS NULL OR division IS NULL)
+            """, (league, division, team_id))
         else:
             cursor.execute("""
                 INSERT INTO teams (team_name, team_abbr, season, league, division)
                 VALUES (?, ?, ?, ?, ?)
-            """, (team_name, team_abbr, season, None, None))
+            """, (team_name, team_abbr, season, league, division))
             team_id = cursor.lastrowid
-            print(f"  Created new team (ID: {team_id})")
+            print(f"  Created new team (ID: {team_id}) - {league} {division}")
 
         # Store pitchers
         num_pitchers = 0
@@ -534,6 +545,83 @@ class TeamDatabase:
 
         self.conn.commit()
         return True
+
+    def update_team_divisions(self) -> int:
+        """
+        Update league and division for all teams based on team_mappings.
+        
+        This fixes existing teams that have NULL league/division values.
+        
+        Returns
+        -------
+        int
+            Number of teams updated
+        """
+        cursor = self.conn.cursor()
+        
+        # Get all teams
+        cursor.execute("SELECT team_id, team_abbr, league, division FROM teams")
+        teams = cursor.fetchall()
+        
+        updated = 0
+        for team_id, team_abbr, league, division in teams:
+            # Get correct division info from mappings
+            division_info = get_team_division(team_abbr)
+            if division_info:
+                new_league, new_division = division_info
+                # Only update if different or NULL
+                if league != new_league or division != new_division:
+                    cursor.execute("""
+                        UPDATE teams SET league = ?, division = ?
+                        WHERE team_id = ?
+                    """, (new_league, new_division, team_id))
+                    updated += 1
+        
+        self.conn.commit()
+        return updated
+
+    def get_teams_by_division(self, season: Optional[int] = None) -> Dict[str, List[Dict]]:
+        """
+        Get teams grouped by division.
+        
+        Parameters
+        ----------
+        season : int, optional
+            Filter by season
+        
+        Returns
+        -------
+        dict
+            Dictionary with division names as keys and list of team dicts as values
+            Keys are like 'AL East', 'NL Central', etc.
+        """
+        cursor = self.conn.cursor()
+        
+        if season:
+            cursor.execute("""
+                SELECT * FROM teams 
+                WHERE season = ? 
+                ORDER BY league, division, team_name
+            """, (season,))
+        else:
+            cursor.execute("""
+                SELECT * FROM teams 
+                ORDER BY season DESC, league, division, team_name
+            """)
+        
+        teams = [dict(row) for row in cursor.fetchall()]
+        
+        # Group by division
+        divisions = {}
+        for team in teams:
+            league = team.get('league') or 'Unknown'
+            division = team.get('division') or 'Unknown'
+            div_key = f"{league} {division}"
+            if div_key not in divisions:
+                divisions[div_key] = []
+            divisions[div_key].append(team)
+        
+        return divisions
 
 
 if __name__ == "__main__":

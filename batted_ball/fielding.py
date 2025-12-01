@@ -54,7 +54,8 @@ class FieldingResult:
     Phase 6 optimization: ~20% memory reduction per instance.
     """
     __slots__ = ('success', 'fielder_arrival_time', 'ball_arrival_time', 'catch_position',
-                 'fielder_name', 'fielder_position', 'failure_reason', 'is_error', 'margin')
+                 'fielder_name', 'fielder_position', 'failure_reason', 'is_error', 'margin',
+                 'actual_intercept_position', 'intercept_height_ft')
 
     def __init__(self,
                  success: bool,
@@ -64,7 +65,9 @@ class FieldingResult:
                  fielder_name: str,
                  fielder_position: str = None,
                  failure_reason: str = None,
-                 is_error: bool = False):
+                 is_error: bool = False,
+                 actual_intercept_position: FieldPosition = None,
+                 intercept_height_ft: float = 0.0):
         """
         Initialize fielding result.
 
@@ -89,6 +92,11 @@ class FieldingResult:
             Whether this was a fielding error (dropped ball with positive time margin)
             - 'TOO_SLOW': fielder arrived after ball landed
             - 'DROP_ERROR': fielder arrived in time but failed to catch
+        actual_intercept_position : FieldPosition, optional
+            The actual 3D position where the fielder intercepted the ball during trajectory
+            (may differ from catch_position which is landing spot)
+        intercept_height_ft : float, optional
+            Height of the ball when intercepted (feet above ground)
         """
         self.success = success
         self.fielder_arrival_time = fielder_arrival_time
@@ -99,6 +107,8 @@ class FieldingResult:
         self.failure_reason = failure_reason
         self.is_error = is_error
         self.margin = ball_arrival_time - fielder_arrival_time  # Positive = made it
+        self.actual_intercept_position = actual_intercept_position
+        self.intercept_height_ft = intercept_height_ft
 
 
 class ThrowResult:

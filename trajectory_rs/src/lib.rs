@@ -15,6 +15,36 @@ const GRAVITY: f64 = 9.81;       // m/s²
 const BALL_MASS: f64 = 0.145;    // kg (MLB baseball)
 
 // ============================================================================
+// Wind Shear Constants (matching Python trajectory.py)
+// ============================================================================
+// Wind speed increases with altitude due to reduced surface friction
+// Using power law: wind(z) = wind_ref * (z / z_ref)^alpha
+const WIND_REF_HEIGHT_M: f64 = 10.0;    // Reference height (~33 ft)
+const WIND_SHEAR_EXPONENT: f64 = 0.20;  // Open terrain exponent (slightly higher for ballparks)
+const MIN_HEIGHT_M: f64 = 1.0;          // Minimum height to avoid division issues
+const MAX_WIND_MULTIPLIER: f64 = 1.7;   // Cap maximum wind amplification
+
+/// Calculate altitude-adjusted wind velocity using wind shear model.
+/// At higher altitudes, wind is stronger (less ground friction).
+#[inline(always)]
+fn apply_wind_shear(base_wind: &[f64; 3], height_m: f64) -> [f64; 3] {
+    // Clamp height to minimum
+    let h = height_m.max(MIN_HEIGHT_M);
+    
+    // Power law wind shear: wind increases with altitude
+    let mut multiplier = (h / WIND_REF_HEIGHT_M).powf(WIND_SHEAR_EXPONENT);
+    
+    // Clamp multiplier to reasonable range (1.0 to MAX_WIND_MULTIPLIER)
+    multiplier = multiplier.clamp(1.0, MAX_WIND_MULTIPLIER);
+    
+    [
+        base_wind[0] * multiplier,
+        base_wind[1] * multiplier,
+        base_wind[2] * multiplier,
+    ]
+}
+
+// ============================================================================
 // Ground Ball Physics Constants (from Python constants.py)
 // ============================================================================
 #[allow(dead_code)]
@@ -201,14 +231,15 @@ fn derivative(state: &[f64; 6], force: &[f64; 3]) -> [f64; 6] {
     [vx, vy, vz, ax, ay, az]
 }
 
-/// Perform one RK4 integration step with wind.
+/// Perform one RK4 integration step with wind and altitude-dependent wind shear.
 ///
 /// This is the critical hot path - optimized for maximum performance.
+/// Wind shear model: wind increases with altitude using power law.
 #[inline(always)]
 fn step_rk4_with_wind(
     state: &[f64; 6],
     dt: f64,
-    wind_velocity: &[f64; 3],
+    base_wind_velocity: &[f64; 3],
     spin_axis: &[f64; 3],
     spin_rpm: f64,
     air_density: f64,
@@ -230,26 +261,31 @@ fn step_rk4_with_wind(
     }
     
     // k1: derivative at beginning
+    // Apply wind shear based on current altitude (state[2] = z position)
+    let wind1 = apply_wind_shear(base_wind_velocity, state[2]);
     let velocity1 = [state[3], state[4], state[5]];
-    let force1 = aerodynamic_force_with_wind(&velocity1, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+    let force1 = aerodynamic_force_with_wind(&velocity1, &wind1, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
     let k1 = derivative(state, &force1);
     
     // k2: derivative at midpoint using k1
     let state2 = add_scaled(state, &k1, 0.5 * dt);
+    let wind2 = apply_wind_shear(base_wind_velocity, state2[2]);
     let velocity2 = [state2[3], state2[4], state2[5]];
-    let force2 = aerodynamic_force_with_wind(&velocity2, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+    let force2 = aerodynamic_force_with_wind(&velocity2, &wind2, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
     let k2 = derivative(&state2, &force2);
     
     // k3: derivative at midpoint using k2
     let state3 = add_scaled(state, &k2, 0.5 * dt);
+    let wind3 = apply_wind_shear(base_wind_velocity, state3[2]);
     let velocity3 = [state3[3], state3[4], state3[5]];
-    let force3 = aerodynamic_force_with_wind(&velocity3, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+    let force3 = aerodynamic_force_with_wind(&velocity3, &wind3, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
     let k3 = derivative(&state3, &force3);
     
     // k4: derivative at end using k3
     let state4 = add_scaled(state, &k3, dt);
+    let wind4 = apply_wind_shear(base_wind_velocity, state4[2]);
     let velocity4 = [state4[3], state4[4], state4[5]];
-    let force4 = aerodynamic_force_with_wind(&velocity4, wind_velocity, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
+    let force4 = aerodynamic_force_with_wind(&velocity4, &wind4, spin_axis, spin_rpm, air_density, cross_area, cd_table, cl_table);
     let k4 = derivative(&state4, &force4);
     
     // Weighted average: new = old + (dt/6) * (k1 + 2*k2 + 2*k3 + k4)

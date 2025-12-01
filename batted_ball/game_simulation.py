@@ -21,6 +21,7 @@ from .play_outcome import PlayResult, PlayOutcome
 from .defense_factory import create_standard_defense
 from .at_bat import AtBatSimulator
 from .constants import SimulationMode
+from .ballpark_effects import get_ballpark_effects, get_ballpark_for_team, MLB_BALLPARK_EFFECTS
 from .attributes import (
     create_power_hitter,
     create_balanced_hitter,
@@ -297,6 +298,8 @@ class Team:
     hitters: List[Hitter]  # Batting lineup (9 players)
     fielders: Dict[str, Fielder]  # Defensive positions dict keyed by position name
 
+    abbreviation: str = ""  # Team abbreviation (e.g., 'NYY', 'LAD') for ballpark lookups
+    home_ballpark: str = ""  # Home ballpark name (e.g., 'yankee', 'dodger')
     current_pitcher_index: int = 0
     current_batter_index: int = 0
 
@@ -497,6 +500,26 @@ class GameSimulator:
         self.play_by_play: List[PlayByPlayEvent] = []
         self.starter_innings = starter_innings  # When to switch to bullpen
 
+        # Get ballpark environmental effects (altitude, temperature from ballpark_effects.py)
+        # First try to get effects by ballpark name, then by home team abbreviation
+        self.ballpark_effects = get_ballpark_effects(ballpark)
+        if self.ballpark_effects is None and hasattr(home_team, 'abbreviation'):
+            # Try to find ballpark from home team
+            team_ballpark = get_ballpark_for_team(home_team.abbreviation)
+            if team_ballpark:
+                self.ballpark_effects = get_ballpark_effects(team_ballpark)
+        
+        # Set environmental conditions from ballpark (or defaults)
+        if self.ballpark_effects:
+            self.altitude = self.ballpark_effects.elevation_ft
+            self.temperature = self.ballpark_effects.avg_temperature_f
+            self.humidity = 0.5  # Default humidity (could be added to ballpark_effects later)
+        else:
+            # Default to sea level, 70°F if ballpark not found
+            self.altitude = 0.0
+            self.temperature = 70.0
+            self.humidity = 0.5
+
         # Parse simulation mode
         if simulation_mode is None:
             self.simulation_mode = SimulationMode.ACCURATE
@@ -514,23 +537,29 @@ class GameSimulator:
         # Generate random wind conditions for this game (Phase 2C)
         # Realistic MLB wind distribution:
         # - Speed: 0-20 MPH, most commonly 3-10 MPH
-        # - Direction: Random 0-360°, but often favoring outfield
+        # - Direction: Random 0-360°, including tailwinds that help carry balls out
         if wind_enabled:
-            # Use triangular distribution for wind speed (mode=3 mph, max=18 mph)
-            # This gives realistic distribution with most winds 2-6 MPH
-            # Calibrated to produce ~3-4% HR rate (Phase 2C target)
-            self.wind_speed = np.random.triangular(0, 3, 18)  # low, mode, high
+            # Use triangular distribution for wind speed (mode=9 mph, max=20 mph)
+            # Increased mode from 7 to 9 mph to boost HR rate via stronger wind effect
+            # MLB stadiums often have 8-12 mph average winds; this is realistic
+            # Combined with enhanced wind shear in Rust, high fly balls carry much further
+            self.wind_speed = np.random.triangular(0, 9, 20)  # low, mode, high
 
             # Wind direction: 0-360 degrees
             # 0° = toward CF (tailwind), 90° = toward RF, 180° = headwind, 270° = toward LF
-            # Weight toward crosswinds (more common than pure tail/headwinds)
+            # Tailwind-heavy distribution to simulate "hitter-friendly" conditions
+            # Real parks vary: Wrigley "wind blowing out" days are HR-friendly
+            # This biases toward tailwinds to help reach the ~12.5% HR/FB target
             direction_options = [
-                (45, 0.15),   # Toward RF-CF gap
-                (90, 0.20),   # Toward RF (crosswind)
-                (135, 0.15),  # Toward RF-CF gap
-                (225, 0.15),  # Toward LF-CF gap
-                (270, 0.20),  # Toward LF (crosswind - helps RHH!)
-                (315, 0.15),  # Toward LF-CF gap
+                (0, 0.18),    # Pure tailwind (blowing out to CF) - helps HRs!
+                (45, 0.15),   # Toward RF-CF gap (tailwind component)
+                (90, 0.10),   # Toward RF (crosswind)
+                (135, 0.07),  # Toward RF-home (slight headwind)
+                (180, 0.05),  # Pure headwind (blowing in) - hurts HRs
+                (225, 0.07),  # Toward LF-home (slight headwind)
+                (270, 0.10),  # Toward LF (crosswind)
+                (315, 0.15),  # Toward LF-CF gap (tailwind component)
+                (330, 0.13),  # Mostly tailwind
             ]
             directions, weights = zip(*direction_options)
             self.wind_direction = np.random.choice(directions, p=weights)
@@ -597,12 +626,15 @@ class GameSimulator:
 
         # Ballpark
         self.log(f"  Ballpark: {self.ballpark}")
+        if self.ballpark_effects:
+            self.log(f"    Park: {self.ballpark_effects.venue_name}")
+            self.log(f"    DistanceEffect: {self.ballpark_effects.total_distance_added:+.1f}%")
 
-        # Weather/environment
+        # Weather/environment (using actual ballpark data)
         self.log(f"  Weather:")
-        self.log(f"    TemperatureF: 70.0")  # Default
-        self.log(f"    AltitudeFt: 0")  # Default (sea level)
-        self.log(f"    Humidity: 0.50")  # Default
+        self.log(f"    TemperatureF: {self.temperature:.1f}")
+        self.log(f"    AltitudeFt: {self.altitude:.0f}")
+        self.log(f"    Humidity: {self.humidity:.2f}")
         # Wind info from game conditions (Phase 2C - variable wind)
         self.log(f"    WindSpeedMph: {self.wind_speed:.1f}")
         self.log(f"    WindDirection: {self.wind_direction:.0f}°")
@@ -697,10 +729,13 @@ class GameSimulator:
             print(f"\n{batter.name} batting against {pitcher.name}")
             print(f"  Situation: {self.game_state.get_base_state().value}, {self.game_state.outs} out(s)")
 
-        # Create at-bat simulator for this matchup (with game wind conditions)
+        # Create at-bat simulator for this matchup (with game wind conditions and ballpark environment)
         at_bat_sim = AtBatSimulator(
             pitcher,
             batter,
+            altitude=self.altitude,
+            temperature=self.temperature,
+            humidity=self.humidity,
             wind_speed=self.wind_speed,
             wind_direction=self.wind_direction,
             metrics_collector=self.metrics_collector,

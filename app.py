@@ -23,6 +23,8 @@ from batted_ball.parallel_worker import (
     MockGameState, 
     simulate_game_worker
 )
+from batted_ball.schedule_loader import ScheduleLoader
+from batted_ball.season_simulator import SeasonSimulator, GameResult
 
 
 def parse_team_string(team_str: str) -> Tuple[str, int]:
@@ -116,6 +118,7 @@ def main():
     mode = st.sidebar.radio("Select Mode", [
         "Single Game Deep Dive", 
         "Season Simulation (Parallel)",
+        "2025 Season Simulation",
         "Database Viewer"
     ])
 
@@ -471,64 +474,623 @@ def main():
             with tab3:
                 display_realism_benchmarks(series_data)
 
-    # --- Mode 3: Database Viewer ---
+    # --- Mode 3: 2025 Season Simulation ---
+    elif mode == "2025 Season Simulation":
+        display_2025_season_simulation()
+
+    # --- Mode 4: Database Viewer ---
     elif mode == "Database Viewer":
         display_database_viewer()
+
+
+def display_2025_season_simulation():
+    """Display 2025 MLB Season simulation interface."""
+    from datetime import date, timedelta
+    
+    st.header("📅 2025 MLB Season Simulation")
+    
+    # Check for schedule file
+    schedule_path = "data/bballsavant/2025/2025schedule.csv"
+    if not os.path.exists(schedule_path):
+        st.error(f"Schedule file not found: {schedule_path}")
+        st.info("Please ensure the 2025 schedule CSV is in the data/bballsavant/2025/ folder.")
+        return
+    
+    # Initialize simulator (just for info)
+    try:
+        sim = SeasonSimulator(schedule_path, verbose=False)
+        first_date, last_date = sim.schedule.get_date_range()
+        available_teams = sim._get_available_teams()
+        all_teams = sim.schedule.get_all_teams()
+    except Exception as e:
+        st.error(f"Error loading schedule: {e}")
+        return
+    
+    # Display info
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Season Start", str(first_date))
+    with col2:
+        st.metric("Season End", str(last_date))
+    with col3:
+        st.metric("Teams in DB", f"{len(available_teams)}/{len(all_teams)}")
+    
+    if len(available_teams) < len(all_teams):
+        missing = set(all_teams) - available_teams
+        st.warning(f"Missing teams: {', '.join(sorted(missing))}")
+        st.info("Use manage_teams.py to add missing teams to the database.")
+    
+    st.markdown("---")
+    
+    # Simulation options
+    st.subheader("Simulation Options")
+    
+    sim_type = st.radio("Select Simulation Range", [
+        "First Week",
+        "First Month",
+        "Specific Month",
+        "Custom Date Range",
+        "Full Season"
+    ])
+    
+    # Determine date range based on selection
+    if sim_type == "First Week":
+        start_date = first_date
+        end_date = first_date + timedelta(days=6)
+        
+    elif sim_type == "First Month":
+        start_date = first_date
+        # Find end of first month
+        end_month = first_date.month
+        end_date = first_date
+        while end_date.month == end_month:
+            end_date += timedelta(days=1)
+        end_date -= timedelta(days=1)
+        
+    elif sim_type == "Specific Month":
+        month = st.selectbox("Select Month", [
+            "March", "April", "May", "June", "July", 
+            "August", "September", "October"
+        ])
+        month_map = {
+            "March": 3, "April": 4, "May": 5, "June": 6,
+            "July": 7, "August": 8, "September": 9, "October": 10
+        }
+        m = month_map[month]
+        start_date = date(2025, m, 1)
+        if m == 12:
+            end_date = date(2025, 12, 31)
+        else:
+            end_date = date(2025, m + 1, 1) - timedelta(days=1)
+        
+    elif sim_type == "Custom Date Range":
+        col1, col2 = st.columns(2)
+        with col1:
+            start_date = st.date_input("Start Date", value=first_date, min_value=first_date, max_value=last_date)
+        with col2:
+            end_date = st.date_input("End Date", value=first_date + timedelta(days=6), min_value=first_date, max_value=last_date)
+        
+    else:  # Full Season
+        start_date = first_date
+        end_date = last_date
+        st.warning("⚠️ Full season simulation may take several minutes!")
+    
+    # Show game count estimate
+    games_in_range = sim.schedule.get_games_in_range(start_date, end_date)
+    total_scheduled = sum(len(g) for g in games_in_range.values())
+    playable = sum(
+        sum(1 for g in games if sim._can_simulate_game(g))
+        for games in games_in_range.values()
+    )
+    
+    st.info(f"📅 {len(games_in_range)} game days | ⚾ {playable}/{total_scheduled} games can be simulated")
+    
+    # Workers setting
+    num_workers = st.slider("Parallel Workers", min_value=1, max_value=cpu_count(), 
+                            value=max(1, cpu_count() - 1))
+    
+    # Initialize session state
+    if 'season_2025_results' not in st.session_state:
+        st.session_state.season_2025_results = None
+    
+    # Run button
+    if st.button("🎮 Simulate Season", type="primary"):
+        if playable == 0:
+            st.error("No games can be simulated. Add teams to the database first!")
+            return
+        
+        # Create fresh simulator
+        sim = SeasonSimulator(schedule_path, num_workers=num_workers, verbose=False)
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        day_results_area = st.empty()
+        
+        # Track progress
+        games_completed = 0
+        dates_list = sorted(games_in_range.keys())
+        
+        def progress_callback(current_date, total_dates, games_today):
+            nonlocal games_completed
+            games_completed += games_today
+            progress = (dates_list.index(current_date) + 1) / len(dates_list)
+            progress_bar.progress(progress)
+            status_text.text(f"Simulating {current_date}: {games_today} games ({games_completed} total)")
+        
+        import time
+        start_time = time.time()
+        
+        # Run simulation
+        stats = sim.simulate_range(start_date, end_date, progress_callback)
+        
+        elapsed = time.time() - start_time
+        
+        status_text.text(f"✅ Completed {stats['games_simulated']} games in {elapsed:.1f}s ({stats['games_simulated']/elapsed:.1f} games/sec)")
+        
+        # Store results
+        st.session_state.season_2025_results = {
+            'simulator': sim,
+            'stats': stats,
+            'start_date': start_date,
+            'end_date': end_date
+        }
+        
+        st.success("Simulation Complete!")
+    
+    # Display results
+    if st.session_state.season_2025_results:
+        results = st.session_state.season_2025_results
+        sim = results['simulator']
+        stats = results['stats']
+        
+        st.markdown("---")
+        st.subheader("📊 Results")
+        
+        # Summary stats
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Games Simulated", stats['games_simulated'])
+        with col2:
+            st.metric("Games Skipped", stats['games_skipped'])
+        with col3:
+            st.metric("Time Elapsed", f"{stats['elapsed_seconds']:.1f}s")
+        with col4:
+            st.metric("Games/Second", f"{stats['games_per_second']:.1f}")
+        
+        # Tabs for different views
+        tab1, tab2, tab3 = st.tabs(["📊 Standings", "📈 Statistics", "📋 Game Results"])
+        
+        with tab1:
+            st.subheader("League Standings")
+            
+            # Option to toggle between division and overall standings
+            view_mode = st.radio(
+                "View Mode",
+                ["By Division", "Overall"],
+                horizontal=True,
+                key="standings_view"
+            )
+            
+            if view_mode == "By Division":
+                # Show standings by division
+                divisions = sim.get_standings_by_division()
+                
+                # Define order for display
+                division_order = [
+                    ('AL East', 'AL Central', 'AL West'),
+                    ('NL East', 'NL Central', 'NL West')
+                ]
+                
+                for league_divs in division_order:
+                    cols = st.columns(3)
+                    for i, div_key in enumerate(league_divs):
+                        with cols[i]:
+                            if div_key in divisions:
+                                st.markdown(f"**{div_key}**")
+                                standings = divisions[div_key]
+                                
+                                if standings:
+                                    leader_wins = standings[0].wins
+                                    leader_losses = standings[0].losses
+                                    
+                                    standings_data = []
+                                    for s in standings:
+                                        gb = ((leader_wins - s.wins) + (s.losses - leader_losses)) / 2
+                                        gb_str = "-" if gb == 0 else f"{gb:.1f}"
+                                        
+                                        standings_data.append({
+                                            'Team': s.team,
+                                            'W': s.wins,
+                                            'L': s.losses,
+                                            'Pct': s.win_pct,
+                                            'GB': gb_str,
+                                        })
+                                    
+                                    df_div = pd.DataFrame(standings_data)
+                                    st.dataframe(
+                                        df_div.style.format({'Pct': '{:.3f}'}),
+                                        hide_index=True,
+                                        use_container_width=True,
+                                        height=220
+                                    )
+                    st.markdown("---")
+            else:
+                # Show overall standings
+                standings = sim.get_standings()
+                
+                if standings:
+                    # Calculate games back
+                    leader_wins = standings[0].wins
+                    leader_losses = standings[0].losses
+                    
+                    standings_data = []
+                    for i, s in enumerate(standings, 1):
+                        gb = ((leader_wins - s.wins) + (s.losses - leader_losses)) / 2
+                        gb_str = "-" if gb == 0 else f"{gb:.1f}"
+                        
+                        standings_data.append({
+                            'Rank': i,
+                            'Team': s.team,
+                            'W': s.wins,
+                            'L': s.losses,
+                            'Pct': s.win_pct,
+                            'GB': gb_str,
+                            'RS': s.runs_scored,
+                            'RA': s.runs_allowed,
+                            'Diff': s.run_diff,
+                            'Streak': s.streak_str,
+                            'L10': s.last_10_record
+                        })
+                    
+                    df_standings = pd.DataFrame(standings_data)
+                    st.dataframe(
+                        df_standings.style.format({'Pct': '{:.3f}'}),
+                        hide_index=True,
+                        use_container_width=True
+                    )
+        
+        with tab2:
+            summary = sim.get_summary_stats()
+            
+            if summary:
+                st.subheader("League Statistics")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.metric("Runs per Game", f"{summary['runs_per_game']:.2f}")
+                    st.metric("HRs per Game", f"{summary['home_runs_per_game']:.2f}")
+                
+                with col2:
+                    home_pct = 100 * summary['home_team_wins'] / summary['games_played']
+                    away_pct = 100 * summary['away_team_wins'] / summary['games_played']
+                    st.metric("Home Team Win %", f"{home_pct:.1f}%")
+                    st.metric("Away Team Win %", f"{away_pct:.1f}%")
+                
+                # Score distribution
+                st.subheader("Score Distribution")
+                
+                runs_per_game = [r.away_score + r.home_score for r in sim.results]
+                
+                fig, ax = plt.subplots(figsize=(10, 4))
+                ax.hist(runs_per_game, bins=range(0, max(runs_per_game) + 2), 
+                       edgecolor='black', alpha=0.7)
+                ax.axvline(np.mean(runs_per_game), color='red', linestyle='dashed',
+                          label=f'Avg: {np.mean(runs_per_game):.1f}')
+                ax.set_xlabel("Total Runs")
+                ax.set_ylabel("Games")
+                ax.set_title("Runs Per Game Distribution")
+                ax.legend()
+                st.pyplot(fig)
+        
+        with tab3:
+            st.subheader("Game Results")
+            
+            if sim.results:
+                # Convert to DataFrame
+                results_data = [
+                    {
+                        'Date': str(r.date),
+                        'Away': r.away_team,
+                        'A Score': r.away_score,
+                        'Home': r.home_team,
+                        'H Score': r.home_score,
+                        'Winner': r.winner
+                    }
+                    for r in sim.results
+                ]
+                
+                df_results = pd.DataFrame(results_data)
+                
+                # Filter options
+                col1, col2 = st.columns(2)
+                with col1:
+                    team_filter = st.selectbox("Filter by Team", 
+                                               ["All"] + sorted(sim.schedule.get_all_teams()))
+                with col2:
+                    date_filter = st.selectbox("Filter by Date",
+                                               ["All"] + [str(d) for d in sorted(set(r.date for r in sim.results))])
+                
+                # Apply filters
+                filtered_df = df_results
+                if team_filter != "All":
+                    filtered_df = filtered_df[
+                        (filtered_df['Away'] == team_filter) | 
+                        (filtered_df['Home'] == team_filter)
+                    ]
+                if date_filter != "All":
+                    filtered_df = filtered_df[filtered_df['Date'] == date_filter]
+                
+                st.dataframe(filtered_df, hide_index=True, use_container_width=True, height=400)
+                
+                # Download button
+                csv = df_results.to_csv(index=False)
+                st.download_button(
+                    "📥 Download Results CSV",
+                    csv,
+                    f"season_results_{results['start_date']}_{results['end_date']}.csv",
+                    "text/csv"
+                )
 
 
 def display_database_viewer():
     """Display comprehensive database viewer with all player attributes."""
     import sqlite3
     
-    st.header("📊 Database Viewer")
+    st.header("📊 Database Manager")
     
     db_path = "baseball_teams.db"
-    if not os.path.exists(db_path):
-        st.error("Database not found! Please add teams first.")
-        return
+    db_exists = os.path.exists(db_path)
     
-    conn = sqlite3.connect(db_path)
-    
-    # Get database overview
-    cursor = conn.cursor()
-    
-    # Count teams
-    cursor.execute("SELECT COUNT(*) FROM teams")
-    num_teams = cursor.fetchone()[0]
-    
-    # Count pitchers
-    cursor.execute("SELECT COUNT(*) FROM pitchers")
-    num_pitchers = cursor.fetchone()[0]
-    
-    # Count hitters
-    cursor.execute("SELECT COUNT(*) FROM hitters")
-    num_hitters = cursor.fetchone()[0]
-    
-    # Display summary metrics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Teams", num_teams)
-    with col2:
-        st.metric("Total Pitchers", num_pitchers)
-    with col3:
-        st.metric("Total Hitters", num_hitters)
+    if db_exists:
+        conn = sqlite3.connect(db_path)
+        
+        # Get database overview
+        cursor = conn.cursor()
+        
+        # Count teams
+        cursor.execute("SELECT COUNT(*) FROM teams")
+        num_teams = cursor.fetchone()[0]
+        
+        # Count pitchers
+        cursor.execute("SELECT COUNT(*) FROM pitchers")
+        num_pitchers = cursor.fetchone()[0]
+        
+        # Count hitters
+        cursor.execute("SELECT COUNT(*) FROM hitters")
+        num_hitters = cursor.fetchone()[0]
+        
+        # Display summary metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Teams", num_teams)
+        with col2:
+            st.metric("Total Pitchers", num_pitchers)
+        with col3:
+            st.metric("Total Hitters", num_hitters)
+    else:
+        st.warning("Database not found. Use the Team Management tab to add teams.")
+        num_teams = 0
+        conn = None
     
     # Tab selection for different views
-    tab1, tab2, tab3, tab4 = st.tabs(["🏟️ Teams", "⚾ Pitchers", "🏏 Hitters", "📈 Raw Tables"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "➕ Team Management", 
+        "🏟️ Teams", 
+        "⚾ Pitchers", 
+        "🏏 Hitters", 
+        "📈 Raw Tables"
+    ])
     
     with tab1:
-        display_teams_tab(conn)
+        display_team_management_tab()
     
     with tab2:
-        display_pitchers_tab(conn)
+        if conn:
+            display_teams_tab(conn)
+        else:
+            st.info("Add teams first using the Team Management tab.")
     
     with tab3:
-        display_hitters_tab(conn)
+        if conn:
+            display_pitchers_tab(conn)
+        else:
+            st.info("Add teams first using the Team Management tab.")
     
     with tab4:
-        display_raw_tables_tab(conn)
+        if conn:
+            display_hitters_tab(conn)
+        else:
+            st.info("Add teams first using the Team Management tab.")
     
-    conn.close()
+    with tab5:
+        if conn:
+            display_raw_tables_tab(conn)
+        else:
+            st.info("Add teams first using the Team Management tab.")
+    
+    if conn:
+        conn.close()
+
+
+def display_team_management_tab():
+    """Display team management interface for adding/removing teams."""
+    from batted_ball.database import TeamDatabase, PybaseballFetcher
+    from batted_ball.database.team_mappings import (
+        TEAM_FULL_NAMES, TEAM_DIVISIONS, get_all_team_abbrs
+    )
+    
+    st.subheader("Team Management")
+    st.markdown("Add or remove MLB teams from the database.")
+    
+    # Get list of all available teams grouped by division
+    all_teams = get_all_team_abbrs()
+    
+    # Get teams already in database
+    db_path = "baseball_teams.db"
+    existing_teams = set()
+    if os.path.exists(db_path):
+        try:
+            db = TeamDatabase(db_path)
+            teams_list = db.list_teams()
+            existing_teams = {(t['team_abbr'], t['season']) for t in teams_list}
+            db.close()
+        except Exception as e:
+            st.error(f"Error reading database: {e}")
+    
+    # Two columns: Add teams and Remove teams
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### ➕ Add Teams")
+        
+        # Season selector
+        season = st.selectbox("Season", [2025, 2024, 2023, 2022], key="add_season")
+        
+        # Team selector with division grouping
+        st.markdown("**Select teams to add:**")
+        
+        # Group by division
+        divisions = [
+            ("AL East", ['BAL', 'BOS', 'NYY', 'TB', 'TOR']),
+            ("AL Central", ['CHW', 'CLE', 'DET', 'KC', 'MIN']),
+            ("AL West", ['HOU', 'LAA', 'OAK', 'SEA', 'TEX']),
+            ("NL East", ['ATL', 'MIA', 'NYM', 'PHI', 'WSH']),
+            ("NL Central", ['CHC', 'CIN', 'MIL', 'PIT', 'STL']),
+            ("NL West", ['ARI', 'COL', 'LAD', 'SD', 'SF']),
+        ]
+        
+        selected_teams = []
+        
+        for div_name, div_teams in divisions:
+            with st.expander(div_name, expanded=False):
+                for abbr in div_teams:
+                    name = TEAM_FULL_NAMES.get(abbr, abbr)
+                    in_db = (abbr, season) in existing_teams
+                    label = f"{abbr} - {name}"
+                    if in_db:
+                        label += " ✓"
+                    
+                    if st.checkbox(label, key=f"add_{abbr}_{season}", disabled=in_db):
+                        selected_teams.append(abbr)
+        
+        # Quick add all
+        if st.checkbox("Select ALL teams not in database", key="select_all_add"):
+            selected_teams = [abbr for abbr in all_teams if (abbr, season) not in existing_teams]
+            st.info(f"Selected {len(selected_teams)} teams")
+        
+        # Add options
+        with st.expander("Advanced Options"):
+            min_innings = st.slider("Min Pitcher IP", 0, 100, 20, key="add_min_ip")
+            min_at_bats = st.slider("Min Hitter AB", 0, 200, 50, key="add_min_ab")
+            overwrite = st.checkbox("Overwrite existing", key="add_overwrite")
+        
+        # Add button
+        if st.button("🚀 Add Selected Teams", type="primary", disabled=len(selected_teams) == 0):
+            if selected_teams:
+                progress = st.progress(0)
+                status = st.empty()
+                results = []
+                
+                db = TeamDatabase(db_path)
+                
+                for i, team_abbr in enumerate(selected_teams):
+                    status.text(f"Adding {team_abbr} ({i+1}/{len(selected_teams)})...")
+                    try:
+                        num_p, num_h = db.fetch_and_store_team(
+                            team_abbr,
+                            season=season,
+                            min_pitcher_innings=min_innings,
+                            min_hitter_at_bats=min_at_bats,
+                            overwrite=overwrite
+                        )
+                        results.append((team_abbr, "✓", f"{num_p}P, {num_h}H"))
+                    except Exception as e:
+                        results.append((team_abbr, "✗", str(e)))
+                    
+                    progress.progress((i + 1) / len(selected_teams))
+                
+                db.close()
+                
+                status.empty()
+                progress.empty()
+                
+                # Show results
+                success = sum(1 for _, s, _ in results if s == "✓")
+                st.success(f"Added {success}/{len(results)} teams!")
+                
+                for abbr, status_char, msg in results:
+                    if status_char == "✓":
+                        st.write(f"✅ {abbr}: {msg}")
+                    else:
+                        st.error(f"❌ {abbr}: {msg}")
+                
+                st.rerun()
+    
+    with col2:
+        st.markdown("### 🗑️ Remove Teams")
+        
+        if not existing_teams:
+            st.info("No teams in database to remove.")
+        else:
+            # Get detailed team list
+            db = TeamDatabase(db_path)
+            teams_list = db.list_teams()
+            db.close()
+            
+            # Group by season
+            by_season = {}
+            for t in teams_list:
+                s = t['season']
+                if s not in by_season:
+                    by_season[s] = []
+                by_season[s].append(t)
+            
+            teams_to_remove = []
+            
+            for season in sorted(by_season.keys(), reverse=True):
+                with st.expander(f"{season} Season ({len(by_season[season])} teams)"):
+                    for t in sorted(by_season[season], key=lambda x: x['team_name']):
+                        if st.checkbox(
+                            f"{t['team_abbr']} - {t['team_name']}", 
+                            key=f"remove_{t['team_abbr']}_{t['season']}"
+                        ):
+                            teams_to_remove.append((t['team_name'], t['season']))
+            
+            if st.button("🗑️ Remove Selected Teams", type="secondary", disabled=len(teams_to_remove) == 0):
+                if teams_to_remove:
+                    db = TeamDatabase(db_path)
+                    removed = 0
+                    for team_name, season in teams_to_remove:
+                        if db.delete_team(team_name, season):
+                            removed += 1
+                    db.close()
+                    
+                    st.success(f"Removed {removed}/{len(teams_to_remove)} teams!")
+                    st.rerun()
+    
+    # Show current database status
+    st.markdown("---")
+    st.markdown("### 📊 Database Status")
+    
+    if existing_teams:
+        # Count by season
+        seasons = {}
+        for abbr, season in existing_teams:
+            seasons[season] = seasons.get(season, 0) + 1
+        
+        cols = st.columns(len(seasons) if len(seasons) <= 4 else 4)
+        for i, (season, count) in enumerate(sorted(seasons.items(), reverse=True)):
+            with cols[i % len(cols)]:
+                st.metric(f"{season}", f"{count}/30 teams")
+        
+        # Check for missing teams (compared to 30 MLB teams)
+        for season in seasons:
+            missing = [abbr for abbr in all_teams if (abbr, season) not in existing_teams]
+            if missing and len(missing) < 10:
+                st.warning(f"{season} missing: {', '.join(missing)}")
+    else:
+        st.info("Database is empty. Add teams to get started!")
 
 
 def display_teams_tab(conn):

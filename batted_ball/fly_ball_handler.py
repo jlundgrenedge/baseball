@@ -30,6 +30,95 @@ from .play_outcome import PlayEvent, PlayResult, PlayOutcome
 from .route_efficiency import RouteEfficiencyAnalyzer
 
 
+def determine_error_or_hit(
+    distance_traveled_ft: float,
+    time_margin_s: float,
+    ball_height_ft: float,
+    exit_velocity_mph: float
+) -> str:
+    """
+    Scorekeeper determination: ERROR vs HIT for a dropped ball.
+    
+    This runs AFTER the fielder reaches the ball and drops it.
+    The fielding physics stays the same - this is purely classification.
+    
+    In real baseball, an ERROR is failing to make a play with ordinary effort.
+    If the play required extraordinary effort, a failure is a HIT, not an error.
+    
+    Parameters
+    ----------
+    distance_traveled_ft : float
+        Distance fielder had to travel to reach the ball
+    time_margin_s : float
+        Time margin (positive = early, negative = late)
+    ball_height_ft : float
+        Height of ball at intercept point (feet)
+    exit_velocity_mph : float
+        Exit velocity of the batted ball
+    
+    Returns
+    -------
+    str
+        "ERROR" or "HIT"
+    """
+    # Calculate difficulty score (higher = harder play = more likely HIT)
+    difficulty = 0.0
+    
+    # === Distance Factor ===
+    # Routine plays are < 20 ft, difficult plays are > 35 ft
+    # Adjusted to call more errors on medium-distance plays
+    if distance_traveled_ft > 40:
+        difficulty += 0.4
+    elif distance_traveled_ft > 30:
+        difficulty += 0.25
+    elif distance_traveled_ft > 20:
+        difficulty += 0.1
+    # < 20 ft adds nothing (routine distance)
+    
+    # === Time Margin Factor ===
+    # Comfortable margin > 0.2s, barely made it < 0.05s
+    # Adjusted to be more forgiving of close plays
+    if time_margin_s < 0.03:
+        difficulty += 0.35  # Just barely got there
+    elif time_margin_s < 0.08:
+        difficulty += 0.2
+    elif time_margin_s < 0.15:
+        difficulty += 0.1
+    # > 0.15s adds nothing (comfortable margin)
+    
+    # === Ball Height Factor ===
+    # Comfortable catch zone is 3-6 ft (chest to face)
+    if ball_height_ft > 9:
+        difficulty += 0.3   # Had to jump high
+    elif ball_height_ft < 2:
+        difficulty += 0.35  # Had to dive/scoop low
+    elif ball_height_ft > 7:
+        difficulty += 0.15  # Reaching up
+    elif ball_height_ft < 3:
+        difficulty += 0.1   # Low but catchable
+    # 3-7 ft adds nothing (routine height)
+    
+    # === Exit Velocity Factor ===
+    # Hard-hit balls are harder to squeeze
+    if exit_velocity_mph > 105:
+        difficulty += 0.35
+    elif exit_velocity_mph > 100:
+        difficulty += 0.25
+    elif exit_velocity_mph > 95:
+        difficulty += 0.15
+    # < 95 mph adds nothing (routine velocity)
+    
+    # === Decision ===
+    # difficulty > 0.6 = HIT (extraordinary effort play)
+    # difficulty <= 0.6 = ERROR (should have made the play)
+    # Raised threshold from 0.5 to 0.6 to call more errors
+    
+    if difficulty > 0.6:
+        return "HIT"
+    else:
+        return "ERROR"
+
+
 class FlyBallHandler:
     """Handles fly ball trajectory interception and catch attempts."""
 
@@ -137,41 +226,39 @@ class FlyBallHandler:
             elif catch_result.failure_reason == 'DROP_ERROR':
                 # Calculate time margin for context
                 time_margin = catch_result.ball_arrival_time - catch_result.fielder_arrival_time
+                
+                # BUG #1 PHASE 2: Use scorekeeper logic for error vs hit classification
+                # Get fielder to calculate distance traveled
+                fielder = self.fielding_simulator.fielders.get(responsible_position)
+                fielder_start_pos = self.field_layout.get_defensive_position(responsible_position)
+                distance_traveled = fielder_start_pos.horizontal_distance_to(ball_position) if fielder else 0
+                
+                # Get ball height and exit velocity from batted ball result
+                batted_ball = result.batted_ball_result
+                ball_height_ft = ball_position.z if hasattr(ball_position, 'z') else 0.0
+                exit_velocity_mph = batted_ball.exit_velocity if batted_ball else 90.0
+                
+                # Use scorekeeper logic to determine error vs hit
+                classification = determine_error_or_hit(
+                    distance_traveled_ft=distance_traveled,
+                    time_margin_s=time_margin,
+                    ball_height_ft=ball_height_ft,
+                    exit_velocity_mph=exit_velocity_mph
+                )
 
-                # FIX FOR BUTTERFINGERS BUG: If fielder arrived early (positive time margin),
-                # especially if waiting (>0.5s), this should be a FIELDING ERROR, not a hit.
-                if time_margin > 0.0:
+                if classification == "ERROR":
                     # Fielder was there in time but dropped it - this is an error
                     result.add_event(PlayEvent(
                         hang_time, "fielding_error",
                         f"ERROR! Ball dropped by {responsible_position} in {self.describe_field_location(ball_position)} (arrived {time_margin:.2f}s early, E{self._get_error_number(responsible_position)})"
                     ))
-                    # Mark this as an error, not allowing the ball to roll to the wall
-                    # We'll handle this in handle_fly_ball_caught with special error logic
                     catch_result.is_error = True
                 else:
-                    # FIX FOR "DIVING ATTEMPT VS ROUTINE DROP" BUG (Priority 3):
-                    # Fielder arrived slightly late (within diving range, -0.15s to 0.0s margin)
-                    # This is a diving attempt - most of these should be HITS, not errors
-                    # Only mark as error if ball actually hit the glove and was dropped
-
-                    # Small chance ball hits glove during diving attempt (20%)
-                    # This represents cases where fielder gets a glove on it but can't hold on
-                    ball_hit_glove = np.random.random() < 0.20
-
-                    if ball_hit_glove:
-                        # Ball touched glove but couldn't hold on - this is an error
-                        result.add_event(PlayEvent(
-                            hang_time, "fielding_error",
-                            f"ERROR! Diving attempt by {responsible_position}, ball hit glove but dropped in {self.describe_field_location(ball_position)} (E{self._get_error_number(responsible_position)})"
-                        ))
-                        catch_result.is_error = True
-                    else:
-                        # Diving attempt, ball never reached glove - this is a HIT (trapped/just missed)
-                        result.add_event(PlayEvent(
-                            hang_time, "ball_drops",
-                            f"Diving attempt by {responsible_position} in {self.describe_field_location(ball_position)}... just missed!"
-                        ))
+                    # Difficult play - score as a HIT, not an error
+                    result.add_event(PlayEvent(
+                        hang_time, "ball_drops",
+                        f"Difficult play by {responsible_position} in {self.describe_field_location(ball_position)} - scored as hit (distance: {distance_traveled:.0f}ft, margin: {time_margin:.2f}s)"
+                    ))
             else:
                 # Fallback for unknown failure reason
                 # FIX FOR BALL RETRIEVAL LOGIC BUG: Don't specify fielder, let retrieval logic assign
@@ -312,6 +399,9 @@ class FlyBallHandler:
         this should be a fielding error, not a hit that rolls to the wall.
 
         Ball stays at fielder's location. Runners advance 1-2 bases, not unlimited.
+        
+        BUG #2 FIX: Capture existing runners BEFORE moving batter to prevent duplication.
+        BUG #3 FIX: Only process bases that actually had runners before the play.
         """
         # Set outcome to ERROR
         result.outcome = PlayOutcome.ERROR
@@ -335,6 +425,14 @@ class FlyBallHandler:
         batter_runner = self.baserunning_simulator.get_runner_at_base("home")
         if not batter_runner:
             return  # Safety check
+
+        # BUG #2 & #3 FIX: Capture existing runners BEFORE moving the batter
+        # This prevents: 1) processing batter twice, 2) generating events for empty bases
+        existing_runners = {}
+        for base in ["first", "second", "third"]:
+            runner = self.baserunning_simulator.get_runner_at_base(base)
+            if runner is not None and runner is not batter_runner:
+                existing_runners[base] = runner
 
         # Calculate how far batter can run during error recovery
         time_to_first = batter_runner.calculate_time_to_base("home", "first", include_leadoff=False)
@@ -360,62 +458,85 @@ class FlyBallHandler:
         self.baserunning_simulator.remove_runner("home")
         batter_runner.current_base = batter_target
         self.baserunning_simulator.add_runner(batter_target, batter_runner)
+        
+        # BUG #2 FIX: Clear any existing entry for batter before adding
+        # Remove batter from any other position in final_runner_positions
+        for existing_base in list(result.final_runner_positions.keys()):
+            if result.final_runner_positions[existing_base] is batter_runner:
+                del result.final_runner_positions[existing_base]
         result.final_runner_positions[batter_target] = batter_runner
 
         # Advance existing runners (force if needed, otherwise hold or advance 1 base)
+        # BUG #3 FIX: Only process runners that were captured BEFORE moving the batter
         # Process in reverse order (third -> second -> first) to avoid conflicts
         for base in ["third", "second", "first"]:
-            runner = self.baserunning_simulator.get_runner_at_base(base)
-            if runner:
-                # Determine where this runner should go
-                if base == "third":
-                    # Runner on third scores on error
+            if base not in existing_runners:
+                continue  # No runner was on this base before the play
+                
+            runner = existing_runners[base]
+            
+            # Determine where this runner should go
+            if base == "third":
+                # Runner on third scores on error
+                target_base = "home"
+                result.runs_scored += 1
+                self.baserunning_simulator.remove_runner(base)
+                result.add_event(PlayEvent(
+                    error_time + 0.5, f"runner_scores_from_{base}",
+                    f"Runner scores from third on error"
+                ))
+            elif base == "second":
+                # Runner on second advances to third (or home if batter only reached first)
+                if batter_target == "first":
+                    target_base = "third"
+                else:
                     target_base = "home"
                     result.runs_scored += 1
-                    self.baserunning_simulator.remove_runner(base)
+
+                self.baserunning_simulator.remove_runner(base)
+                if target_base == "home":
                     result.add_event(PlayEvent(
-                        error_time + 0.5, f"runner_scores_from_{base}",
-                        f"Runner scores from third on error"
+                        error_time + 0.8, f"runner_scores_from_{base}",
+                        f"Runner scores from second on error"
                     ))
-                elif base == "second":
-                    # Runner on second advances to third (or home if batter only reached first)
-                    if batter_target == "first":
-                        target_base = "third"
-                    else:
-                        target_base = "home"
-                        result.runs_scored += 1
-
-                    self.baserunning_simulator.remove_runner(base)
-                    if target_base == "home":
-                        result.add_event(PlayEvent(
-                            error_time + 0.8, f"runner_scores_from_{base}",
-                            f"Runner scores from second on error"
-                        ))
-                    else:
-                        runner.current_base = target_base
-                        self.baserunning_simulator.add_runner(target_base, runner)
-                        result.final_runner_positions[target_base] = runner
-                        result.add_event(PlayEvent(
-                            error_time + 0.8, f"runner_advances_to_{target_base}",
-                            f"Runner advances from second to {target_base}"
-                        ))
-                elif base == "first":
-                    # Runner on first advances based on batter's advancement
-                    if batter_target == "second":
-                        # Forced to second (batter took second)
-                        target_base = "third"
-                    else:
-                        # Advances to second (force play)
-                        target_base = "second"
-
-                    self.baserunning_simulator.remove_runner(base)
+                else:
                     runner.current_base = target_base
                     self.baserunning_simulator.add_runner(target_base, runner)
                     result.final_runner_positions[target_base] = runner
                     result.add_event(PlayEvent(
-                        error_time + 0.6, f"runner_advances_to_{target_base}",
-                        f"Runner advances from first to {target_base}"
+                        error_time + 0.8, f"runner_advances_to_{target_base}",
+                        f"Runner advances from second to {target_base}"
                     ))
+            elif base == "first":
+                # Runner on first advances based on batter's advancement
+                if batter_target == "second":
+                    # Forced to third (batter took second)
+                    target_base = "third"
+                else:
+                    # Advances to second (force play)
+                    target_base = "second"
+
+                self.baserunning_simulator.remove_runner(base)
+                runner.current_base = target_base
+                self.baserunning_simulator.add_runner(target_base, runner)
+                result.final_runner_positions[target_base] = runner
+                result.add_event(PlayEvent(
+                    error_time + 0.6, f"runner_advances_to_{target_base}",
+                    f"Runner advances from first to {target_base}"
+                ))
+        
+        # BUG #2 FIX: Final validation - ensure no runner appears twice
+        seen_runner_ids = set()
+        bases_to_remove = []
+        for base, runner in result.final_runner_positions.items():
+            runner_id = id(runner)
+            if runner_id in seen_runner_ids:
+                bases_to_remove.append(base)
+            else:
+                seen_runner_ids.add(runner_id)
+        
+        for base in bases_to_remove:
+            del result.final_runner_positions[base]
 
     def handle_ball_in_play(self, ball_position: FieldPosition,
                             ball_time: float, result: PlayResult,
@@ -935,6 +1056,30 @@ class FlyBallHandler:
                             if runner:
                                 result.final_runner_positions[base] = runner
 
+                        # BUG #1 FIX: Log route efficiency with CORRECT intercept position
+                        # The ball_pos_t is the actual 3D position where the fielder intercepted
+                        if self.ENABLE_ROUTE_EFFICIENCY_LOGGING:
+                            # Create a FieldingResult with correct intercept position for logging
+                            trajectory_catch_result = FieldingResult(
+                                success=True,
+                                fielder_arrival_time=fielder_arrival_time,
+                                ball_arrival_time=t,
+                                catch_position=ball_pos_t,  # Use actual intercept position
+                                fielder_name=fielder.name,
+                                fielder_position=position_name,
+                                failure_reason=None,
+                                is_error=False,
+                                actual_intercept_position=ball_pos_t,  # Store for route efficiency
+                                intercept_height_ft=ball_pos_t.z  # Height at intercept
+                            )
+                            self._log_route_efficiency(
+                                position_name,
+                                ball_pos_t,  # Use intercept position, not landing position
+                                t,  # Time to intercept, not hang time
+                                trajectory_catch_result,
+                                result
+                            )
+
                         # Return True to indicate ball was caught
                         return True
                     else:
@@ -1185,7 +1330,7 @@ class FlyBallHandler:
         responsible_position : str
             Position key of fielder (e.g., 'center_field')
         ball_position : FieldPosition
-            Where ball landed/was caught
+            Where ball landed (fallback if no intercept position available)
         hang_time : float
             Ball hang time in seconds
         catch_result : FieldingResult
@@ -1203,20 +1348,36 @@ class FlyBallHandler:
         # Get fielder's starting position from field layout
         fielder_start_position = self.field_layout.get_defensive_position(responsible_position)
 
+        # BUG #1 FIX: Use actual intercept position if available, otherwise fall back to landing position
+        # The actual intercept position is where the fielder actually caught/reached the ball during trajectory,
+        # not where the ball would have landed if not intercepted.
+        intercept_position = ball_position  # Default to landing position
+        effective_hang_time = hang_time
+        
+        if hasattr(catch_result, 'actual_intercept_position') and catch_result.actual_intercept_position is not None:
+            intercept_position = catch_result.actual_intercept_position
+            # The ball arrival time at intercept is the fielder arrival time since they're meeting
+            effective_hang_time = catch_result.ball_arrival_time
+
         # Analyze the play
         metrics = self.route_efficiency_analyzer.analyze_fielding_play(
             fielder=fielder,
             fielder_start_position=fielder_start_position,
-            ball_intercept_position=ball_position,
-            ball_hang_time=hang_time,
+            ball_intercept_position=intercept_position,
+            ball_hang_time=effective_hang_time,
             fielding_result=catch_result
         )
+
+        # Add intercept height info if available
+        intercept_height_info = ""
+        if hasattr(catch_result, 'intercept_height_ft') and catch_result.intercept_height_ft > 0:
+            intercept_height_info = f"\n  BallHeightAtInterceptFt: {catch_result.intercept_height_ft:.1f}"
 
         # Add formatted metrics to play result as an event
         # Use a special event type "route_efficiency" so it can be filtered if needed
         result.add_event(PlayEvent(
             hang_time, "route_efficiency",
-            metrics.to_log_format()
+            metrics.to_log_format() + intercept_height_info
         ))
 
         # If there are any validation warnings, log them (for debugging)

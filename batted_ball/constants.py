@@ -334,10 +334,11 @@ BENCHMARK_BACKSPIN = 1800.0      # rpm
 # - Average contact (1.5"): q=0.097 → 86 mph EV
 # - Poor contact (2.0"): q=0.071 → 82 mph EV
 #
-# Target: ~88-89 mph avg EV, ~38% Hard Hit Rate, ~12% HR/FB
-COLLISION_EFFICIENCY_WOOD = 0.175       # Wood bats - final tuning for MLB-realistic EV
-COLLISION_EFFICIENCY_ALUMINUM = 0.195   # Aluminum bats (higher COR than wood)
-COLLISION_EFFICIENCY_COMPOSITE = 0.205  # Composite bats (highest - trampoline effect)
+# Target: ~90 mph avg EV, ~38% Hard Hit Rate (95+ mph), ~12% HR/FB
+# RECALIBRATED 2025-11: Increased from 0.175 to 0.190 to match MLB Hard Hit Rate
+COLLISION_EFFICIENCY_WOOD = 0.190       # Wood bats - tuned for ~35-38% Hard Hit Rate
+COLLISION_EFFICIENCY_ALUMINUM = 0.210   # Aluminum bats (higher COR than wood)
+COLLISION_EFFICIENCY_COMPOSITE = 0.220  # Composite bats (highest - trampoline effect)
 
 # Sweet Spot Physics
 SWEET_SPOT_LENGTH_INCHES = 6.0           # Length of sweet spot zone
@@ -372,7 +373,13 @@ TRAMPOLINE_ENERGY_RECOVERY = 0.95        # Energy recovery from bat barrel flex
 # Phase 1.8h Baseline: EV ~90.5, HHR ~36%, HR/FB ~9.5%, ISO ~0.125
 # Phase 2 (Statcast bat speed integration): Reduced from 0.043 to 0.018
 # With 4.0 mph calibration offset and 0.018 degradation: HR/FB=9.0%, HHR=39.8%, ISO=0.133
-OFFSET_EFFICIENCY_DEGRADATION = 0.018   # Efficiency loss per inch of offset
+# 
+# PHASE 1.7.9 RECALIBRATION (2025-11-30):
+# 1000-game test showed EV=92.2 mph (target 88), BABIP=.339 (target .295)
+# Increased degradation from 0.018 to 0.028 to lower EV on mis-hits
+# Combined with reduced bat speed offset (4.0 -> 2.0 mph) for overall EV reduction
+# Target: EV ~88-89 mph, BABIP ~.295-.310, preserve HR/FB ~10-12%
+OFFSET_EFFICIENCY_DEGRADATION = 0.028   # Efficiency loss per inch of offset (increased from 0.018)
 HORIZONTAL_OFFSET_SPIN_FACTOR = 400.0    # rpm per inch of horizontal offset
 VERTICAL_OFFSET_SPIN_FACTOR = 500.0      # rpm per inch of vertical offset
 SPIN_INDEPENDENCE_FACTOR = 0.95          # How much bat overwrites pitch spin

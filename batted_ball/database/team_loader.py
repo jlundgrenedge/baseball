@@ -17,6 +17,7 @@ from batted_ball.attributes import PitcherAttributes, HitterAttributes
 from batted_ball.game_simulation import Team
 from batted_ball.player import generate_pitch_arsenal
 from batted_ball.defense_factory import create_standard_defense
+from batted_ball.ballpark_effects import get_ballpark_for_team
 
 from .team_database import TeamDatabase
 
@@ -155,16 +156,24 @@ class TeamLoader:
                 if pos not in fielders:
                     fielders[pos] = fielder
 
+        # Get team abbreviation and home ballpark
+        team_abbr = team_info.get('team_abbr', '')
+        home_ballpark = get_ballpark_for_team(team_abbr) if team_abbr else ''
+
         # Create Team object
         team = Team(
             name=team_info['team_name'],
             pitchers=pitchers,
             hitters=hitters[:9],  # Take first 9 for batting order
-            fielders=fielders
+            fielders=fielders,
+            abbreviation=team_abbr,
+            home_ballpark=home_ballpark,
         )
 
         print(f"[OK] Loaded {team_info['team_name']} ({season})")
-        print(f"  {len(pitchers)} pitchers, {len(hitters)} hitters")  
+        print(f"  {len(pitchers)} pitchers, {len(hitters)} hitters")
+        if home_ballpark:
+            print(f"  Home ballpark: {home_ballpark}")  
 
         return team
 
@@ -349,6 +358,14 @@ class TeamLoader:
         else:
             attack_angle_control = max(stored_aac, min_aac)
 
+        # Get hard swing rate from bat tracking data (PHASE 3.1: EV variance)
+        # MLB range: ~0.45 to ~0.97. Higher = more max-effort swings = wider EV distribution
+        hard_swing_rate_raw = record.get('hard_swing_rate')
+        hard_swing_rate = None
+        if hard_swing_rate_raw is not None and hard_swing_rate_raw > 0:
+            # Normalize to 0-1 range (database stores as decimal like 0.72)
+            hard_swing_rate = float(hard_swing_rate_raw) if hard_swing_rate_raw <= 1.0 else hard_swing_rate_raw / 100.0
+        
         # Create HitterAttributes with actual Statcast data if available
         hitter_attrs = HitterAttributes(
             BAT_SPEED=boosted_bat_speed,  # Rating (used if actual not available)
@@ -359,6 +376,8 @@ class TeamLoader:
             # PHASE 3: Direct Statcast measurements (override derived values)
             actual_bat_speed_mph=true_bat_speed_mph,  # None if not available
             actual_barrel_accuracy_mm=actual_barrel_accuracy_mm,  # None if not available
+            # PHASE 3.1: Hard swing rate for EV variance
+            hard_swing_rate=hard_swing_rate,  # None if not available
         )
 
         # Create Hitter with speed for baserunning

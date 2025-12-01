@@ -88,6 +88,10 @@ class ParallelGameResult:
     home_fly_balls: int = 0
     home_exit_velocities: List[float] = field(default_factory=list)
     home_launch_angles: List[float] = field(default_factory=list)
+    
+    # Fielding stats - BUG #4 FIX: Track errors in parallel mode
+    away_errors: int = 0
+    home_errors: int = 0
 
 
 def get_all_teams() -> List[Tuple[str, str, int]]:
@@ -219,6 +223,9 @@ def _simulate_single_game_worker(args: Tuple) -> ParallelGameResult:
         home_fly_balls=final_state.home_fly_balls,
         home_exit_velocities=list(final_state.home_exit_velocities),
         home_launch_angles=list(final_state.home_launch_angles),
+        # BUG #4 FIX: Track errors from game state
+        away_errors=getattr(final_state, 'away_errors', 0),
+        home_errors=getattr(final_state, 'home_errors', 0),
     )
 
 
@@ -262,9 +269,9 @@ class MockGameState:
         self.home_exit_velocities = result.home_exit_velocities
         self.home_launch_angles = result.home_launch_angles
         
-        # Fielding (not tracked in parallel mode)
-        self.away_errors = 0
-        self.home_errors = 0
+        # Fielding - BUG #4 FIX: Use actual error values from parallel simulation
+        self.away_errors = result.away_errors
+        self.home_errors = result.home_errors
         
         # Pitching (not fully tracked)
         self.total_pitches = 0

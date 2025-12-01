@@ -1209,12 +1209,9 @@ class PybaseballFetcher:
         list of str
             Team abbreviations (e.g., ['NYY', 'LAD', 'BOS', ...])
         """
-        return [
-            'ARI', 'ATL', 'BAL', 'BOS', 'CHC', 'CHW', 'CIN', 'CLE',
-            'COL', 'DET', 'HOU', 'KC', 'LAA', 'LAD', 'MIA', 'MIL',
-            'MIN', 'NYM', 'NYY', 'OAK', 'PHI', 'PIT', 'SD', 'SEA',
-            'SF', 'STL', 'TB', 'TEX', 'TOR', 'WSH'
-        ]
+        # Use centralized team mappings
+        from .team_mappings import get_all_team_abbrs
+        return get_all_team_abbrs()
 
     @staticmethod
     def get_team_name(team_abbr: str) -> str:
@@ -1231,39 +1228,9 @@ class PybaseballFetcher:
         str
             Full team name (e.g., 'New York Yankees')
         """
-        team_names = {
-            'ARI': 'Arizona Diamondbacks',
-            'ATL': 'Atlanta Braves',
-            'BAL': 'Baltimore Orioles',
-            'BOS': 'Boston Red Sox',
-            'CHC': 'Chicago Cubs',
-            'CHW': 'Chicago White Sox',
-            'CIN': 'Cincinnati Reds',
-            'CLE': 'Cleveland Guardians',
-            'COL': 'Colorado Rockies',
-            'DET': 'Detroit Tigers',
-            'HOU': 'Houston Astros',
-            'KC': 'Kansas City Royals',
-            'LAA': 'Los Angeles Angels',
-            'LAD': 'Los Angeles Dodgers',
-            'MIA': 'Miami Marlins',
-            'MIL': 'Milwaukee Brewers',
-            'MIN': 'Minnesota Twins',
-            'NYM': 'New York Mets',
-            'NYY': 'New York Yankees',
-            'OAK': 'Oakland Athletics',
-            'PHI': 'Philadelphia Phillies',
-            'PIT': 'Pittsburgh Pirates',
-            'SD': 'San Diego Padres',
-            'SEA': 'Seattle Mariners',
-            'SF': 'San Francisco Giants',
-            'STL': 'St. Louis Cardinals',
-            'TB': 'Tampa Bay Rays',
-            'TEX': 'Texas Rangers',
-            'TOR': 'Toronto Blue Jays',
-            'WSH': 'Washington Nationals'
-        }
-        return team_names.get(team_abbr, team_abbr)
+        # Use centralized team mappings
+        from .team_mappings import get_team_name as _get_team_name
+        return _get_team_name(team_abbr)
 
 
 if __name__ == "__main__":

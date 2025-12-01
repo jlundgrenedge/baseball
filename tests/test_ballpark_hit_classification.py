@@ -23,7 +23,7 @@ def test_park_differences():
     print("=" * 80)
     print("PARK-ADJUSTED HOME RUN DEMONSTRATION")
     print("=" * 80)
-    print("\nTesting a 360 ft fly ball down the right field line (~42° spray angle)")
+    print("\nTesting a 360 ft fly ball down the left field line (~42° input spray angle)")
     print("This would be caught at the warning track in some parks, but a home run in others.\n")
 
     # Simulate a borderline home run ball
@@ -31,7 +31,7 @@ def test_park_differences():
     result = sim.simulate(
         exit_velocity=98.0,      # mph - good contact but not crushed
         launch_angle=30.0,       # degrees - optimal
-        spray_angle=42.0,        # degrees - down the right field line
+        spray_angle=42.0,        # degrees - physics convention: positive = left field (pull side)
         backspin_rpm=1800,       # rpm
         sidespin_rpm=0,
         altitude=0,
