@@ -44,8 +44,13 @@ class ScheduledGame:
     
     @property
     def is_playable(self) -> bool:
-        """Check if this game should be simulated (not postponed)."""
-        return not self.is_postponed
+        """Check if this game should be simulated.
+        
+        Note: We simulate ALL games on their originally scheduled date,
+        regardless of real-world postponements. This ensures each team
+        plays exactly 162 games.
+        """
+        return True  # Simulate all games on original date
     
     def __str__(self) -> str:
         day_night_str = "Day" if self.day_night == 'd' else "Night"

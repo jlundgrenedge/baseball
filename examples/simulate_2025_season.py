@@ -80,6 +80,27 @@ def run_simulation(start_date: date, end_date: date, save_results: bool = True):
         print(f"   HRs per game:     {summary['home_runs_per_game']:.2f}")
         print(f"   Home team wins:   {summary['home_team_wins']} ({100*summary['home_team_wins']/summary['games_played']:.1f}%)")
         print(f"   Away team wins:   {summary['away_team_wins']} ({100*summary['away_team_wins']/summary['games_played']:.1f}%)")
+        
+        print(f"\n📈 Batting Metrics:")
+        print(f"   Batting Avg:      {summary['batting_avg']:.3f}")
+        print(f"   On-Base Pct:      {summary['on_base_pct']:.3f}")
+        print(f"   Slugging Pct:     {summary['slugging_pct']:.3f}")
+        print(f"   OPS:              {summary['ops']:.3f}")
+        print(f"   BABIP:            {summary['babip']:.3f}")
+        print(f"   K Rate:           {summary['strikeout_rate']:.1f}%")
+        print(f"   BB Rate:          {summary['walk_rate']:.1f}%")
+        print(f"   Avg Exit Velo:    {summary['avg_exit_velocity']:.1f} mph")
+        print(f"   Avg Launch Angle: {summary['avg_launch_angle']:.1f}°")
+        print(f"   GB Rate:          {summary['ground_ball_rate']:.1f}%")
+        print(f"   LD Rate:          {summary['line_drive_rate']:.1f}%")
+        print(f"   FB Rate:          {summary['fly_ball_rate']:.1f}%")
+        
+        print(f"\n⚾ Pitching Metrics:")
+        print(f"   ERA:              {summary['era']:.2f}")
+        print(f"   WHIP:             {summary['whip']:.2f}")
+        print(f"   K/9:              {summary['k_per_9']:.1f}")
+        print(f"   BB/9:             {summary['bb_per_9']:.1f}")
+        print(f"   HR/9:             {summary['hr_per_9']:.1f}")
     
     # Save results
     if save_results:

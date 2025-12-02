@@ -31,6 +31,7 @@ from batted_ball.schedule_loader import ScheduleLoader, ScheduledGame
 from batted_ball.database.team_loader import TeamLoader
 from batted_ball.database.team_mappings import TEAM_DIVISIONS, get_team_division
 from batted_ball.game_simulation import GameSimulator
+from batted_ball.stats_integration import StatsEnabledGameSimulator, StatsTrackingMode
 from batted_ball.series_metrics import SeriesMetrics
 from batted_ball.constants import SimulationMode
 
@@ -52,15 +53,47 @@ class GameResult:
     away_score: int
     home_score: int
     
-    # Batting stats
+    # Batting stats - Away
     away_hits: int = 0
-    home_hits: int = 0
+    away_singles: int = 0
+    away_doubles: int = 0
+    away_triples: int = 0
     away_home_runs: int = 0
-    home_home_runs: int = 0
     away_strikeouts: int = 0
-    home_strikeouts: int = 0
     away_walks: int = 0
+    away_at_bats: int = 0
+    away_ground_balls: int = 0
+    away_line_drives: int = 0
+    away_fly_balls: int = 0
+    away_exit_velocities: List[float] = field(default_factory=list)
+    away_launch_angles: List[float] = field(default_factory=list)
+    away_errors: int = 0
+    
+    # Batting stats - Home
+    home_hits: int = 0
+    home_singles: int = 0
+    home_doubles: int = 0
+    home_triples: int = 0
+    home_home_runs: int = 0
+    home_strikeouts: int = 0
     home_walks: int = 0
+    home_at_bats: int = 0
+    home_ground_balls: int = 0
+    home_line_drives: int = 0
+    home_fly_balls: int = 0
+    home_exit_velocities: List[float] = field(default_factory=list)
+    home_launch_angles: List[float] = field(default_factory=list)
+    home_errors: int = 0
+    
+    # Game totals
+    total_pitches: int = 0
+    
+    # Player-level statistics (serializable dicts for parallel processing)
+    # Each list contains dicts with player stats - serialized from PlayerGameBatting/Pitching
+    away_player_batting: List[Dict[str, Any]] = field(default_factory=list)
+    home_player_batting: List[Dict[str, Any]] = field(default_factory=list)
+    away_player_pitching: List[Dict[str, Any]] = field(default_factory=list)
+    home_player_pitching: List[Dict[str, Any]] = field(default_factory=list)
     
     @property
     def winner(self) -> str:
@@ -155,6 +188,65 @@ class TeamStanding:
 
 # Database team name cache
 _team_name_cache: Dict[str, Tuple[str, int]] = {}
+
+
+def _batting_to_dict(batting) -> Dict[str, Any]:
+    """Convert PlayerGameBatting to serializable dict."""
+    return {
+        'player_id': batting.player_id,
+        'player_name': batting.player_name,
+        'team': batting.team,
+        'position': batting.position,
+        'batting_order': batting.batting_order,
+        'plate_appearances': batting.plate_appearances,
+        'at_bats': batting.at_bats,
+        'runs': batting.runs,
+        'hits': batting.hits,
+        'doubles': batting.doubles,
+        'triples': batting.triples,
+        'home_runs': batting.home_runs,
+        'rbi': batting.rbi,
+        'walks': batting.walks,
+        'strikeouts': batting.strikeouts,
+        'hit_by_pitch': batting.hit_by_pitch,
+        'sacrifice_flies': batting.sacrifice_flies,
+        'sacrifice_bunts': batting.sacrifice_bunts,
+        'stolen_bases': batting.stolen_bases,
+        'caught_stealing': batting.caught_stealing,
+        'gidp': batting.gidp,
+        'left_on_base': batting.left_on_base,
+        'exit_velocities': list(batting.exit_velocities),
+        'launch_angles': list(batting.launch_angles),
+    }
+
+
+def _pitching_to_dict(pitching) -> Dict[str, Any]:
+    """Convert PlayerGamePitching to serializable dict."""
+    return {
+        'player_id': pitching.player_id,
+        'player_name': pitching.player_name,
+        'team': pitching.team,
+        'outs_recorded': pitching.outs_recorded,
+        'hits_allowed': pitching.hits_allowed,
+        'runs_allowed': pitching.runs_allowed,
+        'earned_runs': pitching.earned_runs,
+        'walks': pitching.walks,
+        'strikeouts': pitching.strikeouts,
+        'home_runs_allowed': pitching.home_runs_allowed,
+        'hit_batters': pitching.hit_batters,
+        'win': pitching.win,
+        'loss': pitching.loss,
+        'save': pitching.save,
+        'hold': pitching.hold,
+        'blown_save': pitching.blown_save,
+        'pitches': pitching.pitches,
+        'strikes': pitching.strikes,
+        'balls': pitching.balls,
+        'ground_balls': pitching.ground_balls,
+        'fly_balls': pitching.fly_balls,
+        'line_drives': pitching.line_drives,
+        'batters_faced': pitching.batters_faced,
+    }
 
 
 def _get_team_name_from_db(team_abbr: str, season: int = 2024) -> Optional[Tuple[str, int]]:
@@ -254,10 +346,12 @@ def _simulate_game_worker(args: Tuple) -> Optional[GameResult]:
     # Get ballpark
     ballpark = TEAM_BALLPARKS.get(home_abbr, 'generic')
     
-    # Create simulator
-    sim = GameSimulator(
+    # Create stats-enabled simulator for player-level tracking
+    sim = StatsEnabledGameSimulator(
         away_team,
         home_team,
+        stats_mode=StatsTrackingMode.BASIC,  # Basic mode for speed (box scores only)
+        game_date=game_date,
         verbose=False,
         debug_metrics=0,
         ballpark=ballpark,
@@ -269,20 +363,70 @@ def _simulate_game_worker(args: Tuple) -> Optional[GameResult]:
     # Simulate game
     final_state = sim.simulate_game(num_innings=9)
     
+    # Get player-level stats from game log
+    game_log = sim.get_game_log()
+    
+    # Convert player stats to serializable dicts
+    away_batting = []
+    home_batting = []
+    away_pitching = []
+    home_pitching = []
+    
+    if game_log:
+        for batter in game_log.away_batting:
+            if batter.plate_appearances > 0:
+                away_batting.append(_batting_to_dict(batter))
+        for batter in game_log.home_batting:
+            if batter.plate_appearances > 0:
+                home_batting.append(_batting_to_dict(batter))
+        for pitcher in game_log.away_pitching:
+            away_pitching.append(_pitching_to_dict(pitcher))
+        for pitcher in game_log.home_pitching:
+            home_pitching.append(_pitching_to_dict(pitcher))
+    
     return GameResult(
         date=game_date,
         away_team=away_abbr,
         home_team=home_abbr,
         away_score=final_state.away_score,
         home_score=final_state.home_score,
+        # Away batting stats
         away_hits=final_state.away_hits,
-        home_hits=final_state.home_hits,
+        away_singles=final_state.away_singles,
+        away_doubles=final_state.away_doubles,
+        away_triples=final_state.away_triples,
         away_home_runs=final_state.away_home_runs,
-        home_home_runs=final_state.home_home_runs,
         away_strikeouts=final_state.away_strikeouts,
-        home_strikeouts=final_state.home_strikeouts,
         away_walks=final_state.away_walks,
+        away_at_bats=final_state.away_at_bats,
+        away_ground_balls=final_state.away_ground_balls,
+        away_line_drives=final_state.away_line_drives,
+        away_fly_balls=final_state.away_fly_balls,
+        away_exit_velocities=list(final_state.away_exit_velocities),
+        away_launch_angles=list(final_state.away_launch_angles),
+        away_errors=final_state.away_errors,
+        # Home batting stats
+        home_hits=final_state.home_hits,
+        home_singles=final_state.home_singles,
+        home_doubles=final_state.home_doubles,
+        home_triples=final_state.home_triples,
+        home_home_runs=final_state.home_home_runs,
+        home_strikeouts=final_state.home_strikeouts,
         home_walks=final_state.home_walks,
+        home_at_bats=final_state.home_at_bats,
+        home_ground_balls=final_state.home_ground_balls,
+        home_line_drives=final_state.home_line_drives,
+        home_fly_balls=final_state.home_fly_balls,
+        home_exit_velocities=list(final_state.home_exit_velocities),
+        home_launch_angles=list(final_state.home_launch_angles),
+        home_errors=final_state.home_errors,
+        # Game totals
+        total_pitches=final_state.total_pitches,
+        # Player-level stats
+        away_player_batting=away_batting,
+        home_player_batting=home_batting,
+        away_player_pitching=away_pitching,
+        home_player_pitching=home_pitching,
     )
 
 
@@ -302,7 +446,9 @@ class SeasonSimulator:
         schedule_path: Optional[str] = None,
         season: int = 2024,  # Database season to use for rosters
         num_workers: Optional[int] = None,
-        verbose: bool = True
+        verbose: bool = True,
+        stats_db: Optional['StatsDatabase'] = None,
+        stats_season_id: Optional[int] = None,
     ):
         """
         Initialize the season simulator.
@@ -317,11 +463,19 @@ class SeasonSimulator:
             Number of parallel workers (default: CPU count - 1)
         verbose : bool
             Print progress output
+        stats_db : StatsDatabase, optional
+            Statistics database for recording player stats
+        stats_season_id : int, optional
+            Season ID in stats database (required if stats_db provided)
         """
         self.schedule = ScheduleLoader(schedule_path)
         self.season = season
         self.num_workers = num_workers or max(1, cpu_count() - 1)
         self.verbose = verbose
+        
+        # Stats tracking
+        self.stats_db = stats_db
+        self.stats_season_id = stats_season_id
         
         # Initialize standings for all teams
         self.standings: Dict[str, TeamStanding] = {}
@@ -331,6 +485,9 @@ class SeasonSimulator:
         # Track all results
         self.results: List[GameResult] = []
         self.current_date: Optional[date] = None
+        
+        # Aggregate series metrics across all games
+        self.series_metrics = SeriesMetrics()
         
         # Track which teams are in database
         self._available_teams: Optional[set] = None
@@ -397,11 +554,33 @@ class SeasonSimulator:
                     # Update standings
                     self.standings[result.away_team].update_from_game(result, is_home=False)
                     self.standings[result.home_team].update_from_game(result, is_home=True)
+                    
+                    # Update series metrics (GameResult has same attributes as GameState)
+                    self.series_metrics.update_from_game(result)
+                    
+                    # Record to stats database if enabled
+                    if self.stats_db and self.stats_season_id:
+                        self._record_game_to_stats_db(result)
         
         self.results.extend(results)
         self.current_date = game_date
         
         return results
+    
+    def _record_game_to_stats_db(self, result: GameResult):
+        """Record a game result to the stats database."""
+        self.stats_db.record_game_from_dicts(
+            season_id=self.stats_season_id,
+            game_date=result.date,
+            away_team=result.away_team,
+            home_team=result.home_team,
+            away_score=result.away_score,
+            home_score=result.home_score,
+            away_batting=result.away_player_batting,
+            home_batting=result.home_player_batting,
+            away_pitching=result.away_player_pitching,
+            home_pitching=result.home_player_pitching,
+        )
     
     def simulate_range(
         self,
@@ -634,6 +813,68 @@ class SeasonSimulator:
         total_runs = sum(r.away_score + r.home_score for r in self.results)
         total_hrs = sum(r.away_home_runs + r.home_home_runs for r in self.results)
         
+        # Combine away and home batting stats for league-wide metrics
+        away = self.series_metrics.away_batting
+        home = self.series_metrics.home_batting
+        
+        # Combined totals
+        total_at_bats = away.at_bats + home.at_bats
+        total_hits = away.hits + home.hits
+        total_singles = away.singles + home.singles
+        total_doubles = away.doubles + home.doubles
+        total_triples = away.triples + home.triples
+        total_home_runs_b = away.home_runs + home.home_runs
+        total_walks = away.walks + home.walks
+        total_strikeouts = away.strikeouts + home.strikeouts
+        total_ground_balls = away.ground_balls + home.ground_balls
+        total_line_drives = away.line_drives + home.line_drives
+        total_fly_balls = away.fly_balls + home.fly_balls
+        total_bip = away.balls_in_play_no_hr + home.balls_in_play_no_hr
+        
+        # Combined exit velocities and launch angles
+        all_exit_velocities = away.exit_velocities + home.exit_velocities
+        all_launch_angles = away.launch_angles + home.launch_angles
+        
+        # Calculate rates
+        plate_appearances = total_at_bats + total_walks
+        batted_balls = total_ground_balls + total_line_drives + total_fly_balls
+        
+        # Batting stats
+        batting_avg = total_hits / total_at_bats if total_at_bats > 0 else 0
+        on_base_pct = (total_hits + total_walks) / plate_appearances if plate_appearances > 0 else 0
+        total_bases = total_singles + 2*total_doubles + 3*total_triples + 4*total_home_runs_b
+        slugging_pct = total_bases / total_at_bats if total_at_bats > 0 else 0
+        ops = on_base_pct + slugging_pct
+        hits_no_hr = total_hits - total_home_runs_b
+        babip = hits_no_hr / total_bip if total_bip > 0 else 0
+        strikeout_rate = 100 * total_strikeouts / plate_appearances if plate_appearances > 0 else 0
+        walk_rate = 100 * total_walks / plate_appearances if plate_appearances > 0 else 0
+        
+        # Exit velocity and launch angle
+        avg_exit_velocity = sum(all_exit_velocities) / len(all_exit_velocities) if all_exit_velocities else 0
+        avg_launch_angle = sum(all_launch_angles) / len(all_launch_angles) if all_launch_angles else 0
+        
+        # Batted ball rates
+        ground_ball_rate = 100 * total_ground_balls / batted_balls if batted_balls > 0 else 0
+        line_drive_rate = 100 * total_line_drives / batted_balls if batted_balls > 0 else 0
+        fly_ball_rate = 100 * total_fly_balls / batted_balls if batted_balls > 0 else 0
+        
+        # Pitching stats (combined from both teams)
+        away_p = self.series_metrics.away_pitching
+        home_p = self.series_metrics.home_pitching
+        total_innings = away_p.innings_pitched + home_p.innings_pitched
+        total_runs_allowed = away_p.runs_allowed + home_p.runs_allowed
+        total_hits_allowed = away_p.hits_allowed + home_p.hits_allowed
+        total_walks_p = away_p.walks + home_p.walks
+        total_strikeouts_p = away_p.strikeouts + home_p.strikeouts
+        total_hr_allowed = away_p.home_runs_allowed + home_p.home_runs_allowed
+        
+        era = 9 * total_runs_allowed / total_innings if total_innings > 0 else 0
+        whip = (total_walks_p + total_hits_allowed) / total_innings if total_innings > 0 else 0
+        k_per_9 = 9 * total_strikeouts_p / total_innings if total_innings > 0 else 0
+        bb_per_9 = 9 * total_walks_p / total_innings if total_innings > 0 else 0
+        hr_per_9 = 9 * total_hr_allowed / total_innings if total_innings > 0 else 0
+        
         return {
             'games_played': len(self.results),
             'total_runs': total_runs,
@@ -642,7 +883,30 @@ class SeasonSimulator:
             'home_runs_per_game': total_hrs / len(self.results),
             'home_team_wins': sum(1 for r in self.results if r.home_score > r.away_score),
             'away_team_wins': sum(1 for r in self.results if r.away_score > r.home_score),
+            # Batting stats
+            'batting_avg': batting_avg,
+            'on_base_pct': on_base_pct,
+            'slugging_pct': slugging_pct,
+            'ops': ops,
+            'babip': babip,
+            'strikeout_rate': strikeout_rate,
+            'walk_rate': walk_rate,
+            'avg_exit_velocity': avg_exit_velocity,
+            'avg_launch_angle': avg_launch_angle,
+            'ground_ball_rate': ground_ball_rate,
+            'line_drive_rate': line_drive_rate,
+            'fly_ball_rate': fly_ball_rate,
+            # Pitching stats
+            'era': era,
+            'whip': whip,
+            'k_per_9': k_per_9,
+            'bb_per_9': bb_per_9,
+            'hr_per_9': hr_per_9,
         }
+    
+    def get_series_metrics(self) -> SeriesMetrics:
+        """Return the aggregated series metrics for all simulated games."""
+        return self.series_metrics
     
     def save_results(self, filepath: str):
         """Save simulation results to JSON file."""

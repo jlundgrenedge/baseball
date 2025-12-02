@@ -25,6 +25,8 @@ from batted_ball.parallel_worker import (
 )
 from batted_ball.schedule_loader import ScheduleLoader
 from batted_ball.season_simulator import SeasonSimulator, GameResult
+from batted_ball.season_stats_tracker import SeasonStatsTracker
+from batted_ball.stats_database import StatsDatabase
 
 
 def parse_team_string(team_str: str) -> Tuple[str, int]:
@@ -522,58 +524,164 @@ def display_2025_season_simulation():
     
     st.markdown("---")
     
+    # Stats Database Section
+    st.subheader("📊 Stats Database")
+    
+    # List existing seasons
+    seasons = SeasonStatsTracker.list_available_seasons(year=2025)
+    
+    if seasons:
+        st.write(f"**{len(seasons)} existing 2025 season(s) in database:**")
+        for s in seasons:
+            status = "✅ Complete" if s['is_complete'] else "🔄 In Progress"
+            games = s['total_games']
+            desc = s['description'] or "No description"
+            st.write(f"- ID {s['season_id']}: {games} games | {status} | {desc}")
+    
+    # Season choice
+    col_db1, col_db2 = st.columns(2)
+    with col_db1:
+        if seasons:
+            stats_mode = st.radio(
+                "Stats Tracking",
+                ["Start New Season", "Continue Existing", "No Stats Tracking"],
+                help="Choose whether to track player statistics"
+            )
+        else:
+            stats_mode = st.radio(
+                "Stats Tracking",
+                ["Start New Season", "No Stats Tracking"],
+                help="Choose whether to track player statistics"
+            )
+    
+    with col_db2:
+        if stats_mode == "Start New Season":
+            season_description = st.text_input("Season Description", value="", placeholder="e.g., Full 2025 simulation")
+        elif stats_mode == "Continue Existing" and seasons:
+            season_options = [f"ID {s['season_id']}: {s['total_games']} games - {s['description'] or 'No description'}" for s in seasons]
+            selected_season = st.selectbox("Select Season to Continue", season_options)
+            selected_season_id = seasons[season_options.index(selected_season)]['season_id'] if selected_season else None
+        else:
+            st.info("Stats will not be tracked for this simulation.")
+    
+    st.markdown("---")
+    
+    # Get resume info if continuing existing season
+    resume_date = None
+    simulated_dates = set()
+    if stats_mode == "Continue Existing" and seasons and 'selected_season_id' in dir() and selected_season_id:
+        from batted_ball.stats_database import StatsDatabase
+        resume_db = StatsDatabase()
+        resume_date = resume_db.get_last_simulated_date(selected_season_id)
+        simulated_dates = resume_db.get_simulated_dates(selected_season_id)
+        resume_db.close()
+        
+        if resume_date:
+            st.success(f"📅 Last simulated date: **{resume_date}** ({len(simulated_dates)} days completed)")
+    
     # Simulation options
     st.subheader("Simulation Options")
     
-    sim_type = st.radio("Select Simulation Range", [
-        "First Week",
-        "First Month",
-        "Specific Month",
-        "Custom Date Range",
-        "Full Season"
-    ])
-    
-    # Determine date range based on selection
-    if sim_type == "First Week":
-        start_date = first_date
-        end_date = first_date + timedelta(days=6)
+    # Different options when continuing vs starting fresh
+    if stats_mode == "Continue Existing" and resume_date:
+        # Show resume-aware options
+        next_day = resume_date + timedelta(days=1)
         
-    elif sim_type == "First Month":
-        start_date = first_date
-        # Find end of first month
-        end_month = first_date.month
-        end_date = first_date
-        while end_date.month == end_month:
-            end_date += timedelta(days=1)
-        end_date -= timedelta(days=1)
+        # Make sure next_day is within season
+        if next_day > last_date:
+            st.warning("🏁 Season simulation is complete! No more games to simulate.")
+            return
         
-    elif sim_type == "Specific Month":
-        month = st.selectbox("Select Month", [
-            "March", "April", "May", "June", "July", 
-            "August", "September", "October"
+        sim_type = st.radio("Select Simulation Range", [
+            "Next Day",
+            "Next Week", 
+            "Next Month",
+            "Rest of Season",
+            "Custom Date Range"
         ])
-        month_map = {
-            "March": 3, "April": 4, "May": 5, "June": 6,
-            "July": 7, "August": 8, "September": 9, "October": 10
-        }
-        m = month_map[month]
-        start_date = date(2025, m, 1)
-        if m == 12:
-            end_date = date(2025, 12, 31)
-        else:
-            end_date = date(2025, m + 1, 1) - timedelta(days=1)
         
-    elif sim_type == "Custom Date Range":
-        col1, col2 = st.columns(2)
-        with col1:
-            start_date = st.date_input("Start Date", value=first_date, min_value=first_date, max_value=last_date)
-        with col2:
-            end_date = st.date_input("End Date", value=first_date + timedelta(days=6), min_value=first_date, max_value=last_date)
+        if sim_type == "Next Day":
+            start_date = next_day
+            end_date = next_day
+            
+        elif sim_type == "Next Week":
+            start_date = next_day
+            end_date = min(next_day + timedelta(days=6), last_date)
+            
+        elif sim_type == "Next Month":
+            start_date = next_day
+            # Go to end of current month or 30 days
+            end_of_month = date(next_day.year, next_day.month + 1, 1) - timedelta(days=1) if next_day.month < 12 else date(next_day.year, 12, 31)
+            end_date = min(end_of_month, last_date)
+            
+        elif sim_type == "Rest of Season":
+            start_date = next_day
+            end_date = last_date
+            remaining_days = (last_date - next_day).days + 1
+            st.warning(f"⚠️ Simulating {remaining_days} remaining days may take several minutes!")
+            
+        else:  # Custom Date Range
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Start Date", value=next_day, min_value=first_date, max_value=last_date)
+            with col2:
+                end_date = st.date_input("End Date", value=min(next_day + timedelta(days=6), last_date), min_value=first_date, max_value=last_date)
+            
+            # Warn if re-simulating dates
+            overlap = simulated_dates & set(d for d in [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)])
+            if overlap:
+                st.warning(f"⚠️ {len(overlap)} date(s) have already been simulated. Games will be added (not replaced).")
+    else:
+        # Standard options for new season or no stats tracking
+        sim_type = st.radio("Select Simulation Range", [
+            "First Week",
+            "First Month",
+            "Specific Month",
+            "Custom Date Range",
+            "Full Season"
+        ])
         
-    else:  # Full Season
-        start_date = first_date
-        end_date = last_date
-        st.warning("⚠️ Full season simulation may take several minutes!")
+        # Determine date range based on selection
+        if sim_type == "First Week":
+            start_date = first_date
+            end_date = first_date + timedelta(days=6)
+            
+        elif sim_type == "First Month":
+            start_date = first_date
+            # Find end of first month
+            end_month = first_date.month
+            end_date = first_date
+            while end_date.month == end_month:
+                end_date += timedelta(days=1)
+            end_date -= timedelta(days=1)
+            
+        elif sim_type == "Specific Month":
+            month = st.selectbox("Select Month", [
+                "March", "April", "May", "June", "July", 
+                "August", "September", "October"
+            ])
+            month_map = {
+                "March": 3, "April": 4, "May": 5, "June": 6,
+                "July": 7, "August": 8, "September": 9, "October": 10
+            }
+            m = month_map[month]
+            start_date = date(2025, m, 1)
+            if m == 12:
+                end_date = date(2025, 12, 31)
+            else:
+                end_date = date(2025, m + 1, 1) - timedelta(days=1)
+            
+        elif sim_type == "Custom Date Range":
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Start Date", value=first_date, min_value=first_date, max_value=last_date)
+            with col2:
+                end_date = st.date_input("End Date", value=first_date + timedelta(days=6), min_value=first_date, max_value=last_date)
+            
+        else:  # Full Season
+            start_date = first_date
+            end_date = last_date
+            st.warning("⚠️ Full season simulation may take several minutes!")
     
     # Show game count estimate
     games_in_range = sim.schedule.get_games_in_range(start_date, end_date)
@@ -599,8 +707,30 @@ def display_2025_season_simulation():
             st.error("No games can be simulated. Add teams to the database first!")
             return
         
-        # Create fresh simulator
-        sim = SeasonSimulator(schedule_path, num_workers=num_workers, verbose=False)
+        # Set up stats database if enabled
+        stats_db = None
+        stats_season_id = None
+        
+        if stats_mode == "Start New Season":
+            from batted_ball.stats_database import StatsDatabase
+            stats_db = StatsDatabase()
+            desc = season_description if season_description else f"2025 Season Simulation ({start_date} to {end_date})"
+            stats_season_id = stats_db.start_season(2025, desc)
+            st.info(f"📊 Created new stats season (ID: {stats_season_id})")
+        elif stats_mode == "Continue Existing" and 'selected_season_id' in dir():
+            from batted_ball.stats_database import StatsDatabase
+            stats_db = StatsDatabase()
+            stats_season_id = selected_season_id
+            st.info(f"📊 Continuing existing season (ID: {stats_season_id})")
+        
+        # Create fresh simulator with optional stats tracking
+        sim = SeasonSimulator(
+            schedule_path,
+            num_workers=num_workers,
+            verbose=False,
+            stats_db=stats_db,
+            stats_season_id=stats_season_id
+        )
         
         progress_bar = st.progress(0)
         status_text = st.empty()
@@ -627,13 +757,20 @@ def display_2025_season_simulation():
         
         status_text.text(f"✅ Completed {stats['games_simulated']} games in {elapsed:.1f}s ({stats['games_simulated']/elapsed:.1f} games/sec)")
         
-        # Store results
+        # Store results (including stats tracking info)
         st.session_state.season_2025_results = {
             'simulator': sim,
             'stats': stats,
             'start_date': start_date,
-            'end_date': end_date
+            'end_date': end_date,
+            'stats_db': stats_db,
+            'stats_season_id': stats_season_id,
         }
+        
+        # Show stats summary if enabled
+        if stats_db and stats_season_id:
+            info = stats_db.get_season_info(stats_season_id)
+            st.success(f"📊 Player stats recorded! Season now has {info['games_played']} games.")
         
         st.success("Simulation Complete!")
     
@@ -658,7 +795,7 @@ def display_2025_season_simulation():
             st.metric("Games/Second", f"{stats['games_per_second']:.1f}")
         
         # Tabs for different views
-        tab1, tab2, tab3 = st.tabs(["📊 Standings", "📈 Statistics", "📋 Game Results"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 Standings", "📈 Statistics", "📋 Game Results", "🏆 Player Stats"])
         
         with tab1:
             st.subheader("League Standings")
@@ -767,8 +904,50 @@ def display_2025_season_simulation():
                     st.metric("Home Team Win %", f"{home_pct:.1f}%")
                     st.metric("Away Team Win %", f"{away_pct:.1f}%")
                 
+                # Batting metrics from series_metrics
+                st.subheader("📈 Batting Metrics")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Batting Avg", f"{summary['batting_avg']:.3f}")
+                    st.metric("BABIP", f"{summary['babip']:.3f}")
+                with col2:
+                    st.metric("OBP", f"{summary['on_base_pct']:.3f}")
+                    st.metric("K Rate", f"{summary['strikeout_rate']:.1f}%")
+                with col3:
+                    st.metric("SLG", f"{summary['slugging_pct']:.3f}")
+                    st.metric("BB Rate", f"{summary['walk_rate']:.1f}%")
+                with col4:
+                    st.metric("OPS", f"{summary['ops']:.3f}")
+                    st.metric("Exit Velo", f"{summary['avg_exit_velocity']:.1f} mph")
+                
+                # Batted ball metrics
+                st.subheader("🎯 Batted Ball Profile")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Launch Angle", f"{summary['avg_launch_angle']:.1f}°")
+                with col2:
+                    st.metric("GB Rate", f"{summary['ground_ball_rate']:.1f}%")
+                with col3:
+                    st.metric("LD Rate", f"{summary['line_drive_rate']:.1f}%")
+                with col4:
+                    st.metric("FB Rate", f"{summary['fly_ball_rate']:.1f}%")
+                
+                # Pitching metrics
+                st.subheader("⚾ Pitching Metrics")
+                col1, col2, col3, col4, col5 = st.columns(5)
+                with col1:
+                    st.metric("ERA", f"{summary['era']:.2f}")
+                with col2:
+                    st.metric("WHIP", f"{summary['whip']:.2f}")
+                with col3:
+                    st.metric("K/9", f"{summary['k_per_9']:.1f}")
+                with col4:
+                    st.metric("BB/9", f"{summary['bb_per_9']:.1f}")
+                with col5:
+                    st.metric("HR/9", f"{summary['hr_per_9']:.1f}")
+                
                 # Score distribution
-                st.subheader("Score Distribution")
+                st.subheader("📊 Score Distribution")
                 
                 runs_per_game = [r.away_score + r.home_score for r in sim.results]
                 
@@ -831,6 +1010,339 @@ def display_2025_season_simulation():
                     f"season_results_{results['start_date']}_{results['end_date']}.csv",
                     "text/csv"
                 )
+        
+        with tab4:
+            display_player_stats_tab()
+
+
+def display_player_stats_tab():
+    """Display player statistics from the stats database."""
+    st.subheader("🏆 Player Statistics Database")
+    
+    # Check if stats database exists
+    stats_db_path = Path("saved_stats/season_stats.db")
+    if not stats_db_path.exists():
+        st.info("No player stats have been recorded yet.")
+        st.write("Run a simulation with **Stats Tracking** enabled to record player stats.")
+        st.write("")
+        st.write("To enable stats tracking:")
+        st.write("1. Go to the **2025 Season Simulation** page")
+        st.write("2. Select **Start New Season** under Stats Tracking")
+        st.write("3. Run your simulation")
+        return
+    
+    # Load stats from database
+    try:
+        db = StatsDatabase(stats_db_path)
+        seasons = db.list_seasons()
+        
+        if not seasons:
+            st.info("No seasons found in stats database.")
+            return
+        
+        # Season selector
+        season_options = [f"{s['year']} (ID {s['season_id']}): {s['total_games']} games - {s['description'] or 'No description'}" for s in seasons]
+        selected = st.selectbox("Select Season", season_options)
+        selected_idx = season_options.index(selected)
+        season_id = seasons[selected_idx]['season_id']
+        
+        # Get season info including progress
+        info = db.get_season_info(season_id)
+        last_sim_date = db.get_last_simulated_date(season_id)
+        simulated_dates = db.get_simulated_dates(season_id)
+        
+        if info:
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Games Played", info['games_played'])
+            with col2:
+                st.metric("Days Simulated", len(simulated_dates))
+            with col3:
+                st.metric("Total Runs", info['total_runs'])
+            with col4:
+                status = "Complete" if info['is_complete'] else "In Progress"
+                st.metric("Status", status)
+            
+            # Show date progress
+            if last_sim_date and simulated_dates:
+                first_date = min(simulated_dates)
+                st.caption(f"📅 Simulated: {first_date} → {last_sim_date}")
+        
+        # Tabs for batting/pitching/advanced
+        stat_tab1, stat_tab2, stat_tab3 = st.tabs(["🏏 Batting Leaders", "⚾ Pitching Leaders", "📈 Advanced Stats"])
+        
+        with stat_tab1:
+            st.markdown("### Batting Leaders")
+            
+            # Stat category selector
+            batting_stat = st.selectbox(
+                "Sort By",
+                ["home_runs", "rbi", "hits", "runs", "batting_avg", "doubles", "triples", "stolen_bases"],
+                format_func=lambda x: x.replace('_', ' ').title()
+            )
+            
+            min_pa = st.slider("Minimum Plate Appearances", 0, 100, 10)
+            
+            leaders = db.get_batting_leaders(season_id, batting_stat, limit=25, min_pa=min_pa)
+            
+            if leaders:
+                df = pd.DataFrame(leaders)
+                # Select relevant columns
+                display_cols = ['player_name', 'team', 'games', 'plate_appearances', 'at_bats', 
+                               'hits', 'runs', 'home_runs', 'rbi', 'walks', 'strikeouts']
+                available_cols = [c for c in display_cols if c in df.columns]
+                
+                # Add batting average
+                if 'batting_avg' not in df.columns and 'hits' in df.columns and 'at_bats' in df.columns:
+                    df['batting_avg'] = (df['hits'] / df['at_bats'].replace(0, 1)).round(3)
+                    available_cols.append('batting_avg')
+                
+                st.dataframe(df[available_cols], hide_index=True, use_container_width=True)
+            else:
+                st.info("No batting data found.")
+        
+        with stat_tab2:
+            st.markdown("### Pitching Leaders")
+            
+            pitching_stat = st.selectbox(
+                "Sort By",
+                ["strikeouts", "wins", "era", "whip", "innings_pitched"],
+                format_func=lambda x: x.replace('_', ' ').upper() if x == 'era' or x == 'whip' else x.replace('_', ' ').title()
+            )
+            
+            min_ip = st.slider("Minimum Innings Pitched", 0.0, 50.0, 1.0)
+            
+            leaders = db.get_pitching_leaders(season_id, pitching_stat, limit=25, min_ip=min_ip)
+            
+            if leaders:
+                df = pd.DataFrame(leaders)
+                display_cols = ['player_name', 'team', 'games', 'wins', 'losses', 
+                               'innings_pitched', 'strikeouts', 'walks', 'era', 'whip']
+                available_cols = [c for c in display_cols if c in df.columns]
+                st.dataframe(df[available_cols], hide_index=True, use_container_width=True)
+            else:
+                st.info("No pitching data found.")
+        
+        with stat_tab3:
+            st.markdown("### Advanced Statistics")
+            st.caption("Sabermetric stats calculated from simulation results")
+            
+            try:
+                from batted_ball.advanced_stats import AdvancedStatsCalculator
+                
+                calc = AdvancedStatsCalculator()
+                constants = calc.calculate_league_constants(season_id)
+                
+                # Show league constants
+                with st.expander("📊 League Constants", expanded=False):
+                    const_col1, const_col2, const_col3 = st.columns(3)
+                    with const_col1:
+                        st.metric("League wOBA", f"{constants.league_woba:.3f}")
+                        st.metric("League ERA", f"{constants.league_era:.2f}")
+                    with const_col2:
+                        st.metric("League FIP", f"{constants.league_fip:.2f}")
+                        st.metric("FIP Constant", f"{constants.fip_constant:.2f}")
+                    with const_col3:
+                        st.metric("R/PA", f"{constants.runs_per_pa:.3f}")
+                        st.metric("R/Win", f"{constants.runs_per_win:.1f}")
+                
+                # Advanced batting and pitching sub-tabs
+                adv_tab1, adv_tab2, adv_tab3 = st.tabs(["🏆 WAR Leaders", "📊 wRC+ Leaders", "⚾ FIP Leaders"])
+                
+                with adv_tab1:
+                    st.markdown("#### Wins Above Replacement")
+                    
+                    war_col1, war_col2 = st.columns(2)
+                    
+                    with war_col1:
+                        st.markdown("**Position Players**")
+                        batting_stats = calc.calculate_batting_stats(season_id, min_pa=20, constants=constants)
+                        if batting_stats:
+                            batting_stats.sort(key=lambda x: x.war, reverse=True)
+                            war_data = [
+                                {
+                                    "Player": s.player_name,
+                                    "Team": s.team,
+                                    "PA": s.pa,
+                                    "wOBA": s.woba,
+                                    "wRC+": int(s.wrc_plus),
+                                    "WAR": s.war
+                                }
+                                for s in batting_stats[:15]
+                            ]
+                            st.dataframe(pd.DataFrame(war_data), hide_index=True, use_container_width=True)
+                        else:
+                            st.info("Not enough batting data (need 20+ PA)")
+                    
+                    with war_col2:
+                        st.markdown("**Pitchers**")
+                        pitching_stats = calc.calculate_pitching_stats(season_id, min_ip=5.0, constants=constants)
+                        if pitching_stats:
+                            pitching_stats.sort(key=lambda x: x.war, reverse=True)
+                            war_data = [
+                                {
+                                    "Player": s.player_name,
+                                    "Team": s.team,
+                                    "IP": s.ip,
+                                    "ERA": s.era,
+                                    "FIP": s.fip,
+                                    "WAR": s.war
+                                }
+                                for s in pitching_stats[:15]
+                            ]
+                            st.dataframe(pd.DataFrame(war_data), hide_index=True, use_container_width=True)
+                        else:
+                            st.info("Not enough pitching data (need 5+ IP)")
+                
+                with adv_tab2:
+                    st.markdown("#### wRC+ Leaders (Weighted Runs Created Plus)")
+                    st.caption("100 = league average. Higher is better.")
+                    
+                    adv_min_pa = st.slider("Minimum PA", 10, 100, 20, key="adv_min_pa")
+                    batting_stats = calc.calculate_batting_stats(season_id, min_pa=adv_min_pa, constants=constants)
+                    
+                    if batting_stats:
+                        batting_stats.sort(key=lambda x: x.wrc_plus, reverse=True)
+                        wrc_data = [
+                            {
+                                "Player": s.player_name,
+                                "Team": s.team,
+                                "PA": s.pa,
+                                "AVG": s.avg,
+                                "OBP": s.obp,
+                                "SLG": s.slg,
+                                "wOBA": s.woba,
+                                "wRC+": int(s.wrc_plus),
+                                "BB%": s.bb_pct,
+                                "K%": s.k_pct,
+                                "ISO": s.iso,
+                                "BABIP": s.babip
+                            }
+                            for s in batting_stats[:25]
+                        ]
+                        st.dataframe(pd.DataFrame(wrc_data), hide_index=True, use_container_width=True)
+                    else:
+                        st.info("Not enough batting data.")
+                
+                with adv_tab3:
+                    st.markdown("#### FIP Leaders (Fielding Independent Pitching)")
+                    st.caption("Measures pitching independent of defense. Lower is better.")
+                    
+                    adv_min_ip = st.slider("Minimum IP", 1.0, 30.0, 5.0, key="adv_min_ip")
+                    pitching_stats = calc.calculate_pitching_stats(season_id, min_ip=adv_min_ip, constants=constants)
+                    
+                    if pitching_stats:
+                        pitching_stats.sort(key=lambda x: x.fip)
+                        fip_data = [
+                            {
+                                "Player": s.player_name,
+                                "Team": s.team,
+                                "IP": s.ip,
+                                "ERA": s.era,
+                                "FIP": s.fip,
+                                "xFIP": s.xfip,
+                                "K/9": s.k_per_9,
+                                "BB/9": s.bb_per_9,
+                                "HR/9": s.hr_per_9,
+                                "K/BB": s.k_bb_ratio
+                            }
+                            for s in pitching_stats[:25]
+                        ]
+                        st.dataframe(pd.DataFrame(fip_data), hide_index=True, use_container_width=True)
+                    else:
+                        st.info("Not enough pitching data.")
+                
+                calc.close()
+                
+            except Exception as e:
+                st.error(f"Error calculating advanced stats: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+        
+        # Export section
+        st.markdown("---")
+        with st.expander("📥 Export Statistics"):
+            st.write("Export season statistics to CSV or HTML files.")
+            
+            export_col1, export_col2 = st.columns(2)
+            
+            with export_col1:
+                st.markdown("#### CSV Export")
+                csv_min_pa = st.number_input("Min PA for Batting", min_value=0, value=10, key="csv_min_pa")
+                csv_min_ip = st.number_input("Min IP for Pitching", min_value=0.0, value=1.0, key="csv_min_ip")
+                
+                # Get batting data as CSV
+                import io
+                batting_csv = io.StringIO()
+                batting_leaders_all = db.get_batting_leaders(season_id, 'hits', limit=500, min_pa=csv_min_pa)
+                if batting_leaders_all:
+                    batting_df = pd.DataFrame(batting_leaders_all)
+                    batting_df.to_csv(batting_csv, index=False)
+                    st.download_button(
+                        "⬇️ Download Batting CSV",
+                        batting_csv.getvalue(),
+                        f"batting_stats_season_{season_id}.csv",
+                        "text/csv",
+                        key="dl_batting_csv"
+                    )
+                
+                # Get pitching data as CSV
+                pitching_csv = io.StringIO()
+                pitching_leaders_all = db.get_pitching_leaders(season_id, 'wins', limit=500, min_ip=csv_min_ip)
+                if pitching_leaders_all:
+                    pitching_df = pd.DataFrame(pitching_leaders_all)
+                    pitching_df.to_csv(pitching_csv, index=False)
+                    st.download_button(
+                        "⬇️ Download Pitching CSV",
+                        pitching_csv.getvalue(),
+                        f"pitching_stats_season_{season_id}.csv",
+                        "text/csv",
+                        key="dl_pitching_csv"
+                    )
+            
+            with export_col2:
+                st.markdown("#### HTML Report")
+                st.write("Generate a styled HTML report with leaders and full stats.")
+                html_min_pa = st.number_input("Min PA for Report", min_value=0, value=10, key="html_min_pa")
+                html_min_ip = st.number_input("Min IP for Report", min_value=0.0, value=5.0, key="html_min_ip")
+                
+                if st.button("🌐 Generate HTML Report"):
+                    # Generate HTML in memory
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+                        db.export_to_html(season_id, f.name, min_pa=html_min_pa, min_ip=html_min_ip)
+                        f.seek(0)
+                    
+                    # Read back for download
+                    with open(f.name, 'r', encoding='utf-8') as f:
+                        html_content = f.read()
+                    
+                    st.download_button(
+                        "⬇️ Download HTML Report",
+                        html_content,
+                        f"season_{season_id}_report.html",
+                        "text/html",
+                        key="dl_html_report"
+                    )
+                    st.success("HTML report generated!")
+        
+        # Season management
+        st.markdown("---")
+        with st.expander("🗑️ Manage Seasons"):
+            st.warning("Delete a season and all its statistics.")
+            delete_season = st.selectbox("Season to Delete", season_options, key="delete_season_select")
+            delete_idx = season_options.index(delete_season)
+            delete_id = seasons[delete_idx]['season_id']
+            
+            if st.button("Delete Season", type="secondary"):
+                confirm = st.checkbox("I understand this will permanently delete all data for this season")
+                if confirm:
+                    db.delete_season(delete_id)
+                    st.success("Season deleted!")
+                    st.rerun()
+    
+    except Exception as e:
+        st.error(f"Error loading stats database: {e}")
 
 
 def display_database_viewer():

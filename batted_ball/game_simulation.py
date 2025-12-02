@@ -664,15 +664,35 @@ class GameSimulator:
             # Print SIM CONFIG block
             self.print_sim_config(rng_seed)
 
-        while self.game_state.inning <= num_innings:
+        # Maximum extra innings to prevent infinite games (MLB record is 26)
+        max_innings = num_innings + 20  # Allow up to 20 extra innings
+        
+        while self.game_state.inning <= max_innings:
+            # Remember state before simulating
+            was_bottom = not self.game_state.is_top
+            inning_before = self.game_state.inning
+            
             self.simulate_half_inning()
-
-            # Check for mercy rule or if we're past 9 innings with a tie
-            if self.game_state.inning > num_innings:
+            
+            # After bottom half of any inning past regulation, check for walk-off
+            if was_bottom and inning_before >= num_innings:
+                if self.game_state.home_score > self.game_state.away_score:
+                    if self.verbose:
+                        print(f"\n🎉 WALK-OFF! Home team wins in inning {inning_before}!")
+                    break
+            
+            # After a complete inning (now at top of next), check if game is over
+            if self.game_state.is_top and self.game_state.inning > num_innings:
+                # Game is over if not tied
                 if self.game_state.away_score != self.game_state.home_score:
-                    break  # Game over
-                # Continue extra innings if tied
-
+                    break
+                    
+                # Still tied, announce extra innings
+                if self.verbose:
+                    print(f"\n{'='*60}")
+                    print(f"EXTRA INNINGS - Game tied {self.game_state.away_score}-{self.game_state.home_score}")
+                    print(f"{'='*60}")
+        
         if self.verbose:
             self.print_final_summary()
 

@@ -95,6 +95,34 @@ from .series_metrics import (
     FieldingMetrics,
     RealismCheck,
 )
+
+# Statistics tracking modules
+from .scorekeeper import (
+    Scorekeeper,
+    GameLog,
+    PlayNotation,
+    InningLog,
+    PlayerGameBatting,
+    PlayerGamePitching,
+    PlayType,
+    position_to_number,
+    number_to_position,
+)
+from .stats_integration import (
+    StatsEnabledGameSimulator,
+    StatsTrackingMode,
+    simulate_game_with_stats,
+)
+from .stats_database import (
+    StatsDatabase,
+    SeasonRecord,
+)
+from .season_stats_tracker import (
+    SeasonStatsTracker,
+    serialize_game_log,
+    deserialize_game_log,
+)
+
 from .ballpark import (
     BallparkDimensions,
     get_ballpark,
@@ -228,6 +256,22 @@ __all__ = [
     'BaseState',
     'PlayByPlayEvent',
     'create_test_team',
+
+    # Statistics tracking
+    'Scorekeeper',
+    'GameLog',
+    'PlayNotation',
+    'InningLog',
+    'PlayerGameBatting',
+    'PlayerGamePitching',
+    'PlayType',
+    'position_to_number',
+    'number_to_position',
+    'StatsEnabledGameSimulator',
+    'StatsTrackingMode',
+    'simulate_game_with_stats',
+    'StatsDatabase',
+    'SeasonRecord',
 
     # Ballpark dimensions
     'BallparkDimensions',
